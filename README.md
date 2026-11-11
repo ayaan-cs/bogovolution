@@ -24,7 +24,7 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: Phase 2
+## Status: Phase 3
 
 No real model is ever called yet. Everything runs on a deterministic **mock
 model**, so nothing here costs money or touches the network.
@@ -50,9 +50,36 @@ Done in Phase 2 (the benchmark harness):
 - `propose`: a temporary way to add a child version from a file, so `run` and
   `verify` can be used before the real `mutate` exists.
 
-Planned later (not built yet): model driven `mutate` and replay mode (Phase 3),
-`digest`, real bring-your-own-key providers, a static JSON lineage viewer, an
-optional `watch` terminal view, and a Claude Code plugin.
+Done in Phase 3 (model driven mutation and replay):
+
+- `mutate`: asks the model for one small rules change plus a hypothesis, checks
+  it, and records `mutation_proposed` or `mutation_refused`.
+- `evolve --generations N`: loops mutate, run, verify, and moves `current`
+  forward only when a child is accepted.
+- Recording and replay: any provider can record every request and response into
+  a replay file. The `replay` provider answers from that file with zero cost and
+  fails clearly when it has no answer.
+- A committed demo in `examples/demo/` that runs a full lineage with no key.
+
+Planned later (not built yet): `digest`, a static JSON lineage viewer, real
+bring-your-own-key providers, an optional `watch` terminal view, and a Claude
+Code plugin. See the roadmap below.
+
+## Roadmap and required TODO
+
+**TODO, required before any real provider is enabled: run the sandbox in a
+container or with other operating system isolation.** The current sandbox only
+keeps the model from reading the benchmark files through the folder it is
+given. It is not an operating system sandbox (see "Sandbox and threat model"
+below for the exact limits). Mock and replay providers read nothing, so they are
+safe today. A real provider that can run code or tools must not be switched on
+until checks and model tools run inside a container, a separate user, or an
+equivalent boundary. No network provider exists in the code yet, and none should
+be added before this is done.
+
+Other planned work: `digest` (turn the tree into a brief), a static JSON viewer
+for the lineage, an optional `watch` terminal view, a Claude Code plugin, and
+the real bring-your-own-key providers.
 
 ## Not doing
 
@@ -148,6 +175,7 @@ Temporary. Adds a child rules version from a file holding the full new text.
 least 4 characters. The engine stores the text by hash and writes a
 `mutation_proposed` event. It is replaced by the model driven `mutate` in
 Phase 3.
+For a model written change use `mutate` instead.
 
 There is a size limit: the changed part (what is cut out or put in, after
 trimming the shared start and end) may not be larger than
@@ -156,7 +184,7 @@ identical to the parent, or already in the tree: nothing is added, a
 `mutation_refused` event is written, and the exit code is 3. The hypothesis
 must not be empty, and the file must be UTF-8 text.
 
-### `run [--version V] [--repeats N] [--seed S] [--provider mock] [--mock-config PATH]`
+### `run [--version V] [--repeats N] [--seed S] [provider options]`
 
 Runs one rules version over the whole task set `repeats` times (default from
 `config.toml`, 5) and writes one `run_recorded` event per run, with the pass
@@ -177,7 +205,54 @@ the same way.
   ever reports more tokens than were left, its answer is thrown away
   (`over_budget`) and the run stops with `tokens_used` set to the cap. The
   recorded tokens for a run never go over the cap.
-- Only the `mock` provider exists. Any other name is an error.
+- Provider options are shared with `mutate` and `evolve` (see "Providers,
+  recording and replay"). Only `mock` and `replay` exist. Any other name is an
+  error.
+
+### `mutate [--parent V] [--seed S] [provider options]`
+
+Asks the model for one small change to a rules version (default `current`) and a
+plain English hypothesis, then validates and records the answer.
+
+The mutation prompt is built from three things: the rules text being changed,
+the history of the lineage (what was accepted, rejected, noise, pending and
+refused, with the hypothesis for each and the median change for judged ones,
+oldest first, at most the latest 40 lines), and the size limit. The same tree
+always gives the same prompt text.
+
+Checks on the answer, using the same rules as `propose`. Any failure writes a
+`mutation_refused` event, nothing is added to the tree, and the exit code is 3:
+
+- the hypothesis is empty;
+- the new rules text is empty;
+- the new text is identical to the parent;
+- the new text already exists as a version in the tree;
+- the change is larger than `[mutation] max_change_bytes` (1000 bytes);
+- the model reports more tokens than `max_tokens_per_run`, or a call would be
+  estimated to go over it. The model's answer is then thrown away.
+
+A valid answer writes `mutation_proposed`. Both events also record the
+`seed`, `provider` and `tokens_used` of the call. If the model itself fails
+(including a replay miss) the error is returned and nothing is written.
+
+`--seed` is passed to the model as is. The same seed, tree and provider give
+the same mutation.
+
+### `evolve --generations N [--seed S] [provider options]`
+
+Runs `N` generations (1 to 100). Each generation:
+
+1. `mutate` from `current`, with a mutation seed derived from `--seed` and the
+   number of earlier attempts in the tree;
+2. if the mutation was recorded, `run` the parent and the child (runs already
+   in the log are reused) with `--seed` as the run seed;
+3. `verify` the child with the fixed rule.
+
+`current` moves to the child only on `accepted`. Rejected, noise and refused
+generations leave it where it was, so later generations keep building on the
+best version so far. The same `--seed`, settings and provider give the same
+lineage, so you can also continue a lineage by running `evolve` again. The
+report lists each generation with its mutation, verdict, and `current`.
 
 ### `verify --child V`
 
@@ -218,9 +293,88 @@ Unknown keys are errors, so typos do not pass silently. Paths in `hidden` and
 matches inside one folder level, `**` matches any number of levels, `?` matches
 one character.
 
+## Providers, recording and replay
+
+A provider is anything that implements the `Model` trait in `crates/core`: it
+answers tasks and proposes mutations, and reports an estimate of its token use.
+The harness uses nothing else, so real bring-your-own-key providers can be added
+later without changing it. **No provider uses the network today.**
+
+Options shared by `run`, `mutate` and `evolve`:
+
+| Option | Meaning |
+| --- | --- |
+| `--provider mock\|replay` | Which provider to use (default `mock`) |
+| `--mock-config PATH` | Mock settings (default `.rules-evolve/mock.toml`) |
+| `--replay-file PATH` | Replay file to answer from (for `--provider replay`) |
+| `--record PATH` | Record every model request and response into this file |
+
+**Recording.** `--record` works with any provider that makes calls (the mock now,
+real providers later). Each call is stored in a replay file, which is JSON Lines.
+The first line is a header naming the provider. Every other line is one call:
+
+```json
+{"type":"header","format":1,"provider":"mock"}
+{"type":"entry","key":"3f9a...","kind":"task","model":"demo-model","task_id":"task-01","seed":123,"rules_hash":"8e28...","prompt_sha256":"b1c2...","response":{"edits":[{"path":"answers/task-01.txt","content":"ok\n"}],"tokens_used":1008}}
+```
+
+The `key` is the SHA-256 of the canonical JSON of `{kind, model, prompt_sha256,
+provider, rules_hash, seed, task_id}`. So the same provider, model name, prompt,
+rules version, task and seed always find the same answer, and a change to any of
+them is a miss. For a mutation call, `kind` is `mutation`, the prompt is the
+mutation prompt, `rules_hash` is the parent version, and `task_id` is empty.
+Recording appends to an existing file of the same provider and skips calls it
+already has. A file from another provider is refused.
+
+**Replay.** `--provider replay --replay-file PATH` answers only from the file.
+It never calls anything, so it costs nothing. The recorded token counts are
+served too, so the token cap behaves exactly as it did when recording, and a
+replayed run gives the same pass rates, tokens, hypotheses, hashes and verdicts
+as the recorded one (only timestamps and the `provider` field in the log differ,
+which says `replay`). If the file has no answer for a request, the command stops
+with a `replay miss` error that names the task, rules version and seed, and
+nothing from that run is written. Record the file again with `--record` if you change the model
+name, tasks, prompts, rules or seeds.
+
+## Demo (no key, no cost)
+
+`examples/demo/` holds a small fixture repo, its tasks, mock settings, and a
+committed replay file recorded from the mock model. Run a ten generation lineage
+with accepted, rejected, noise and refused outcomes:
+
+```
+cargo build
+examples/demo/demo.sh
+```
+
+It copies the fixture to a temp folder, runs `init`, and then:
+
+```
+rules-evolve -C <folder> evolve --generations 10 --seed 7 \
+    --provider replay --replay-file examples/demo/replay.jsonl
+rules-evolve -C <folder> status
+rules-evolve -C <folder> verify-log
+```
+
+Expected result: 2 accepted, 5 rejected, 1 noise, 2 refused, ending two accepted
+versions past the start. The replay file only holds the calls the demo made, so
+a different `--seed` or generation count reports a replay miss, which is the
+intended behavior. To try record and replay on a single step yourself:
+
+```
+rules-evolve -C <folder> mutate --seed 1 --record my-replay.jsonl
+rules-evolve -C <copy of the same folder before that step> mutate --seed 1 \
+    --provider replay --replay-file my-replay.jsonl --json
+```
+
+To record the demo again from the mock model, for example after changing
+`mock.toml`, run `examples/demo/demo.sh --record` and commit the new
+`replay.jsonl`. A test checks that the committed file matches a fresh recording.
+
 ## Mock model
 
-`run` reads `.rules-evolve/mock.toml` (or `--mock-config`). Everything is
+`run`, `mutate` and `evolve` with `--provider mock` read
+`.rules-evolve/mock.toml` (or `--mock-config`). Everything is
 deterministic: the same settings and seed give the same answers on any machine.
 
 ```toml
@@ -238,6 +392,11 @@ task = "fix-parser-bug"
 path = "answers/fix-parser-bug.txt"
 pass_content = "ok\n"
 fail_content = "no\n"
+
+[[mutation]]                  # a change `mutate` can propose
+hypothesis = "Running tests first catches mistakes."
+append = "Run the tests first."     # add a line at the end of the rules
+# or swap text instead:  find = "old text"   replace_with = "new text"
 ```
 
 For each task attempt the pass probability is the base plus the delta of every
@@ -250,7 +409,15 @@ markers that raise the probability.
 Parent and child share the same draw for the same run and task, so they are
 paired and a pure improvement never loses a pair. `independent_noise` is the
 chance that a sample ignores the shared draw and uses its own, which makes
-parent and child differ at random. The mock is a test tool for the harness. It
+parent and child differ at random.
+
+For `mutate`, the mock picks one `[[mutation]]` candidate by hashing the seed
+and the parent version, so the same request always gets the same candidate. It
+does not look at the history, so it can pick a change that was already tried,
+which then shows up as a refusal or a useless child. A candidate can have an
+empty hypothesis, no change, or a huge `append`, to exercise the refusal rules.
+A candidate whose text contains a marker phrase changes the pass rate of the
+child, which is how tests show `mutate` making children that win and lose. The mock is a test tool for the harness. It
 says nothing about real models.
 
 ## Sandbox and threat model
@@ -379,6 +546,18 @@ without a bump. Object keys are sorted.
   `tokens_used`, `budget_exhausted`, `event_seq`, and `tasks` (a list of
   `id`, `status`, `tokens_used`). Task `status` is one of `passed`, `failed`,
   `timeout`, `violation`, `model_error`, `skipped_budget`, `over_budget`.
+- `mutate`: the same fields as `propose` (`outcome`, `parent`, `child`,
+  `hypothesis`, `change_bytes`, `max_change_bytes`, `reason`, `event_seq`) plus
+  `provider`, `seed`, `tokens_used`, and `provider_stats`. A refused mutation
+  exits with code 3.
+- `evolve`: `provider`, `base_seed`, `generations_requested`, `start` and `end`
+  (the `current` version before and after), `accepted`, `rejected`, `noise`,
+  `refused`, `total_tokens`, `provider_stats`, and `generations`. Each
+  generation has `generation` (from 1), `parent`, `mutation` (the `mutate`
+  data), `parent_runs_recorded`, `child_runs_recorded`, `verdict` (the `verify`
+  data, or null when the mutation was refused), `current`, and `tokens_used`.
+- `provider_stats` (on `run`, `mutate`, `evolve`): `recorded` (new calls written
+  to a replay file) and `replayed` (answers served from one).
 - `verify`: `parent`, `child`, `accept_threshold_pp`, `min_paired_wins`,
   `event_seq`, and `decision`: `verdict`, `parent_median`, `child_median`,
   `gain_pp`, `paired_wins`, `repeats`, `reason`, and `pairs` (each with
@@ -438,13 +617,13 @@ Event kinds (names are stable):
 | Kind | Payload fields | Meaning |
 | --- | --- | --- |
 | `init` | `rules_file`, `model`, `root_hash`, `tool_version` | Start of the lineage. Always `seq` 0. |
-| `mutation_proposed` | `parent`, `child`, `hypothesis` | A child version of a parent version |
-| `mutation_refused` | `parent`, `hypothesis` (optional), `reason` | A change that was not allowed, for example too large |
+| `mutation_proposed` | `parent`, `child`, `hypothesis`, and optional `seed`, `provider`, `tokens_used` | A child version of a parent version. The optional fields are set when a model wrote it. |
+| `mutation_refused` | `parent`, `hypothesis` (optional), `reason`, and optional `seed`, `provider`, `tokens_used` | A change that was not allowed, for example too large |
 | `run_recorded` | `node`, `run_index`, `passed`, `total`, `tokens_used`, `seed`, `provider`, `budget_exhausted`, `tasks` | One benchmark run of one version over all tasks. `tasks` is a list of `id`, `status`, `tokens_used`. The last four fields are optional when reading older logs. |
 | `verdict` | `parent`, `child`, `verdict`, `parent_median`, `child_median`, `paired_wins`, `repeats`, `note` | `verdict` is `accepted`, `rejected`, or `noise` |
 
 `init` is written by `init`, `mutation_proposed` and `mutation_refused` by
-`propose`, `run_recorded` by `run`, and `verdict` by `verify`. In the log, `seed`
+`propose`, `mutate` and `evolve`, `run_recorded` by `run`, and `verdict` by `verify`. In the log, `seed`
 is below 2^48 so it is safe in any JSON reader.
 
 ### What the checks catch
@@ -477,6 +656,6 @@ Apache License 2.0. See the `LICENSE` file.
 
 ## Cost
 
-Phases 1 and 2 make no network calls and cost nothing to run. The only provider
-is the mock. Later phases will use your own API key, and the per run token cap
+Phases 1 to 3 make no network calls and cost nothing to run. The providers are
+the mock and replay. Later phases will use your own API key, and the per run token cap
 (default 200000, enforced since Phase 2) is part of the config from the start.
