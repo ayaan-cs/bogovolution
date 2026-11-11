@@ -253,6 +253,10 @@ example, a child with an unknown parent, a version that already exists, a
 second verdict for the same child, or a log that does not start with `init`. The
 engine runs the same checks before it appends a new event.
 
+## License
+
+Apache License 2.0. See the `LICENSE` file.
+
 ## Cost
 
 Phase 1 makes no network calls and costs nothing to run. Later phases will use
