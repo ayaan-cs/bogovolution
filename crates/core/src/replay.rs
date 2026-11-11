@@ -30,6 +30,7 @@ use std::collections::{HashMap, HashSet};
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 /// Version of the replay file format.
 pub const REPLAY_FORMAT: u32 = 1;
@@ -321,6 +322,7 @@ pub struct ReplayModel {
     file: ReplayFile,
     path: PathBuf,
     hits: Cell<usize>,
+    pace: Duration,
 }
 
 impl ReplayModel {
@@ -329,7 +331,21 @@ impl ReplayModel {
             file: ReplayFile::load(path)?,
             path: path.to_path_buf(),
             hits: Cell::new(0),
+            pace: Duration::ZERO,
         })
+    }
+
+    /// Wait this long before every answer, to imitate a slow model. Only for
+    /// watching a replay unfold in `watch`. It changes nothing in the results.
+    pub fn with_pace(mut self, pace: Duration) -> ReplayModel {
+        self.pace = pace;
+        self
+    }
+
+    fn wait(&self) {
+        if !self.pace.is_zero() {
+            std::thread::sleep(self.pace);
+        }
     }
 
     /// Number of recorded calls in the file.
@@ -415,6 +431,7 @@ impl Model for ReplayModel {
                 message: format!("entry for task {} is not a task response: {e}", req.task_id),
             })?;
         self.hits.set(self.hits.get() + 1);
+        self.wait();
         Ok(resp)
     }
 
@@ -453,6 +470,7 @@ impl Model for ReplayModel {
                 message: format!("entry is not a mutation response: {e}"),
             })?;
         self.hits.set(self.hits.get() + 1);
+        self.wait();
         Ok(resp)
     }
 

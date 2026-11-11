@@ -1,0 +1,32 @@
+ rules-evolve watch  AGENTS.md  model demo-model  0 accepted  0 rejected  0 noise  0 pending  0 refused
+┌ Mutation tree (* is current) ──────────────────────────────┐┌ Details ─────────────────────────────────────┐
+│*aaaaaaa root        -           starting rules             ││Version aaaaaaa  root  current                │
+│                                                            ││generation       0                            │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            │└──────────────────────────────────────────────┘
+│                                                            │┌ Run progress ────────────────────────────────┐
+│                                                            ││No runs yet. Start `rules-evolve evolve       │
+│                                                            ││--generations N` in another terminal.         │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            │└──────────────────────────────────────────────┘
+│                                                            │┌ Verdict feed ────────────────────────────────┐
+│                                                            ││Verdicts show up here as verify finishes.     │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+└────────────────────────────────────────────────────────────┘└──────────────────────────────────────────────┘
+ chain OK  1 events  tokens 0 (biggest run 0 of 200,000 cap)
+ up/down j/k move  enter details  tab pane  f following  q quit

@@ -1,0 +1,32 @@
+ rules-evolve watch  AGENTS.md  model demo-model  0 accepted  0 rejected  0 noise  1 pending  0 refused
+ CHAIN FAILED VERIFICATION. This view is read only and shows the log only up to the first problem.
+ event 5 does not link to the one before it (line 6)
+┌ Mutation tree (* is current) ──────────────────────────────┐┌ Details ─────────────────────────────────────┐
+│*aaaaaaa root      30%           starting rules             ││Version bbbbbbb  pending                      │
+│└─  bbbbbbb pending   80%           Run the test suite befor││hypothesis Run the test suite before          │
+│                                                            ││finishing.                                    │
+│                                                            ││verdict    No verdict yet. Waiting for the    │
+│                                                            ││runs and verify.                              │
+│                                                            ││generation       1                            │
+│                                                            ││median pass rate 80%                          │
+│                                                            ││parent           aaaaaaa                      │
+│                                                            │└──────────────────────────────────────────────┘
+│                                                            │┌ Run progress ────────────────────────────────┐
+│                                                            ││child bbbbbbb  benchmarking |: Run the test su│
+│                                                            ││█████████        runs 1 of 5                  │
+│                                                            ││▄                                             │
+│                                                            ││█                                             │
+│                                                            ││pass rate per run: 80%                        │
+│                                                            ││                                              │
+│                                                            │└──────────────────────────────────────────────┘
+│                                                            │┌ Verdict feed ────────────────────────────────┐
+│                                                            ││Verdicts show up here as verify finishes.     │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+└────────────────────────────────────────────────────────────┘└──────────────────────────────────────────────┘
+ CHAIN INVALID  4 events  tokens 20 (biggest run 10 of 200,000 cap)
+ up/down j/k move  enter details  tab pane  f following  q quit  read only

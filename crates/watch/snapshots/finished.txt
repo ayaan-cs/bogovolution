@@ -1,0 +1,32 @@
+ rules-evolve watch  AGENTS.md  model demo-model  1 accepted  1 rejected  1 noise  1 pending  3 refused
+┌ Mutation tree (* is current) ──────────────────────────────┐┌ Details ─────────────────────────────────────┐
+│ aaaaaaa root      30%           starting rules             ││Version eeeeeee  pending                      │
+│└─ *bbbbbbb accepted  80%  +50 pts  Run the test suite befor││hypothesis Read the failing test first.       │
+│   ├─  ccccccc rejected    -  -40 pts  Skip the tests to mov││verdict    No verdict yet. Waiting for the    │
+│   ├─  ddddddd noise       -   +5 pts  Prefer small commits.││runs and verify.                              │
+│   ├─   refused  Explain everything at length.              ││generation       2                            │
+│   ├─   refused  Prefer small commits.                      ││parent           bbbbbbb                      │
+│   ├─   refused  (no hypothesis)                            ││                                              │
+│   └─  eeeeeee pending     -           Read the failing test││                                              │
+│                                                            ││                                              │
+│                                                            │└──────────────────────────────────────────────┘
+│                                                            │┌ Run progress ────────────────────────────────┐
+│                                                            ││child eeeeeee  benchmarking |: Read the failin│
+│                                                            ││                 runs 0 of 5                  │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            │└──────────────────────────────────────────────┘
+│                                                            │┌ Verdict feed ────────────────────────────────┐
+│                                                            ││REFUSED                 (no hypothesis)       │
+│                                                            ││REFUSED                 Prefer small commits. │
+│                                                            ││REFUSED                 Explain everything at │
+│                                                            ││NOISE      +5 pts  3/5  Prefer small commits. │
+│                                                            ││REJECTED  -40 pts  0/5  Skip the tests to move│
+│                                                            ││ACCEPTED  +50 pts  5/5  Run the test suite bef│
+│                                                            ││                                              │
+│                                                            ││                                              │
+└────────────────────────────────────────────────────────────┘└──────────────────────────────────────────────┘
+ chain OK  13 events  tokens 20 (biggest run 10 of 200,000 cap)
+ up/down j/k move  enter details  tab pane  f following  q quit

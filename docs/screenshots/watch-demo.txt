@@ -1,0 +1,34 @@
+ rules-evolve watch  AGENTS.md  model demo-model  2 accepted  5 rejected  1 noise  0 pending  2 refused
+┌ Mutation tree (* is current) ─────────────────────────────────────────┐┌ Details ──────────────────────────────────────────────┐
+│ 8e28956 root      25%           starting rules                        ││Version cd28eb2  accepted  current                     │
+│├─  114c809 rejected  25%    0 pts  A short summary at the end will mak││hypothesis Reading the failing test before editing will│
+│└─  de7a8ac accepted  58%  +33 pts  Telling the agent to run the test s││point the agent at the real problem.                   │
+│   ├─  e29bea8 rejected  58%    0 pts  Telling the agent to run the tes││verdict    median gain 33.3 points is at least 10 and  │
+│   └─ *cd28eb2 accepted  92%  +33 pts  Reading the failing test before ││the child won 5 of 5 pairs (needs 4)                   │
+│      ├─  ec12bc5 rejected  50%  -42 pts  Skipping tests will make the ││generation       2                                     │
+│      ├─   refused  Skipping tests will make the agent faster.         ││median pass rate 92%                                   │
+│      ├─  f04533a rejected  92%    0 pts  Reading the failing test befo││parent           de7a8ac                               │
+│      ├─  a7d10bb rejected  92%    0 pts  Telling the agent to run the ││parent to child  58% to 92%                            │
+│      ├─   refused  Reading the failing test before editing will point ││gain             +33 pts                               │
+│      └─  cc79f0c noise    100%   +8 pts  Asking for small commits migh│└───────────────────────────────────────────────────────┘
+│                                                                       │┌ Run progress ─────────────────────────────────────────┐
+│                                                                       ││child cc79f0c  judged: Asking for small commits might h│
+│                                                                       ││██████████████████████runs 5 of 5 █████████████████████│
+│                                                                       ││█████                                                  │
+│                                                                       ││█████                                                  │
+│                                                                       ││pass rate per run: 100% 100% 100% 100% 100%            │
+│                                                                       ││                                                       │
+│                                                                       │└───────────────────────────────────────────────────────┘
+│                                                                       │┌ Verdict feed ─────────────────────────────────────────┐
+│                                                                       ││NOISE      +8 pts  3/5  Asking for small commits might │
+│                                                                       ││REFUSED                 Reading the failing test before│
+│                                                                       ││REJECTED    0 pts  0/5  Telling the agent to run the te│
+│                                                                       ││REJECTED    0 pts  0/5  Reading the failing test before│
+│                                                                       ││REFUSED                 Skipping tests will make the ag│
+│                                                                       ││REJECTED  -42 pts  0/5  Skipping tests will make the ag│
+│                                                                       ││ACCEPTED  +33 pts  5/5  Reading the failing test before│
+│                                                                       ││REJECTED    0 pts  0/5  Telling the agent to run the te│
+│                                                                       ││ACCEPTED  +33 pts  5/5  Telling the agent to run the te│
+└───────────────────────────────────────────────────────────────────────┘└───────────────────────────────────────────────────────┘
+ chain OK  64 events  tokens 568,395 (biggest run 12,804 of 200,000 cap)
+ up/down j/k move  enter details  tab pane  f follow  q quit

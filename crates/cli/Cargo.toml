@@ -10,8 +10,14 @@ publish.workspace = true
 name = "rules-evolve"
 path = "src/main.rs"
 
+[features]
+default = ["watch"]
+# The optional terminal view. Build with --no-default-features to leave it out.
+watch = ["dep:rules-evolve-watch"]
+
 [dependencies]
 rules-evolve-core = { path = "../core" }
+rules-evolve-watch = { path = "../watch", optional = true }
 anyhow.workspace = true
 clap.workspace = true
 serde.workspace = true

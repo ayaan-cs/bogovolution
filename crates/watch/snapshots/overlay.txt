@@ -1,0 +1,32 @@
+ rules-evolve watch  AGENTS.md  model demo-model  1 accepted  1 rejected  1 noise  1 pending  3 refused
+┌ Mutation tree (* is current) ──────────────────────────────┐┌ Details ─────────────────────────────────────┐
+│ aa┌ Details (esc or enter to close, j/k to scroll) ───────────────────────────────────────────────────┐    │
+│└─ │Version bbbbbbb  accepted  current                                                                 │    │
+│   │hypothesis Run the test suite before finishing.                                                    │    │
+│   │verdict    because accepted                                                                        │    │
+│   │generation       1                                                                                 │    │
+│   │median pass rate 80%                                                                               │    │
+│   │parent           aaaaaaa                                                                           │    │
+│   │parent to child  30% to 80%                                                                        │    │
+│   │gain             +50 pts                                                                           │    │
+│   │paired wins      5 of 5 (needs 4)                                                                  │────┘
+│   │                                                                                                   │────┐
+│   │run 1: 8 of 10 tasks, 10 tokens                                                                    │ilin│
+│   │                                                                                                   │    │
+│   │Change from the parent                                                                             │    │
+│   │diff --git a/AGENTS.md b/AGENTS.md                                                                 │    │
+│   │@@ -1,2 +1,3 @@                                                                                    │    │
+│   │ keep                                                                                              │    │
+│   │-old line                                                                                          │────┘
+│   │+new line                                                                                          │────┐
+│   │                                                                                                   │    │
+│   │                                                                                                   │ts. │
+│   │                                                                                                   │ at │
+│   │                                                                                                   │ts. │
+│   │                                                                                                   │move│
+│   │                                                                                                   │ bef│
+│   │                                                                                                   │    │
+│   │                                                                                                   │    │
+└───└───────────────────────────────────────────────────────────────────────────────────────────────────┘────┘
+ chain OK  13 events  tokens 20 (biggest run 10 of 200,000 cap)
+ up/down j/k move  enter details  tab pane  f following  q quit

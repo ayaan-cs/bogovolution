@@ -394,12 +394,20 @@ pub struct ProviderSpec {
     pub replay_file: Option<PathBuf>,
     /// Replay file to record every request and response into.
     pub record: Option<PathBuf>,
+    /// Milliseconds to wait before each replayed answer. Zero means no wait.
+    /// Only the `replay` provider accepts a non-zero value.
+    pub pace_ms: u64,
 }
 
 /// Build a provider. Only `mock` and `replay` exist. Neither uses the network.
 pub fn build_provider(spec: &ProviderSpec) -> Result<Box<dyn Model>> {
     match spec.name.as_str() {
         "mock" => {
+            if spec.pace_ms > 0 {
+                return Err(Error::Input(
+                    "--pace only works with --provider replay".into(),
+                ));
+            }
             let mock: Box<dyn Model> =
                 Box::new(MockModel::new(MockConfig::load(&spec.mock_config)?));
             match &spec.record {
@@ -417,7 +425,9 @@ pub fn build_provider(spec: &ProviderSpec) -> Result<Box<dyn Model>> {
             let path = spec.replay_file.as_ref().ok_or_else(|| {
                 Error::Input("the replay provider needs --replay-file <PATH>".into())
             })?;
-            Ok(Box::new(ReplayModel::load(path)?))
+            Ok(Box::new(
+                ReplayModel::load(path)?.with_pace(std::time::Duration::from_millis(spec.pace_ms)),
+            ))
         }
         other => Err(Error::Input(format!(
             "provider {other:?} is not available. Only \"mock\" and \"replay\" exist so far; real providers come in a later phase"
@@ -591,10 +601,30 @@ mod tests {
             mock_config: PathBuf::from("/nonexistent/mock.toml"),
             replay_file: None,
             record: None,
+            pace_ms: 0,
         };
         assert!(build_provider(&spec("openai")).is_err());
         assert!(build_provider(&spec("mock")).is_err());
         assert!(build_provider(&spec("replay")).is_err());
+    }
+
+    #[test]
+    fn pace_is_only_for_replay() {
+        let dir = tempfile::tempdir().unwrap();
+        let mock = dir.path().join("mock.toml");
+        std::fs::write(&mock, "seed = 1\nbase_pass_probability = 0.5\n").unwrap();
+        let err = build_provider(&ProviderSpec {
+            name: "mock".into(),
+            mock_config: mock,
+            replay_file: None,
+            record: None,
+            pace_ms: 5,
+        })
+        .err()
+        .expect("mock with a pace is refused");
+        assert!(err
+            .to_string()
+            .contains("--pace only works with --provider replay"));
     }
 
     #[test]

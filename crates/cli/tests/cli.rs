@@ -1074,3 +1074,202 @@ fn digest_of_a_fresh_project_suggests_starting() {
     assert_eq!(v["data"]["suggestions"][0]["kind"], "start");
     assert_eq!(v["data"]["worked"].as_array().unwrap().len(), 0);
 }
+
+// ---------------------------------------------------------------------
+// v1.1: watch and replay pace
+// ---------------------------------------------------------------------
+
+fn repo_file(rel: &str) -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(rel)
+}
+
+#[test]
+fn watch_snapshot_of_the_finished_demo_matches_the_committed_text() {
+    let dir = evolved_demo();
+    let out = run(
+        dir.path(),
+        &[
+            "watch",
+            "--snapshot",
+            "--width",
+            "130",
+            "--height",
+            "34",
+            "--select",
+            "current",
+        ],
+    );
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let text = String::from_utf8(out.stdout).unwrap();
+    for want in [
+        "2 accepted  5 rejected  1 noise  0 pending  2 refused",
+        "chain OK  64 events",
+        "ACCEPTED  +33 pts  5/5",
+        "Mutation tree (* is current)",
+        "Run progress",
+        "Verdict feed",
+    ] {
+        assert!(text.contains(want), "missing {want:?}\n{text}");
+    }
+    assert!(!text.contains('\u{2014}') && !text.contains('\u{2013}'));
+    let committed = std::fs::read_to_string(repo_file("docs/screenshots/watch-demo.txt")).unwrap();
+    assert_eq!(
+        text, committed,
+        "run examples/demo/watch-snapshot.sh and commit the result"
+    );
+}
+
+#[test]
+fn watch_snapshot_svg_matches_the_committed_picture() {
+    let dir = evolved_demo();
+    let svg = dir.path().join("w.svg");
+    let out = run(
+        dir.path(),
+        &[
+            "watch",
+            "--snapshot",
+            "--width",
+            "130",
+            "--height",
+            "34",
+            "--select",
+            "current",
+            "--svg",
+            svg.to_str().unwrap(),
+        ],
+    );
+    assert!(out.status.success());
+    let doc = std::fs::read_to_string(&svg).unwrap();
+    assert!(doc.starts_with("<svg ") && doc.trim_end().ends_with("</svg>"));
+    assert!(!doc.contains("<script"));
+    assert_eq!(
+        doc,
+        std::fs::read_to_string(repo_file("docs/screenshots/watch-demo.svg")).unwrap(),
+        "run examples/demo/watch-snapshot.sh and commit the result"
+    );
+}
+
+#[test]
+fn watch_snapshot_has_a_json_form_and_never_writes_the_log() {
+    let dir = evolved_demo();
+    let log = dir.path().join(".rules-evolve").join("log.jsonl");
+    let before = std::fs::read(&log).unwrap();
+    let v = ok_json(dir.path(), &["watch", "--snapshot"]);
+    assert_eq!(v["command"], "watch");
+    assert_eq!(v["data"]["width"], 110);
+    assert!(v["data"]["text"].as_str().unwrap().contains("chain OK"));
+    assert_eq!(std::fs::read(&log).unwrap(), before);
+}
+
+#[test]
+fn watch_snapshot_shows_a_broken_chain_clearly() {
+    let dir = evolved_demo();
+    let log = dir.path().join(".rules-evolve").join("log.jsonl");
+    let text = std::fs::read_to_string(&log).unwrap();
+    // Tamper somewhere in the middle of the log, by editing a hypothesis.
+    let tampered = text.replacen("Asking for small commits", "Asking for tiny commits", 1);
+    assert_ne!(tampered, text);
+    std::fs::write(&log, &tampered).unwrap();
+    let out = run(dir.path(), &["watch", "--snapshot"]);
+    assert!(out.status.success());
+    let shown = String::from_utf8(out.stdout).unwrap();
+    assert!(shown.contains("CHAIN FAILED VERIFICATION"), "{shown}");
+    assert!(shown.contains("CHAIN INVALID"));
+    assert!(shown.contains("read only"));
+    assert_eq!(std::fs::read_to_string(&log).unwrap(), tampered);
+}
+
+#[test]
+fn watch_needs_a_terminal_and_checks_run_text_first() {
+    let dir = evolved_demo();
+    let out = run(dir.path(), &["watch"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("needs a terminal"));
+
+    let out = run(dir.path(), &["watch", "--run", "status"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("--run can start one of"));
+
+    let out = run(dir.path(), &["watch", "--run", "evolve -C /tmp"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("-C"));
+
+    let out = run(dir.path(), &["watch", "--json"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(json_of(&out)["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("interactive"));
+
+    // Snapshot options only make sense with --snapshot.
+    assert_eq!(
+        run(dir.path(), &["watch", "--width", "80"]).status.code(),
+        Some(2)
+    );
+
+    // Not initialized.
+    let empty = tempfile::tempdir().unwrap();
+    let out = run(empty.path(), &["watch", "--snapshot"]);
+    assert_eq!(out.status.code(), Some(1));
+}
+
+#[test]
+fn pace_slows_a_replay_but_changes_nothing_else() {
+    let replay = demo_replay_path();
+    let fast = demo_project();
+    let slow = demo_project();
+    let args = |extra: &'static [&'static str]| {
+        let mut a = vec![
+            "evolve",
+            "--generations",
+            "1",
+            "--seed",
+            "7",
+            "--provider",
+            "replay",
+            "--replay-file",
+            replay.to_str().unwrap(),
+        ];
+        a.extend_from_slice(extra);
+        a
+    };
+    let a = ok_json(fast.path(), &args(&[]));
+    let started = std::time::Instant::now();
+    let b = ok_json(slow.path(), &args(&["--pace", "2"]));
+    assert!(started.elapsed() >= std::time::Duration::from_millis(40));
+    assert_eq!(a["data"]["end"], b["data"]["end"]);
+    assert_eq!(a["data"]["total_tokens"], b["data"]["total_tokens"]);
+    assert_eq!(outcome_log(fast.path()), outcome_log(slow.path()));
+}
+
+#[test]
+fn pace_is_refused_for_the_mock_provider() {
+    let dir = demo_project();
+    let out = run(
+        dir.path(),
+        &["evolve", "--generations", "1", "--pace", "5", "--json"],
+    );
+    assert_eq!(out.status.code(), Some(1));
+    assert!(json_of(&out)["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("--pace only works with --provider replay"));
+}
+
+#[test]
+fn the_core_crate_has_no_terminal_dependencies() {
+    let core = std::fs::read_to_string(repo_file("crates/core/Cargo.toml")).unwrap();
+    for banned in ["ratatui", "crossterm", "termion", "tui"] {
+        assert!(!core.contains(banned), "core must not depend on {banned}");
+    }
+    let cli = std::fs::read_to_string(repo_file("crates/cli/Cargo.toml")).unwrap();
+    assert!(!cli.contains("ratatui") && !cli.contains("crossterm"));
+    let watch = std::fs::read_to_string(repo_file("crates/watch/Cargo.toml")).unwrap();
+    assert!(watch.contains("ratatui"));
+}

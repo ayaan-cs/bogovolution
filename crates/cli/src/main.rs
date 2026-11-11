@@ -57,6 +57,10 @@ struct ProviderArgs {
     /// Record every model request and response into this replay file
     #[arg(long)]
     record: Option<PathBuf>,
+    /// Wait this many milliseconds before every replayed answer, so a replay
+    /// is slow enough to watch in `watch`. Only for `--provider replay`
+    #[arg(long, default_value_t = 0, value_name = "MS")]
+    pace: u64,
 }
 
 impl ProviderArgs {
@@ -73,6 +77,7 @@ impl ProviderArgs {
             mock_config: rel(&self.mock_config),
             replay_file: self.replay_file.as_ref().map(rel),
             record: self.record.as_ref().map(rel),
+            pace_ms: self.pace,
         })?)
     }
 }
@@ -112,6 +117,33 @@ enum Command {
     },
     /// Check the hash chain and stored files for tampering or cut off data
     VerifyLog,
+    /// Live terminal view of the lineage. Follows the log as another process
+    /// runs `evolve`. Read only
+    #[cfg(feature = "watch")]
+    Watch {
+        /// Run a rules-evolve command as a child process and show it live, for
+        /// example "evolve --generations 3 --provider replay --replay-file r.jsonl"
+        #[arg(long, value_name = "COMMAND")]
+        run: Option<String>,
+        /// How often to look for log changes, in milliseconds
+        #[arg(long, default_value_t = 200, value_name = "MS")]
+        interval: u64,
+        /// Print one text picture of the view and exit. Needs no terminal
+        #[arg(long)]
+        snapshot: bool,
+        /// With --snapshot, write a colored SVG picture to this file instead
+        #[arg(long, value_name = "PATH", requires = "snapshot")]
+        svg: Option<PathBuf>,
+        /// With --snapshot, picture width in columns
+        #[arg(long, default_value_t = 110, requires = "snapshot")]
+        width: u16,
+        /// With --snapshot, picture height in rows
+        #[arg(long, default_value_t = 32, requires = "snapshot")]
+        height: u16,
+        /// With --snapshot, which version to select: current, root, or a hash prefix
+        #[arg(long, value_name = "VERSION", requires = "snapshot")]
+        select: Option<String>,
+    },
     /// Plain English brief of the lineage: what worked, what failed, what is
     /// noise, what is pending, and directions not tried yet. No model is called
     Digest,
@@ -536,6 +568,69 @@ fn run(cli: &Cli) -> Result<Output> {
                 command: "verify",
                 data: serde_json::to_value(&out)?,
                 text,
+                exit: 0,
+            })
+        }
+        #[cfg(feature = "watch")]
+        Command::Watch {
+            run,
+            interval,
+            snapshot,
+            svg,
+            width,
+            height,
+            select,
+        } => {
+            use rules_evolve_watch::app;
+            if *snapshot {
+                if run.is_some() {
+                    anyhow::bail!("--snapshot and --run cannot be used together");
+                }
+                let select = select.as_deref();
+                if let Some(path) = svg {
+                    let doc = app::snapshot_svg(&cli.dir, *width, *height, select)
+                        .map_err(anyhow::Error::msg)?;
+                    std::fs::write(path, &doc)?;
+                    return Ok(Output {
+                        command: "watch",
+                        data: json!({ "svg": path.display().to_string(), "bytes": doc.len() }),
+                        text: format!("Wrote {} ({} bytes).\n", path.display(), doc.len()),
+                        exit: 0,
+                    });
+                }
+                let text = app::snapshot_text(&cli.dir, *width, *height, select)
+                    .map_err(anyhow::Error::msg)?;
+                return Ok(Output {
+                    command: "watch",
+                    data: json!({ "width": width, "height": height, "text": text }),
+                    text,
+                    exit: 0,
+                });
+            }
+            if cli.json {
+                anyhow::bail!("watch is interactive and has no --json output. Use --snapshot --json for one picture");
+            }
+            Repo::open(&cli.dir)?;
+            let child = match run {
+                Some(text) => Some(app::parse_run(text).map_err(anyhow::Error::msg)?),
+                None => None,
+            };
+            if !std::io::IsTerminal::is_terminal(&std::io::stdout()) {
+                anyhow::bail!(
+                    "watch needs a terminal. Use --snapshot to print one picture instead"
+                );
+            }
+            app::run(&app::WatchOptions {
+                dir: cli.dir.clone(),
+                interval: std::time::Duration::from_millis((*interval).max(50)),
+                run: child,
+                exe: None,
+            })
+            .map_err(anyhow::Error::msg)?;
+            Ok(Output {
+                command: "watch",
+                data: json!({}),
+                text: String::new(),
                 exit: 0,
             })
         }

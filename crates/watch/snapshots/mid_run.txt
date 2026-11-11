@@ -1,0 +1,32 @@
+ rules-evolve watch  AGENTS.md  model demo-model  0 accepted  0 rejected  0 noise  1 pending  0 refused
+┌ Mutation tree (* is current) ──────────────────────────────┐┌ Details ─────────────────────────────────────┐
+│*aaaaaaa root      40%           starting rules             ││Version bbbbbbb  pending                      │
+│└─  bbbbbbb pending   65%           Run the test suite befor││hypothesis Run the test suite before          │
+│                                                            ││finishing.                                    │
+│                                                            ││verdict    No verdict yet. Waiting for the    │
+│                                                            ││runs and verify.                              │
+│                                                            ││generation       1                            │
+│                                                            ││median pass rate 65%                          │
+│                                                            ││parent           aaaaaaa                      │
+│                                                            ││                                              │
+│                                                            │└──────────────────────────────────────────────┘
+│                                                            │┌ Run progress ────────────────────────────────┐
+│                                                            ││child bbbbbbb  benchmarking |: Run the test su│
+│                                                            ││█████████████████runs 2 of 5                  │
+│                                                            ││▁▃                                            │
+│                                                            ││██                                            │
+│                                                            ││pass rate per run: 60% 70%                    │
+│                                                            ││                                              │
+│                                                            │└──────────────────────────────────────────────┘
+│                                                            │┌ Verdict feed ────────────────────────────────┐
+│                                                            ││Verdicts show up here as verify finishes.     │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+│                                                            ││                                              │
+└────────────────────────────────────────────────────────────┘└──────────────────────────────────────────────┘
+ chain OK  9 events  tokens 70 (biggest run 10 of 200,000 cap)  running: evolve --generations 3 |
+ up/down j/k move  enter details  tab pane  f following  q quit
