@@ -3,11 +3,12 @@
 //! Every command accepts `--json`. See the README for the JSON shapes.
 
 use anyhow::Result;
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use rules_evolve_core::bench::{propose, run_version, verify_child, RunOptions};
 use rules_evolve_core::event::{Event, EventKind, Payload};
 use rules_evolve_core::init::{init, InitOptions};
-use rules_evolve_core::model::build_provider;
+use rules_evolve_core::model::{build_provider, Model, ProviderSpec};
+use rules_evolve_core::mutate::{evolve, mutate, EvolveOptions, MutateOptions};
 use rules_evolve_core::repo::{FullVerify, Repo, StatusReport};
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -36,6 +37,52 @@ struct Cli {
 
     #[command(subcommand)]
     command: Command,
+}
+
+/// Which model provider to use and where its files are.
+#[derive(Args, Clone)]
+struct ProviderArgs {
+    /// Model provider: `mock` or `replay`. No provider uses the network yet
+    #[arg(long, default_value = "mock")]
+    provider: String,
+    /// Settings for the mock model
+    #[arg(long, default_value = ".rules-evolve/mock.toml")]
+    mock_config: PathBuf,
+    /// Replay file to answer from (needed for `--provider replay`)
+    #[arg(long)]
+    replay_file: Option<PathBuf>,
+    /// Record every model request and response into this replay file
+    #[arg(long)]
+    record: Option<PathBuf>,
+}
+
+impl ProviderArgs {
+    fn build(&self, dir: &std::path::Path) -> Result<Box<dyn Model>> {
+        let rel = |p: &PathBuf| {
+            if p.is_absolute() {
+                p.clone()
+            } else {
+                dir.join(p)
+            }
+        };
+        Ok(build_provider(&ProviderSpec {
+            name: self.provider.clone(),
+            mock_config: rel(&self.mock_config),
+            replay_file: self.replay_file.as_ref().map(rel),
+            record: self.record.as_ref().map(rel),
+        })?)
+    }
+}
+
+/// Add replay counts to a command's JSON data.
+fn with_counters(mut data: Value, model: &dyn Model) -> Result<Value> {
+    if let Value::Object(map) = &mut data {
+        map.insert(
+            "provider_stats".into(),
+            serde_json::to_value(model.counters())?,
+        );
+    }
+    Ok(data)
 }
 
 #[derive(Subcommand)]
@@ -86,12 +133,30 @@ enum Command {
         /// Base seed. Use the same one for parent and child so runs are paired
         #[arg(long, default_value_t = 0)]
         seed: u64,
-        /// Model provider. Only `mock` exists so far
-        #[arg(long, default_value = "mock")]
-        provider: String,
-        /// Settings for the mock model
-        #[arg(long, default_value = ".rules-evolve/mock.toml")]
-        mock_config: PathBuf,
+        #[command(flatten)]
+        provider: ProviderArgs,
+    },
+    /// Ask the model for a small rules change plus a hypothesis, and record it
+    Mutate {
+        /// Version to change: root, current, or a hash prefix
+        #[arg(long, default_value = "current")]
+        parent: String,
+        /// Seed for the model request
+        #[arg(long, default_value_t = 0)]
+        seed: u64,
+        #[command(flatten)]
+        provider: ProviderArgs,
+    },
+    /// Loop mutate, run, verify for N generations. `current` moves only on accepted
+    Evolve {
+        /// Number of generations (1 to 100)
+        #[arg(long, value_parser = clap::value_parser!(u32).range(1..=100))]
+        generations: u32,
+        /// Base seed for runs and mutations. Same seed, same lineage
+        #[arg(long, default_value_t = 0)]
+        seed: u64,
+        #[command(flatten)]
+        provider: ProviderArgs,
     },
     /// Compare a child to its parent with the fixed rule and record the verdict
     Verify {
@@ -268,15 +333,9 @@ fn run(cli: &Cli) -> Result<Output> {
             repeats,
             seed,
             provider,
-            mock_config,
         } => {
             let repo = Repo::open(&cli.dir)?;
-            let mock_path = if mock_config.is_absolute() {
-                mock_config.clone()
-            } else {
-                cli.dir.join(mock_config)
-            };
-            let model = build_provider(provider, &mock_path)?;
+            let model = provider.build(&cli.dir)?;
             let report = run_version(
                 &repo,
                 model.as_ref(),
@@ -315,9 +374,120 @@ fn run(cli: &Cli) -> Result<Output> {
                 ));
             }
             text.push_str(&format!("Total tokens: {}\n", report.total_tokens));
+            text.push_str(&counters_text(model.as_ref(), provider));
             Ok(Output {
                 command: "run",
-                data: serde_json::to_value(&report)?,
+                data: with_counters(serde_json::to_value(&report)?, model.as_ref())?,
+                text,
+                exit: 0,
+            })
+        }
+        Command::Mutate {
+            parent,
+            seed,
+            provider,
+        } => {
+            let repo = Repo::open(&cli.dir)?;
+            let model = provider.build(&cli.dir)?;
+            let out = mutate(
+                &repo,
+                model.as_ref(),
+                &MutateOptions {
+                    parent: parent.clone(),
+                    seed: *seed,
+                },
+            )?;
+            let refused = out.result.outcome == "refused";
+            let mut text = if refused {
+                format!(
+                    "Refused: {}\nRecorded as event #{}.\n",
+                    out.result.reason.clone().unwrap_or_default(),
+                    out.result.event_seq
+                )
+            } else {
+                let child = out.result.child.clone().unwrap_or_default();
+                format!(
+                    "Proposed {} from {} ({} bytes changed, limit {}).\n  hypothesis: {}\nNext: run both versions, then `verify --child {}`.\n",
+                    short(&child),
+                    short(&out.result.parent),
+                    out.result.change_bytes,
+                    out.result.max_change_bytes,
+                    out.result.hypothesis,
+                    short(&child),
+                )
+            };
+            text.push_str(&format!(
+                "Provider {}, seed {}, {} tokens.\n",
+                out.provider, out.seed, out.tokens_used
+            ));
+            text.push_str(&counters_text(model.as_ref(), provider));
+            Ok(Output {
+                command: "mutate",
+                data: with_counters(serde_json::to_value(&out)?, model.as_ref())?,
+                text,
+                exit: if refused { 3 } else { 0 },
+            })
+        }
+        Command::Evolve {
+            generations,
+            seed,
+            provider,
+        } => {
+            let repo = Repo::open(&cli.dir)?;
+            let model = provider.build(&cli.dir)?;
+            let report = evolve(
+                &repo,
+                model.as_ref(),
+                &EvolveOptions {
+                    generations: *generations,
+                    base_seed: *seed,
+                },
+            )?;
+            let mut text = format!(
+                "Evolved {} generations with provider {} (seed {})\n",
+                report.generations.len(),
+                report.provider,
+                report.base_seed
+            );
+            for g in &report.generations {
+                let what = match &g.verdict {
+                    Some(v) => format!(
+                        "{} (gain {:.1} points, {} of {} wins)",
+                        v.decision.verdict.as_str().to_uppercase(),
+                        v.decision.gain_pp,
+                        v.decision.paired_wins,
+                        v.decision.repeats
+                    ),
+                    None => format!(
+                        "REFUSED ({})",
+                        g.mutation.result.reason.clone().unwrap_or_default()
+                    ),
+                };
+                text.push_str(&format!(
+                    "  gen {}: {}\n    {}\n    current: {}\n",
+                    g.generation,
+                    what,
+                    if g.mutation.result.hypothesis.is_empty() {
+                        "(no hypothesis)"
+                    } else {
+                        &g.mutation.result.hypothesis
+                    },
+                    short(&g.current)
+                ));
+            }
+            text.push_str(&format!(
+                "Accepted {}, rejected {}, noise {}, refused {}. Total tokens: {}\n",
+                report.accepted, report.rejected, report.noise, report.refused, report.total_tokens
+            ));
+            text.push_str(&format!(
+                "Current: {} (was {})\n",
+                short(&report.end),
+                short(&report.start)
+            ));
+            text.push_str(&counters_text(model.as_ref(), provider));
+            Ok(Output {
+                command: "evolve",
+                data: with_counters(serde_json::to_value(&report)?, model.as_ref())?,
                 text,
                 exit: 0,
             })
@@ -367,6 +537,17 @@ fn run(cli: &Cli) -> Result<Output> {
                 exit,
             })
         }
+    }
+}
+
+fn counters_text(model: &dyn Model, args: &ProviderArgs) -> String {
+    let c = model.counters();
+    if args.record.is_some() {
+        format!("Recorded {} new model calls.\n", c.recorded)
+    } else if args.provider == "replay" {
+        format!("Served {} answers from the replay file.\n", c.replayed)
+    } else {
+        String::new()
     }
 }
 

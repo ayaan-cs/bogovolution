@@ -390,6 +390,7 @@ mod tests {
             parent: h(parent),
             child: h(child),
             hypothesis: hyp.into(),
+            ..Default::default()
         })
     }
 
@@ -437,6 +438,7 @@ mod tests {
                 parent: h('b'),
                 hypothesis: Some("rewrite everything".into()),
                 reason: "too large".into(),
+                ..Default::default()
             }),
         ])
         .unwrap();

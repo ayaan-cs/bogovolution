@@ -185,6 +185,7 @@ mod tests {
             parent: root,
             child,
             hypothesis: "shorter".into(),
+            ..Default::default()
         }))
         .unwrap();
         let status = repo.status().unwrap();

@@ -124,6 +124,7 @@ pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<
         }
         let outcome = execute_run(
             model,
+            &tree.model,
             &tasks,
             &sandbox,
             &rules_text,
@@ -175,6 +176,7 @@ struct RunOutcome {
 #[allow(clippy::too_many_arguments)]
 fn execute_run(
     model: &dyn Model,
+    model_name: &str,
     tasks: &TasksFile,
     sandbox: &Sandbox,
     rules_text: &str,
@@ -198,16 +200,10 @@ fn execute_run(
             outcomes.push(outcome);
             continue;
         }
-        // Stop before going over the cap.
-        if used + model.estimate_tokens(&task.prompt, rules_text) > cap {
-            exhausted = true;
-            outcome.status = TaskStatus::SkippedBudget;
-            outcomes.push(outcome);
-            continue;
-        }
         let remaining = cap - used;
         let worktree = sandbox.prepare(rules_text.as_bytes())?;
         let request = ModelRequest {
+            model: model_name,
             task_id: &task.id,
             prompt: &task.prompt,
             rules: rules_text,
@@ -217,8 +213,18 @@ fn execute_run(
             run_index,
             max_tokens: remaining,
         };
+        // Stop before going over the cap.
+        if model.estimate_tokens(&request) > remaining {
+            exhausted = true;
+            outcome.status = TaskStatus::SkippedBudget;
+            outcomes.push(outcome);
+            continue;
+        }
         let response = match model.complete(&request) {
             Ok(r) => r,
+            // A replay file that lacks an answer is not a failed task. The
+            // whole run is invalid, so stop and say so.
+            Err(e @ Error::ReplayMiss(_)) => return Err(e),
             Err(_) => {
                 outcome.status = TaskStatus::ModelError;
                 outcomes.push(outcome);
@@ -387,8 +393,99 @@ pub struct ProposeOutcome {
     pub event_seq: u64,
 }
 
-/// Put a new rules version into the tree from a file. This is a stand in for
-/// the model driven `mutate` of a later phase. It enforces the size limit and
+/// Where a mutation came from, kept in the log.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct MutationOrigin {
+    pub seed: Option<u64>,
+    pub provider: Option<String>,
+    pub tokens_used: Option<u64>,
+}
+
+/// Check a proposed change and write either `mutation_proposed` or
+/// `mutation_refused`. Refusal reasons: empty hypothesis, empty rules, the same
+/// text as the parent or as any version already in the tree, or a change over
+/// the size limit.
+pub fn record_mutation(
+    repo: &Repo,
+    config: &Config,
+    parent: &str,
+    content: &[u8],
+    hypothesis: &str,
+    origin: &MutationOrigin,
+) -> Result<ProposeOutcome> {
+    let tree = Tree::from_events(&repo.events()?)?;
+    let parent_bytes = repo.store().get_blob(parent)?;
+    let child = sha256_hex(content);
+    let size = change_bytes(&parent_bytes, content);
+    let limit = config.mutation.max_change_bytes;
+
+    let refusal = if hypothesis.trim().is_empty() {
+        Some("the hypothesis is empty".to_string())
+    } else if content.iter().all(|b| b.is_ascii_whitespace()) {
+        Some("the new rules text is empty".to_string())
+    } else if child == parent {
+        Some("the new text is identical to the parent".to_string())
+    } else if tree.node(&child).is_some() {
+        Some(format!(
+            "this content already exists in the tree as {}",
+            &child[..12]
+        ))
+    } else if size > limit {
+        Some(format!(
+            "change of {size} bytes is over the limit of {limit}"
+        ))
+    } else {
+        None
+    };
+
+    if let Some(reason) = refusal {
+        let event = repo.append(&Payload::MutationRefused(MutationRefusedPayload {
+            parent: parent.to_string(),
+            hypothesis: if hypothesis.trim().is_empty() {
+                None
+            } else {
+                Some(hypothesis.to_string())
+            },
+            reason: reason.clone(),
+            seed: origin.seed,
+            provider: origin.provider.clone(),
+            tokens_used: origin.tokens_used,
+        }))?;
+        return Ok(ProposeOutcome {
+            outcome: "refused".into(),
+            parent: parent.to_string(),
+            child: None,
+            hypothesis: hypothesis.to_string(),
+            change_bytes: size,
+            max_change_bytes: limit,
+            reason: Some(reason),
+            event_seq: event.seq,
+        });
+    }
+
+    repo.store().put_blob(content)?;
+    let event = repo.append(&Payload::MutationProposed(MutationProposedPayload {
+        parent: parent.to_string(),
+        child: child.clone(),
+        hypothesis: hypothesis.to_string(),
+        seed: origin.seed,
+        provider: origin.provider.clone(),
+        tokens_used: origin.tokens_used,
+    }))?;
+    Ok(ProposeOutcome {
+        outcome: "proposed".into(),
+        parent: parent.to_string(),
+        child: Some(child),
+        hypothesis: hypothesis.to_string(),
+        change_bytes: size,
+        max_change_bytes: limit,
+        reason: None,
+        event_seq: event.seq,
+    })
+}
+
+/// Put a new rules version into the tree from a file. This is the hand made
+/// counterpart of the model driven `mutate`. It enforces the same checks and
 /// records refusals in the log.
 pub fn propose(
     repo: &Repo,
@@ -405,58 +502,14 @@ pub fn propose(
     }
     let tree = Tree::from_events(&repo.events()?)?;
     let parent = tree.resolve(parent_spec)?;
-    let parent_bytes = repo.store().get_blob(&parent)?;
-    let child = sha256_hex(content);
-    let size = change_bytes(&parent_bytes, content);
-    let limit = config.mutation.max_change_bytes;
-
-    let refusal = if tree.node(&child).is_some() {
-        Some(format!(
-            "this content already exists in the tree as {}",
-            &child[..12]
-        ))
-    } else if size > limit {
-        Some(format!(
-            "change of {size} bytes is over the limit of {limit}"
-        ))
-    } else {
-        None
-    };
-
-    if let Some(reason) = refusal {
-        let event = repo.append(&Payload::MutationRefused(MutationRefusedPayload {
-            parent: parent.clone(),
-            hypothesis: Some(hypothesis.to_string()),
-            reason: reason.clone(),
-        }))?;
-        return Ok(ProposeOutcome {
-            outcome: "refused".into(),
-            parent,
-            child: None,
-            hypothesis: hypothesis.to_string(),
-            change_bytes: size,
-            max_change_bytes: limit,
-            reason: Some(reason),
-            event_seq: event.seq,
-        });
-    }
-
-    repo.store().put_blob(content)?;
-    let event = repo.append(&Payload::MutationProposed(MutationProposedPayload {
-        parent: parent.clone(),
-        child: child.clone(),
-        hypothesis: hypothesis.to_string(),
-    }))?;
-    Ok(ProposeOutcome {
-        outcome: "proposed".into(),
-        parent,
-        child: Some(child),
-        hypothesis: hypothesis.to_string(),
-        change_bytes: size,
-        max_change_bytes: limit,
-        reason: None,
-        event_seq: event.seq,
-    })
+    record_mutation(
+        repo,
+        config,
+        &parent,
+        content,
+        hypothesis,
+        &MutationOrigin::default(),
+    )
 }
 
 #[cfg(test)]
@@ -625,7 +678,7 @@ mod tests {
         fn name(&self) -> String {
             "overspender".into()
         }
-        fn estimate_tokens(&self, _p: &str, _r: &str) -> u64 {
+        fn estimate_tokens(&self, _r: &ModelRequest) -> u64 {
             10
         }
         fn complete(&self, _r: &ModelRequest) -> Result<ModelResponse> {
@@ -660,7 +713,7 @@ mod tests {
         fn name(&self) -> String {
             "spy".into()
         }
-        fn estimate_tokens(&self, _p: &str, _r: &str) -> u64 {
+        fn estimate_tokens(&self, _r: &ModelRequest) -> u64 {
             1
         }
         fn complete(&self, r: &ModelRequest) -> Result<ModelResponse> {

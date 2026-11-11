@@ -14,6 +14,8 @@ pub enum Error {
     InvalidLineage(String),
     #[error("{0}")]
     Input(String),
+    #[error("{0}")]
+    ReplayMiss(String),
     #[error("io error at {path}: {source}")]
     Io {
         path: PathBuf,

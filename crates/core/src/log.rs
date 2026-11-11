@@ -268,6 +268,7 @@ mod tests {
             parent: "a".repeat(64),
             hypothesis: None,
             reason: reason.into(),
+            ..Default::default()
         })
     }
 

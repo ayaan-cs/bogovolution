@@ -12,6 +12,8 @@ pub mod hash;
 pub mod init;
 pub mod log;
 pub mod model;
+pub mod mutate;
+pub mod replay;
 pub mod repo;
 pub mod sandbox;
 pub mod store;

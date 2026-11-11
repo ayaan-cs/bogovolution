@@ -382,3 +382,406 @@ fn run_without_mock_settings_explains_what_to_do() {
         .unwrap()
         .contains("mock model settings"));
 }
+
+// ---------------------------------------------------------------------------
+// Phase 3: mutate, evolve, record and replay.
+// ---------------------------------------------------------------------------
+
+/// Copy the demo fixture into a new temp repo and run `init`.
+fn demo_project() -> tempfile::TempDir {
+    let demo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/demo");
+    let dir = tempfile::tempdir().unwrap();
+    for f in ["AGENTS.md", "check.sh"] {
+        std::fs::copy(demo.join("fixture").join(f), dir.path().join(f)).unwrap();
+    }
+    let out = run(dir.path(), &["init", "--model", "demo-model", "--json"]);
+    assert!(out.status.success());
+    for f in ["tasks.toml", "mock.toml"] {
+        std::fs::copy(demo.join(f), dir.path().join(".rules-evolve").join(f)).unwrap();
+    }
+    dir
+}
+
+/// The log without timestamps and without the provider name, so a mock run and
+/// a replay of it can be compared.
+fn outcome_log(dir: &Path) -> Vec<(String, Value)> {
+    let v = ok_json(dir, &["log"]);
+    v["data"]["events"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            let mut payload = e["payload"].clone();
+            if let Some(map) = payload.as_object_mut() {
+                map.remove("provider");
+            }
+            (e["kind"].as_str().unwrap().to_string(), payload)
+        })
+        .collect()
+}
+
+#[test]
+fn mutate_through_the_cli_records_proposals_and_refusals() {
+    let dir = bench_project(5);
+    let d = dir.path();
+    // Three candidates: good, empty hypothesis, no change.
+    let mock = d.join(".rules-evolve/mock.toml");
+    let mut text = std::fs::read_to_string(&mock).unwrap();
+    text.push_str(
+        "\n[[mutation]]\nhypothesis = \"add the good hint\"\nappend = \"GOOD\"\n\
+         \n[[mutation]]\nhypothesis = \"\"\nappend = \"something\"\n\
+         \n[[mutation]]\nhypothesis = \"do nothing\"\n",
+    );
+    std::fs::write(&mock, text).unwrap();
+
+    let mut seen = std::collections::BTreeMap::new();
+    for seed in 0..30 {
+        let out = run(
+            d,
+            &[
+                "mutate",
+                "--parent",
+                "root",
+                "--seed",
+                &seed.to_string(),
+                "--json",
+            ],
+        );
+        let v = json_of(&out);
+        assert_eq!(v["command"], "mutate");
+        let data = &v["data"];
+        assert_eq!(data["provider"], "mock");
+        assert_eq!(data["seed"], seed);
+        assert!(data["tokens_used"].as_u64().unwrap() >= 100);
+        match data["outcome"].as_str().unwrap() {
+            "proposed" => {
+                assert_eq!(out.status.code(), Some(0));
+                assert_eq!(data["hypothesis"], "add the good hint");
+                assert_eq!(data["child"].as_str().unwrap().len(), 64);
+            }
+            "refused" => {
+                assert_eq!(out.status.code(), Some(3));
+                assert!(data["child"].is_null());
+            }
+            other => panic!("{other}"),
+        }
+        *seen
+            .entry(data["reason"].as_str().unwrap_or("proposed").to_string())
+            .or_insert(0) += 1;
+    }
+    // Every kind of outcome showed up.
+    assert!(seen.contains_key("proposed"), "{seen:?}");
+    assert!(
+        seen.keys().any(|r| r.contains("hypothesis is empty")),
+        "{seen:?}"
+    );
+    assert!(
+        seen.keys().any(|r| r.contains("identical to the parent")),
+        "{seen:?}"
+    );
+    // The good change was added once, later picks of it were duplicates.
+    assert_eq!(seen["proposed"], 1);
+    assert!(
+        seen.keys().any(|r| r.contains("already exists")),
+        "{seen:?}"
+    );
+
+    let status = ok_json(d, &["status"]);
+    assert_eq!(status["data"]["tree"]["nodes"].as_array().unwrap().len(), 2);
+    assert_eq!(status["data"]["valid"], true);
+    let log = ok_json(d, &["log", "--kind", "mutation_proposed"]);
+    let p = &log["data"]["events"][0]["payload"];
+    assert_eq!(p["provider"], "mock");
+    assert!(p["seed"].is_u64());
+    assert!(p["tokens_used"].is_u64());
+}
+
+#[test]
+fn mutate_is_deterministic_for_a_seed() {
+    let make = || {
+        let dir = demo_project();
+        let out = run(
+            dir.path(),
+            &["mutate", "--parent", "root", "--seed", "42", "--json"],
+        );
+        let v = json_of(&out);
+        let d = &v["data"];
+        (
+            d["outcome"].clone(),
+            d["hypothesis"].clone(),
+            d["child"].clone(),
+            d["tokens_used"].clone(),
+        )
+    };
+    assert_eq!(make(), make());
+}
+
+#[test]
+fn record_then_replay_gives_identical_outcomes() {
+    let a = demo_project();
+    let b = demo_project();
+    let replay = a.path().join("tmp-replay.jsonl");
+    let rec = ok_json(
+        a.path(),
+        &[
+            "evolve",
+            "--generations",
+            "3",
+            "--seed",
+            "7",
+            "--record",
+            replay.to_str().unwrap(),
+        ],
+    );
+    assert!(rec["data"]["provider_stats"]["recorded"].as_u64().unwrap() > 0);
+    assert_eq!(rec["data"]["provider_stats"]["replayed"], 0);
+
+    let rep = ok_json(
+        b.path(),
+        &[
+            "evolve",
+            "--generations",
+            "3",
+            "--seed",
+            "7",
+            "--provider",
+            "replay",
+            "--replay-file",
+            replay.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(rep["data"]["provider"], "replay");
+    assert_eq!(rep["data"]["provider_stats"]["recorded"], 0);
+    assert_eq!(
+        rep["data"]["provider_stats"]["replayed"],
+        rec["data"]["provider_stats"]["recorded"]
+    );
+    for k in [
+        "accepted",
+        "rejected",
+        "noise",
+        "refused",
+        "end",
+        "total_tokens",
+    ] {
+        assert_eq!(rec["data"][k], rep["data"][k], "{k}");
+    }
+    assert_eq!(outcome_log(a.path()), outcome_log(b.path()));
+    assert_eq!(ok_json(b.path(), &["verify-log"])["data"]["valid"], true);
+
+    // Recording the same calls again adds nothing new.
+    let c = demo_project();
+    let again = ok_json(
+        c.path(),
+        &[
+            "run",
+            "--version",
+            "root",
+            "--seed",
+            "7",
+            "--record",
+            replay.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(again["data"]["provider_stats"]["recorded"], 0);
+}
+
+#[test]
+fn replay_cache_miss_fails_clearly_and_records_nothing() {
+    let a = demo_project();
+    let replay = a.path().join("tmp-replay.jsonl");
+    ok_json(
+        a.path(),
+        &[
+            "run",
+            "--version",
+            "root",
+            "--repeats",
+            "1",
+            "--seed",
+            "1",
+            "--record",
+            replay.to_str().unwrap(),
+        ],
+    );
+    let b = demo_project();
+    let before = ok_json(b.path(), &["log"])["data"]["total"].clone();
+    // A different seed was never recorded.
+    let out = run(
+        b.path(),
+        &[
+            "run",
+            "--version",
+            "root",
+            "--repeats",
+            "1",
+            "--seed",
+            "2",
+            "--provider",
+            "replay",
+            "--replay-file",
+            replay.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert_eq!(out.status.code(), Some(1));
+    let v = json_of(&out);
+    let msg = v["error"]["message"].as_str().unwrap();
+    assert!(msg.contains("replay miss"), "{msg}");
+    assert!(msg.contains("no recorded answer"), "{msg}");
+    assert_eq!(ok_json(b.path(), &["log"])["data"]["total"], before);
+
+    // Mutations miss too.
+    let out = run(
+        b.path(),
+        &[
+            "mutate",
+            "--provider",
+            "replay",
+            "--replay-file",
+            replay.to_str().unwrap(),
+            "--json",
+        ],
+    );
+    assert_eq!(out.status.code(), Some(1));
+    assert!(json_of(&out)["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("replay miss"));
+}
+
+#[test]
+fn replay_option_errors() {
+    let dir = demo_project();
+    let d = dir.path();
+    let err = |args: &[&str]| {
+        let mut full = args.to_vec();
+        full.push("--json");
+        let out = run(d, &full);
+        assert_eq!(out.status.code(), Some(1), "{args:?}");
+        json_of(&out)["error"]["message"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    assert!(err(&["run", "--provider", "replay"]).contains("--replay-file"));
+    assert!(
+        err(&["run", "--provider", "replay", "--replay-file", "nope.jsonl"])
+            .contains("does not exist")
+    );
+    assert!(err(&[
+        "run",
+        "--provider",
+        "replay",
+        "--replay-file",
+        "x.jsonl",
+        "--record",
+        "y.jsonl"
+    ])
+    .contains("--record cannot be used"));
+    assert!(err(&["run", "--provider", "openai"]).contains("not available"));
+    // A broken replay file is reported with its line number.
+    std::fs::write(d.join("bad.jsonl"), "not json\n").unwrap();
+    assert!(err(&["run", "--provider", "replay", "--replay-file", "bad.jsonl"]).contains("line 1"));
+}
+
+#[test]
+fn evolve_rejects_bad_generation_counts() {
+    let dir = demo_project();
+    for n in ["0", "101"] {
+        let out = run(dir.path(), &["evolve", "--generations", n]);
+        assert!(!out.status.success(), "{n}");
+    }
+}
+
+/// The demo from the README, end to end, with no key and no cost.
+#[test]
+fn demo_replay_shows_accepted_rejected_noise_and_refused() {
+    let demo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/demo");
+    let replay = demo.join("replay.jsonl");
+    let dir = demo_project();
+    let d = dir.path();
+    let v = ok_json(
+        d,
+        &[
+            "evolve",
+            "--generations",
+            "10",
+            "--seed",
+            "7",
+            "--provider",
+            "replay",
+            "--replay-file",
+            replay.to_str().unwrap(),
+        ],
+    );
+    let data = &v["data"];
+    assert_eq!(data["provider"], "replay");
+    assert_eq!(data["provider_stats"]["recorded"], 0);
+    assert!(data["provider_stats"]["replayed"].as_u64().unwrap() > 500);
+    let counts = (
+        data["accepted"].as_u64().unwrap(),
+        data["rejected"].as_u64().unwrap(),
+        data["noise"].as_u64().unwrap(),
+        data["refused"].as_u64().unwrap(),
+    );
+    assert_eq!(counts, (2, 5, 1, 2));
+    assert_eq!(data["generations"].as_array().unwrap().len(), 10);
+    assert_ne!(data["start"], data["end"]);
+
+    let status = ok_json(d, &["status"]);
+    assert_eq!(status["data"]["valid"], true);
+    let tree = &status["data"]["tree"];
+    assert_eq!(tree["current"], data["end"]);
+    assert_eq!(tree["nodes"].as_array().unwrap().len(), 9);
+    assert_eq!(ok_json(d, &["verify-log"])["data"]["valid"], true);
+
+    // The hidden benchmark file in the fixture was never changed.
+    assert!(std::fs::read_to_string(d.join("check.sh"))
+        .unwrap()
+        .contains("grep -qx ok"));
+}
+
+/// The committed replay is exactly what the mock would record today. If this
+/// fails, run `examples/demo/demo.sh --record` and commit the new file.
+#[test]
+fn committed_demo_replay_matches_a_fresh_mock_recording() {
+    let demo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/demo");
+    let dir = demo_project();
+    let fresh = dir.path().join("fresh-replay.jsonl");
+    let rec = ok_json(
+        dir.path(),
+        &[
+            "evolve",
+            "--generations",
+            "10",
+            "--seed",
+            "7",
+            "--record",
+            fresh.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(
+        std::fs::read_to_string(&fresh).unwrap(),
+        std::fs::read_to_string(demo.join("replay.jsonl")).unwrap(),
+        "examples/demo/replay.jsonl is out of date"
+    );
+    // And replaying the committed file gives the same lineage as the mock.
+    let other = demo_project();
+    ok_json(
+        other.path(),
+        &[
+            "evolve",
+            "--generations",
+            "10",
+            "--seed",
+            "7",
+            "--provider",
+            "replay",
+            "--replay-file",
+            demo.join("replay.jsonl").to_str().unwrap(),
+        ],
+    );
+    assert_eq!(outcome_log(dir.path()), outcome_log(other.path()));
+    assert_eq!(rec["data"]["accepted"], 2);
+}

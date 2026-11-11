@@ -6,12 +6,13 @@
 //! a later phase.
 
 use crate::error::{Error, Result};
-use serde::Deserialize;
+use crate::replay::{RecordingModel, ReplayModel};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// One file the model wants written, path relative to the working folder.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct FileEdit {
     pub path: String,
     pub content: String,
@@ -20,6 +21,8 @@ pub struct FileEdit {
 /// What the harness hands the model for one task attempt.
 #[derive(Debug, Clone, Copy)]
 pub struct ModelRequest<'a> {
+    /// Model name from the project (recorded at `init`).
+    pub model: &'a str,
     pub task_id: &'a str,
     pub prompt: &'a str,
     /// Content of the rules file version being tested.
@@ -36,21 +39,74 @@ pub struct ModelRequest<'a> {
     pub max_tokens: u64,
 }
 
-/// What the model gave back.
-#[derive(Debug, Clone, PartialEq)]
+/// What the model gave back for a task.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ModelResponse {
     pub edits: Vec<FileEdit>,
     pub tokens_used: u64,
 }
 
+/// What the harness hands the model when it asks for a rules change.
+#[derive(Debug, Clone, Copy)]
+pub struct MutationRequest<'a> {
+    pub model: &'a str,
+    /// The full mutation prompt: current rules, history, and the size limit.
+    pub prompt: &'a str,
+    /// The rules text to change.
+    pub parent_rules: &'a str,
+    pub parent_hash: &'a str,
+    pub seed: u64,
+    pub max_change_bytes: usize,
+    /// Tokens this call may use.
+    pub max_tokens: u64,
+}
+
+/// A proposed rules change with the reason it should help.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MutationResponse {
+    /// The complete new rules text.
+    pub new_rules: String,
+    /// Plain English reason this change should help.
+    pub hypothesis: String,
+    pub tokens_used: u64,
+}
+
+/// Counts a provider keeps about recording and replaying.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize)]
+pub struct Counters {
+    /// New entries written to a replay file.
+    pub recorded: usize,
+    /// Answers served from a replay file.
+    pub replayed: usize,
+}
+
 /// A model provider.
+///
+/// Real bring-your-own-key providers will implement this trait later. The
+/// harness never assumes anything beyond it, so nothing else needs to change.
 pub trait Model {
     /// Short provider name recorded in the log, for example `mock`.
     fn name(&self) -> String;
     /// A cautious guess of the tokens one call would use. The harness skips
     /// the call when this would go over the budget.
-    fn estimate_tokens(&self, prompt: &str, rules: &str) -> u64;
+    fn estimate_tokens(&self, request: &ModelRequest) -> u64;
     fn complete(&self, request: &ModelRequest) -> Result<ModelResponse>;
+
+    /// Guess of the tokens a mutation call would use.
+    fn estimate_mutation_tokens(&self, _request: &MutationRequest) -> u64 {
+        0
+    }
+    /// Ask for a small rules change and a hypothesis.
+    fn propose_mutation(&self, _request: &MutationRequest) -> Result<MutationResponse> {
+        Err(Error::Input(format!(
+            "provider {} cannot propose mutations",
+            self.name()
+        )))
+    }
+    /// Recording and replay counts. Zero for plain providers.
+    fn counters(&self) -> Counters {
+        Counters::default()
+    }
 }
 
 /// A marker: when `text` appears in the rules, the pass probability moves by `delta`.
@@ -70,6 +126,42 @@ pub struct Answer {
     pub path: String,
     pub pass_content: String,
     pub fail_content: String,
+}
+
+/// A candidate change the mock can propose. `hypothesis` is what it claims.
+/// Use `append` to add a line at the end, or `find` and `replace_with` to
+/// swap text. A candidate with neither leaves the rules unchanged.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MockMutation {
+    pub hypothesis: String,
+    #[serde(default)]
+    pub append: Option<String>,
+    #[serde(default)]
+    pub find: Option<String>,
+    #[serde(default)]
+    pub replace_with: Option<String>,
+}
+
+impl MockMutation {
+    /// The new rules text this candidate makes from a parent.
+    pub fn apply(&self, parent: &str) -> String {
+        if let Some(find) = &self.find {
+            return parent.replacen(find, self.replace_with.as_deref().unwrap_or(""), 1);
+        }
+        match &self.append {
+            Some(extra) => {
+                let mut text = parent.to_string();
+                if !text.is_empty() && !text.ends_with('\n') {
+                    text.push('\n');
+                }
+                text.push_str(extra);
+                text.push('\n');
+                text
+            }
+            None => parent.to_string(),
+        }
+    }
 }
 
 /// Mock model settings, read from `.rules-evolve/mock.toml`.
@@ -93,6 +185,9 @@ pub struct MockConfig {
     pub marker: Vec<Marker>,
     #[serde(default)]
     pub answer: Vec<Answer>,
+    /// Candidate changes for `mutate`. The mock picks one by seed.
+    #[serde(default)]
+    pub mutation: Vec<MockMutation>,
 }
 
 fn default_tokens() -> u64 {
@@ -205,6 +300,27 @@ impl MockModel {
     fn tokens_for(&self, prompt: &str, rules: &str) -> u64 {
         self.config.tokens_per_call + ((prompt.len() + rules.len()) / 4) as u64
     }
+
+    fn mutation_tokens(&self, req: &MutationRequest) -> u64 {
+        self.config.tokens_per_call + (req.prompt.len() / 4) as u64
+    }
+
+    /// Which candidate the mock picks for a request. Same request, same pick.
+    fn pick_mutation(&self, req: &MutationRequest) -> Option<&MockMutation> {
+        let n = self.config.mutation.len();
+        if n == 0 {
+            return None;
+        }
+        let u = unit(&[
+            "mutate",
+            &self.config.seed.to_string(),
+            &req.seed.to_string(),
+            req.parent_hash,
+        ]);
+        self.config
+            .mutation
+            .get(((u * n as f64) as usize).min(n - 1))
+    }
 }
 
 impl Model for MockModel {
@@ -212,8 +328,30 @@ impl Model for MockModel {
         "mock".to_string()
     }
 
-    fn estimate_tokens(&self, prompt: &str, rules: &str) -> u64 {
-        self.tokens_for(prompt, rules)
+    fn estimate_tokens(&self, req: &ModelRequest) -> u64 {
+        self.tokens_for(req.prompt, req.rules)
+    }
+
+    fn estimate_mutation_tokens(&self, req: &MutationRequest) -> u64 {
+        self.mutation_tokens(req)
+    }
+
+    fn propose_mutation(&self, req: &MutationRequest) -> Result<MutationResponse> {
+        let tokens = self.mutation_tokens(req);
+        if tokens > req.max_tokens {
+            return Err(Error::Input(format!(
+                "mock mutation needs {tokens} tokens but only {} are left",
+                req.max_tokens
+            )));
+        }
+        let pick = self.pick_mutation(req).ok_or_else(|| {
+            Error::Input("mock.toml has no [[mutation]] candidates to propose".into())
+        })?;
+        Ok(MutationResponse {
+            new_rules: pick.apply(req.parent_rules),
+            hypothesis: pick.hypothesis.clone(),
+            tokens_used: tokens,
+        })
     }
 
     fn complete(&self, req: &ModelRequest) -> Result<ModelResponse> {
@@ -246,12 +384,43 @@ impl Model for MockModel {
     }
 }
 
-/// Build a provider by name. Only `mock` exists in Phase 2.
-pub fn build_provider(name: &str, mock_config: &Path) -> Result<Box<dyn Model>> {
-    match name {
-        "mock" => Ok(Box::new(MockModel::new(MockConfig::load(mock_config)?))),
+/// Which provider to build and where its files are.
+#[derive(Debug, Clone)]
+pub struct ProviderSpec {
+    /// `mock` or `replay`.
+    pub name: String,
+    pub mock_config: PathBuf,
+    /// Replay file to serve answers from (`replay` provider).
+    pub replay_file: Option<PathBuf>,
+    /// Replay file to record every request and response into.
+    pub record: Option<PathBuf>,
+}
+
+/// Build a provider. Only `mock` and `replay` exist. Neither uses the network.
+pub fn build_provider(spec: &ProviderSpec) -> Result<Box<dyn Model>> {
+    match spec.name.as_str() {
+        "mock" => {
+            let mock: Box<dyn Model> =
+                Box::new(MockModel::new(MockConfig::load(&spec.mock_config)?));
+            match &spec.record {
+                Some(path) => Ok(Box::new(RecordingModel::new(mock, path)?)),
+                None => Ok(mock),
+            }
+        }
+        "replay" => {
+            if spec.record.is_some() {
+                return Err(Error::Input(
+                    "--record cannot be used with the replay provider, there is nothing new to record"
+                        .into(),
+                ));
+            }
+            let path = spec.replay_file.as_ref().ok_or_else(|| {
+                Error::Input("the replay provider needs --replay-file <PATH>".into())
+            })?;
+            Ok(Box::new(ReplayModel::load(path)?))
+        }
         other => Err(Error::Input(format!(
-            "provider {other:?} is not available. Only \"mock\" exists so far; real providers come in a later phase"
+            "provider {other:?} is not available. Only \"mock\" and \"replay\" exist so far; real providers come in a later phase"
         ))),
     }
 }
@@ -282,6 +451,7 @@ mod tests {
                 pass_content: "ok".into(),
                 fail_content: "no".into(),
             }],
+            mutation: Vec::new(),
         }
     }
 
@@ -293,6 +463,7 @@ mod tests {
         dir: &'a Path,
     ) -> ModelRequest<'a> {
         ModelRequest {
+            model: "test-model",
             task_id: task,
             prompt: "do it",
             rules,
@@ -381,7 +552,10 @@ mod tests {
         let r = m.complete(&req("rules text", "h", "t", 0, dir)).unwrap();
         assert_eq!(r.edits.len(), 1);
         assert_eq!(r.edits[0].content, "ok");
-        assert_eq!(r.tokens_used, m.estimate_tokens("do it", "rules text"));
+        assert_eq!(
+            r.tokens_used,
+            m.estimate_tokens(&req("rules text", "h", "t", 0, dir))
+        );
         let m = MockModel::new(cfg(0.0));
         assert_eq!(
             m.complete(&req("r", "h", "t", 0, dir)).unwrap().edits[0].content,
@@ -412,8 +586,15 @@ mod tests {
         let mut c = cfg(0.5);
         c.marker[0].delta = 2.0;
         assert!(c.validate().is_err());
-        assert!(build_provider("openai", Path::new("nope.toml")).is_err());
-        assert!(build_provider("mock", Path::new("/nonexistent/mock.toml")).is_err());
+        let spec = |name: &str| ProviderSpec {
+            name: name.into(),
+            mock_config: PathBuf::from("/nonexistent/mock.toml"),
+            replay_file: None,
+            record: None,
+        };
+        assert!(build_provider(&spec("openai")).is_err());
+        assert!(build_provider(&spec("mock")).is_err());
+        assert!(build_provider(&spec("replay")).is_err());
     }
 
     #[test]

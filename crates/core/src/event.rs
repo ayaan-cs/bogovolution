@@ -71,20 +71,34 @@ pub struct InitPayload {
 }
 
 /// A child version of a parent version, with a plain-English hypothesis.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct MutationProposedPayload {
     pub parent: String,
     pub child: String,
     pub hypothesis: String,
+    /// Seed the model was given. `None` for changes added by `propose`.
+    #[serde(default)]
+    pub seed: Option<u64>,
+    /// Provider that wrote the change, for example `mock`.
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub tokens_used: Option<u64>,
 }
 
 /// A mutation that was not allowed (for example it was too large).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct MutationRefusedPayload {
     pub parent: String,
     #[serde(default)]
     pub hypothesis: Option<String>,
     pub reason: String,
+    #[serde(default)]
+    pub seed: Option<u64>,
+    #[serde(default)]
+    pub provider: Option<String>,
+    #[serde(default)]
+    pub tokens_used: Option<u64>,
 }
 
 /// How one task attempt ended.
