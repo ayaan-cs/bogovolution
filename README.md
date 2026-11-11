@@ -112,11 +112,23 @@ Done in v1.2.2 (shadow warnings at scan time):
 Done in v1.2.3 (polish found while reviewing screenshots and video):
 
 - Viewer charts: the y axes always leave room above and below every bar and dot
-  and include the accept threshold, with tidy ticks. Graph edge labels use two
-  lines so siblings do not overlap, and badge text is darker in the light theme
+  and include the accept threshold, with tidy ticks. Badge text is darker in the light theme
   so it reads (contrast of at least 4.5 to 1).
 - `watch`: the run progress shows one bar per run on a fixed 0 to 100% scale,
   and the SVG picture draws block characters as rectangles.
+
+Done in v1.2.4 (readable lineage graph):
+
+- The viewer graph text is larger. The gain now sits inside each node ("accepted
+  · 92%", "+33 pts") instead of on edge labels, and refused attempts are a
+  "2 refused" line on the version, listed with their reasons in the details
+  pane. The "Show refused" button draws them as dashed boxes. The viewer picks
+  top down or left to right by whichever fits better, and never fits a tree
+  below a readable size: a big tree opens zoomed in around the current version
+  with a hint, and "Fit all", "Current" and plus and minus buttons. At 1280 by
+  800 the demo text is about 15 px and a 34 version tree about 12 px (it was
+  9 px and 3 px). `viewer/test-fixtures/wide-tree.json` is a synthetic wide
+  tree used by the tests and the smoke check.
 
 Planned later (not built yet): real bring-your-own-key providers and a Claude
 Code plugin. See the roadmap below.
@@ -612,8 +624,10 @@ ratatui's `TestBackend` against golden text in `crates/watch/snapshots/`), and
 ## Viewer
 
 `viewer/` is a static, local web page for exported lineages. It draws the tree
-top down, colored by verdict (green accepted, red rejected, amber noise, grey
-pending, dashed grey refused), with edge labels such as "pass rate +33 pts".
+top down or left to right, colored by verdict (green accepted, red rejected,
+amber noise, grey pending, dashed grey refused). Each node shows its short id,
+verdict, median pass rate and gain, such as "+33 pts". Refused attempts are a
+count on the version and can be shown as dashed boxes.
 Click a version to see its hypothesis, the verdict reason, the run pairs, and
 the diff from its parent. Charts show the pass rate attempt by attempt, the gain
 of each attempt against the accept threshold, and the spread of every run so you
