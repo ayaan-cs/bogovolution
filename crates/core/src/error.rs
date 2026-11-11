@@ -1,0 +1,32 @@
+//! Error type for the engine.
+
+use std::path::PathBuf;
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("not a rules-evolve project: {0} does not exist (run `rules-evolve init` first)")]
+    NotInitialized(PathBuf),
+    #[error("already initialized: {0} exists")]
+    AlreadyInitialized(PathBuf),
+    #[error("lineage log is not valid, refusing to continue: {0}")]
+    LogInvalid(String),
+    #[error("invalid lineage: {0}")]
+    InvalidLineage(String),
+    #[error("{0}")]
+    Input(String),
+    #[error("io error at {path}: {source}")]
+    Io {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("could not read {path}: {message}")]
+    Parse { path: PathBuf, message: String },
+}
+
+pub type Result<T> = std::result::Result<T, Error>;
+
+pub(crate) fn io_err(path: impl Into<PathBuf>) -> impl FnOnce(std::io::Error) -> Error {
+    let path = path.into();
+    move |source| Error::Io { path, source }
+}
