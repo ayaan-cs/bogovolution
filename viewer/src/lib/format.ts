@@ -12,12 +12,6 @@ export function points(gain: number | null | undefined): string {
   return `${r > 0 ? '+' : '-'}${Math.abs(r)} pts`;
 }
 
-/// Label drawn on a graph edge. Two lines, so the labels of sibling edges do not overlap.
-export function edgeLabel(e: TreeEdge): string {
-  if (e.gain_pp === null) return e.verdict === null ? 'pending' : 'no runs';
-  return `pass rate\n${points(e.gain_pp)}`;
-}
-
 export function statusLabel(s: NodeStatus | Outcome): string {
   return s === 'pending' ? 'pending' : s;
 }

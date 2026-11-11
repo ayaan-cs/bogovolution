@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import demo from '../demo/tree.json';
-import { edgeForChild, edgeLabel, nodeById, pct, points, resolvePrefix, shortHash, verdictSummary } from './format';
+import { edgeForChild, nodeById, pct, points, resolvePrefix, shortHash, verdictSummary } from './format';
 import type { LineageExport, TreeEdge } from './types';
 
 const d = demo as unknown as LineageExport;
@@ -18,15 +18,6 @@ describe('format', () => {
     expect(pct(0.9167)).toBe('92%');
     expect(pct(0)).toBe('0%');
     expect(pct(null)).toBe('no runs');
-  });
-
-  it('labels edges with the pass rate change', () => {
-    const accepted = d.edges.find((e) => e.verdict === 'accepted') as TreeEdge;
-    expect(edgeLabel(accepted)).toBe('pass rate\n+33 pts');
-    const pending = { ...accepted, verdict: null, gain_pp: null } as TreeEdge;
-    expect(edgeLabel(pending)).toBe('pending');
-    const none = { ...accepted, gain_pp: null } as TreeEdge;
-    expect(edgeLabel(none)).toBe('no runs');
   });
 
   it('explains verdicts', () => {

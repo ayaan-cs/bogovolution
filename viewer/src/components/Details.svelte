@@ -19,6 +19,7 @@
   const node = $derived(selection?.kind === 'node' ? nodeById(data, selection.hash) : undefined);
   const edge = $derived(node ? edgeForChild(data, node.hash) : undefined);
   const parent = $derived(node?.parent ? nodeById(data, node.parent) : undefined);
+  const refusedHere = $derived(node ? data.refused.filter((r) => r.parent === node.hash) : []);
   const refusal = $derived(selection?.kind === 'refused' ? data.refused.find((r) => r.seq === selection.seq) : undefined);
   let showContent = $state(false);
   $effect(() => {
@@ -44,6 +45,20 @@
       <p class="hyp">{node.hypothesis}</p>
     {:else}
       <p class="hyp muted">This is the starting rules file. Nothing was changed to make it.</p>
+    {/if}
+
+    {#if refusedHere.length > 0}
+      <h3>Refused from this version ({refusedHere.length})</h3>
+      <ul class="refused-list">
+        {#each refusedHere as r (r.seq)}
+          <li>
+            <button class="node-link" onclick={() => onselect({ kind: 'refused', seq: r.seq })}>
+              {r.hypothesis ?? 'No hypothesis'}
+            </button>
+            <span class="muted">{r.reason}</span>
+          </li>
+        {/each}
+      </ul>
     {/if}
 
     {#if edge}
@@ -218,6 +233,23 @@
   tr.win td:last-child {
     color: var(--tx-accepted);
     font-weight: 600;
+  }
+  .refused-list {
+    list-style: none;
+    margin: 0 0 0.5rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    font-size: 0.85rem;
+  }
+  .refused-list li {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+  }
+  .refused-list .node-link {
+    text-align: left;
   }
   .node-link {
     background: none;

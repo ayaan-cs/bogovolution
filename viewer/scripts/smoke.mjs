@@ -38,6 +38,78 @@ assert.match(await page.textContent('h1'), /rules-evolve lineage/);
 assert.match(await page.textContent('.sub'), /demo-model/);
 assert.match(await page.textContent('footer'), /Petri/);
 
+// Graph readability at the initial fit: node text is at least 11.5 CSS pixels.
+const graphStats = () =>
+  page.evaluate(() => {
+    const c = document.querySelector('.graph');
+    const cy = c._cyreg.cy;
+    return { font: cy.zoom() * 13, nodes: cy.nodes().length, w: c.clientWidth, h: c.clientHeight };
+  });
+{
+  const g = await page.evaluate(() => { const cy = document.querySelector('.graph')._cyreg.cy; return { font: cy.zoom() * 13, nodes: cy.nodes().length }; });
+  assert.ok(g.font >= 11.5, `demo node text is ${g.font.toFixed(1)}px, wanted at least 11.5`);
+  assert.equal(g.nodes, 9, 'refused mutations are a count on the parent, not nodes');
+  assert.equal(await page.locator('.hint').count(), 0, 'the whole demo fits, so no zoom hint');
+  assert.match(await page.textContent('.legend'), /refused/);
+}
+
+// The refusal reasons stay reachable: the version lists them, and opening one draws it.
+{
+  await page.click('.refused-list button');
+  await page.waitForFunction(() => document.querySelector('.details')?.textContent?.includes('Refused mutation'));
+  const n = await page.evaluate(() => document.querySelector('.graph')._cyreg.cy.nodes().length);
+  assert.equal(n, 11, 'selecting a refusal shows the refused nodes');
+  await page.click('text=/Hide refused/');
+  assert.equal(await page.evaluate(() => document.querySelector('.graph')._cyreg.cy.nodes().length), 9);
+}
+
+// A deep link to a node puts it in view and selects it.
+{
+  await page.goto(pathToFileURL(dist).href + '#v=ec12bc56');
+  await page.waitForSelector('canvas');
+  await page.waitForFunction(() => document.querySelector('.details')?.textContent?.includes('ec12bc56d472'));
+  const inView = await page.evaluate(() => {
+    const c = document.querySelector('.graph');
+    const bb = c._cyreg.cy.getElementById('ec12bc56d472c81df96086bf6f174bb6ff58ccba2f23228af68e9db7645f8176').renderedBoundingBox({});
+    return bb.x1 >= 0 && bb.y1 >= 0 && bb.x2 <= c.clientWidth && bb.y2 <= c.clientHeight;
+  });
+  assert.ok(inView, 'the deep linked node is inside the graph view');
+  await page.goto(pathToFileURL(dist).href);
+  await page.waitForSelector('canvas');
+}
+
+// A wide synthetic tree (34 versions, 8 children on one parent) stays readable and can be panned and fitted.
+{
+  const wide = join(root, 'test-fixtures', 'wide-tree.json');
+  await page.setInputFiles('input[type=file]', wide);
+  await page.waitForFunction(() => document.querySelector('.sub')?.textContent?.includes('wide-fixture'));
+  await page.waitForTimeout(500);
+  const g = await graphStats();
+  assert.ok(g.font >= 11.5, `wide tree node text is ${g.font.toFixed(1)}px, wanted at least 11.5`);
+  assert.equal(g.nodes, 34);
+  assert.equal(await page.locator('.hint').count(), 1, 'zoomed in, so the hint explains how to move');
+  const current = await page.evaluate(() => {
+    const c = document.querySelector('.graph');
+    const cy = c._cyreg.cy;
+    const bb = cy.nodes('[current = 1]')[0].renderedBoundingBox({});
+    return bb.x1 >= 0 && bb.y1 >= 0 && bb.x2 <= c.clientWidth && bb.y2 <= c.clientHeight;
+  });
+  assert.ok(current, 'the first view is centered on the current version');
+  await page.click('text=/Show refused/');
+  assert.equal((await graphStats()).nodes, 40);
+  await page.click('text=Fit all');
+  assert.equal(await page.locator('.hint').count(), 0);
+  const fitted = await page.evaluate(() => {
+    const c = document.querySelector('.graph');
+    const bb = c._cyreg.cy.elements().renderedBoundingBox({});
+    return bb.x1 >= -1 && bb.y1 >= -1 && bb.x2 <= c.clientWidth + 1 && bb.y2 <= c.clientHeight + 1;
+  });
+  assert.ok(fitted, 'Fit all shows the whole tree');
+  await page.click('text=Current');
+  await page.goto(pathToFileURL(dist).href);
+  await page.waitForSelector('canvas');
+}
+
 // Bad file: friendly error, old lineage stays.
 await page.setInputFiles('input[type=file]', bad);
 await page.waitForSelector('[role=alert]');

@@ -1,0 +1,2560 @@
+{
+ "format": "rules-evolve-export",
+ "version": 1,
+ "generator": {
+  "tool": "rules-evolve",
+  "version": "0.1.0"
+ },
+ "project": {
+  "rules_file": "AGENTS.md",
+  "model": "wide-fixture"
+ },
+ "chain": {
+  "valid": true,
+  "events": 64,
+  "head_seq": 63,
+  "head_hash": "504ab3771e0b2a5dadee0b0f589a49e81c791cb1ed69bc162fc483e0eaaf96b4"
+ },
+ "config": {
+  "repeats": 5,
+  "accept_threshold_pp": 10,
+  "min_paired_wins": 4,
+  "max_tokens_per_run": 200000,
+  "max_change_bytes": 1000
+ },
+ "root": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+ "current": "1a1f42a3b80f91267330fe37f16d460d8fcd641fac17b83c9c2fe2017cd357c1",
+ "summary": {
+  "nodes": 34,
+  "edges": 33,
+  "accepted": 6,
+  "rejected": 20,
+  "noise": 7,
+  "pending": 0,
+  "refused": 6,
+  "runs": 102,
+  "tokens_used": 102000,
+  "max_generation": 5
+ },
+ "nodes": [
+  {
+   "hash": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "short": "4684a0bf2ddd",
+   "parent": null,
+   "generation": 0,
+   "created_seq": 10,
+   "hypothesis": null,
+   "verdict": null,
+   "status": "root",
+   "is_current": false,
+   "size_bytes": 100,
+   "content": "# Project rules\n\nVersion 0\n",
+   "diff": null,
+   "median_pass_rate": 0.25,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 3,
+     "total": 12,
+     "pass_rate": 0.25,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 3,
+     "total": 12,
+     "pass_rate": 0.25,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 3,
+     "total": 12,
+     "pass_rate": 0.25,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "short": "fe2f5efca3a0",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "generation": 1,
+   "created_seq": 11,
+   "hypothesis": "Try variation 1 of the rules (accepted).",
+   "verdict": "accepted",
+   "status": "accepted",
+   "is_current": false,
+   "size_bytes": 101,
+   "content": "# Project rules\n\nVersion 1\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 0\n+Version 1\n",
+   "median_pass_rate": 0.5,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 6,
+     "total": 12,
+     "pass_rate": 0.5,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 6,
+     "total": 12,
+     "pass_rate": 0.5,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 6,
+     "total": 12,
+     "pass_rate": 0.5,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "39d0bf750657b05364fb7752719581785259ecf35242a316104ba921a8fdf220",
+   "short": "39d0bf750657",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "generation": 1,
+   "created_seq": 12,
+   "hypothesis": "Try variation 2 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 102,
+   "content": "# Project rules\n\nVersion 2\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 0\n+Version 2\n",
+   "median_pass_rate": 0.16666666666666666,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "ee7992794a4c93afa8089b7492d458d954f2f4e0a778fab4863ab4c229c36d56",
+   "short": "ee7992794a4c",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "generation": 1,
+   "created_seq": 13,
+   "hypothesis": "Try variation 3 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 103,
+   "content": "# Project rules\n\nVersion 3\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 0\n+Version 3\n",
+   "median_pass_rate": 0.16666666666666666,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "3dfc872dfcc8dbc058f2f62ead42fff08d099b8635b2c48ba9947aa5b0963808",
+   "short": "3dfc872dfcc8",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "generation": 1,
+   "created_seq": 14,
+   "hypothesis": "Try variation 4 of the rules (noise).",
+   "verdict": "noise",
+   "status": "noise",
+   "is_current": false,
+   "size_bytes": 104,
+   "content": "# Project rules\n\nVersion 4\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 0\n+Version 4\n",
+   "median_pass_rate": 0.3333333333333333,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 4,
+     "total": 12,
+     "pass_rate": 0.3333333333333333,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 4,
+     "total": 12,
+     "pass_rate": 0.3333333333333333,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 4,
+     "total": 12,
+     "pass_rate": 0.3333333333333333,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "982e796f2ebd517c3a6672fb449991bdecfa06659480a335da5c2b1bb5066e8b",
+   "short": "982e796f2ebd",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "generation": 1,
+   "created_seq": 15,
+   "hypothesis": "Try variation 5 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 105,
+   "content": "# Project rules\n\nVersion 5\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 0\n+Version 5\n",
+   "median_pass_rate": 0.16666666666666666,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "794adbcac3ff23b5c775d1d8d62fcf2adc82c1811c074d4e9c9a6bbd54eea200",
+   "short": "794adbcac3ff",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "generation": 1,
+   "created_seq": 16,
+   "hypothesis": "Try variation 6 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 106,
+   "content": "# Project rules\n\nVersion 6\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 0\n+Version 6\n",
+   "median_pass_rate": 0.16666666666666666,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "9ed96e4efc2a40789493dbc66e8ab11ebe741eebaadb7bbaeefb474809238fbd",
+   "short": "9ed96e4efc2a",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "generation": 1,
+   "created_seq": 17,
+   "hypothesis": "Try variation 7 of the rules (noise).",
+   "verdict": "noise",
+   "status": "noise",
+   "is_current": false,
+   "size_bytes": 107,
+   "content": "# Project rules\n\nVersion 7\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 0\n+Version 7\n",
+   "median_pass_rate": 0.3333333333333333,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 4,
+     "total": 12,
+     "pass_rate": 0.3333333333333333,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 4,
+     "total": 12,
+     "pass_rate": 0.3333333333333333,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 4,
+     "total": 12,
+     "pass_rate": 0.3333333333333333,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "5f461c02cf9abac4f970615f01d74f4f2b861ecc1d3712aced095fd9973ee00c",
+   "short": "5f461c02cf9a",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "generation": 1,
+   "created_seq": 18,
+   "hypothesis": "Try variation 8 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 108,
+   "content": "# Project rules\n\nVersion 8\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 0\n+Version 8\n",
+   "median_pass_rate": 0.16666666666666666,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 2,
+     "total": 12,
+     "pass_rate": 0.16666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "short": "99722c1fb7ee",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "generation": 2,
+   "created_seq": 19,
+   "hypothesis": "Try variation 9 of the rules (accepted).",
+   "verdict": "accepted",
+   "status": "accepted",
+   "is_current": false,
+   "size_bytes": 109,
+   "content": "# Project rules\n\nVersion 9\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 1\n+Version 9\n",
+   "median_pass_rate": 0.75,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 9,
+     "total": 12,
+     "pass_rate": 0.75,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 9,
+     "total": 12,
+     "pass_rate": 0.75,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 9,
+     "total": 12,
+     "pass_rate": 0.75,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "f6bf4e90938b25ac2da89d830745de376ab54cd5152bb0861e71958f028cebbb",
+   "short": "f6bf4e90938b",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "generation": 2,
+   "created_seq": 20,
+   "hypothesis": "Try variation 10 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 110,
+   "content": "# Project rules\n\nVersion 10\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 1\n+Version 10\n",
+   "median_pass_rate": 0.4166666666666667,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "16be802fdfbf739aedb3881f59388ab5f6009216aac801f2866e7ceb70bfaeba",
+   "short": "16be802fdfbf",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "generation": 2,
+   "created_seq": 21,
+   "hypothesis": "Try variation 11 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 111,
+   "content": "# Project rules\n\nVersion 11\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 1\n+Version 11\n",
+   "median_pass_rate": 0.4166666666666667,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "7f0f594b7df0c070676eb76df54b42fa6c5d015655cec681ad8c8eec6b8c37d0",
+   "short": "7f0f594b7df0",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "generation": 2,
+   "created_seq": 22,
+   "hypothesis": "Try variation 12 of the rules (noise).",
+   "verdict": "noise",
+   "status": "noise",
+   "is_current": false,
+   "size_bytes": 112,
+   "content": "# Project rules\n\nVersion 12\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 1\n+Version 12\n",
+   "median_pass_rate": 0.5833333333333334,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 7,
+     "total": 12,
+     "pass_rate": 0.5833333333333334,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 7,
+     "total": 12,
+     "pass_rate": 0.5833333333333334,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 7,
+     "total": 12,
+     "pass_rate": 0.5833333333333334,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "45e743ab7e5279d2e460812119d17565f9bf28540843843b69dac4d2ced93de5",
+   "short": "45e743ab7e52",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "generation": 2,
+   "created_seq": 23,
+   "hypothesis": "Try variation 13 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 113,
+   "content": "# Project rules\n\nVersion 13\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 1\n+Version 13\n",
+   "median_pass_rate": 0.4166666666666667,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "de07ea1f44807919bebe5a0bb2b7f15c714a60ec962bdb812e3566828f456450",
+   "short": "de07ea1f4480",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "generation": 2,
+   "created_seq": 24,
+   "hypothesis": "Try variation 14 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 114,
+   "content": "# Project rules\n\nVersion 14\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 1\n+Version 14\n",
+   "median_pass_rate": 0.4166666666666667,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "0538b4b13a6a7c86e7c28fa9cd043576a2e56cc187e098ae205c76c0ca3caaae",
+   "short": "0538b4b13a6a",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "generation": 2,
+   "created_seq": 25,
+   "hypothesis": "Try variation 15 of the rules (noise).",
+   "verdict": "noise",
+   "status": "noise",
+   "is_current": false,
+   "size_bytes": 115,
+   "content": "# Project rules\n\nVersion 15\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 1\n+Version 15\n",
+   "median_pass_rate": 0.5833333333333334,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 7,
+     "total": 12,
+     "pass_rate": 0.5833333333333334,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 7,
+     "total": 12,
+     "pass_rate": 0.5833333333333334,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 7,
+     "total": 12,
+     "pass_rate": 0.5833333333333334,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "b57a89d6fb93f3c28b2da6d61702a7f517ab89402c8cd238927ab3d236a574db",
+   "short": "b57a89d6fb93",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "generation": 2,
+   "created_seq": 26,
+   "hypothesis": "Try variation 16 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 116,
+   "content": "# Project rules\n\nVersion 16\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 1\n+Version 16\n",
+   "median_pass_rate": 0.4166666666666667,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 5,
+     "total": 12,
+     "pass_rate": 0.4166666666666667,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "short": "bab36d41e164",
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "generation": 3,
+   "created_seq": 27,
+   "hypothesis": "Try variation 17 of the rules (accepted).",
+   "verdict": "accepted",
+   "status": "accepted",
+   "is_current": false,
+   "size_bytes": 117,
+   "content": "# Project rules\n\nVersion 17\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 9\n+Version 17\n",
+   "median_pass_rate": 1,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "22ae6bc6b0aedb03eefcd71203e511cc7d43d3b2bab01753be82c73ad235b13c",
+   "short": "22ae6bc6b0ae",
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "generation": 3,
+   "created_seq": 28,
+   "hypothesis": "Try variation 18 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 118,
+   "content": "# Project rules\n\nVersion 18\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 9\n+Version 18\n",
+   "median_pass_rate": 0.6666666666666666,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 8,
+     "total": 12,
+     "pass_rate": 0.6666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 8,
+     "total": 12,
+     "pass_rate": 0.6666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 8,
+     "total": 12,
+     "pass_rate": 0.6666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "b69e5c5689045f36abc5b3765385bbf590ad6a58a48c53cd2d6707855bbe2225",
+   "short": "b69e5c568904",
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "generation": 3,
+   "created_seq": 29,
+   "hypothesis": "Try variation 19 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 119,
+   "content": "# Project rules\n\nVersion 19\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 9\n+Version 19\n",
+   "median_pass_rate": 0.6666666666666666,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 8,
+     "total": 12,
+     "pass_rate": 0.6666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 8,
+     "total": 12,
+     "pass_rate": 0.6666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 8,
+     "total": 12,
+     "pass_rate": 0.6666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "8338095767d9739b9b3f23d40705fdd48879cd6b2868af4ca86a02d70e590eba",
+   "short": "8338095767d9",
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "generation": 3,
+   "created_seq": 30,
+   "hypothesis": "Try variation 20 of the rules (noise).",
+   "verdict": "noise",
+   "status": "noise",
+   "is_current": false,
+   "size_bytes": 120,
+   "content": "# Project rules\n\nVersion 20\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 9\n+Version 20\n",
+   "median_pass_rate": 0.8333333333333334,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 10,
+     "total": 12,
+     "pass_rate": 0.8333333333333334,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 10,
+     "total": 12,
+     "pass_rate": 0.8333333333333334,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 10,
+     "total": 12,
+     "pass_rate": 0.8333333333333334,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "de19180125ff114c0e96af82c36b5e0a250076c5b588947c790355acf6efdacd",
+   "short": "de19180125ff",
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "generation": 3,
+   "created_seq": 31,
+   "hypothesis": "Try variation 21 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 121,
+   "content": "# Project rules\n\nVersion 21\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 9\n+Version 21\n",
+   "median_pass_rate": 0.6666666666666666,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 8,
+     "total": 12,
+     "pass_rate": 0.6666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 8,
+     "total": 12,
+     "pass_rate": 0.6666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 8,
+     "total": 12,
+     "pass_rate": 0.6666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "4563a91cf60dbc039c6254d5887256fd7e4d115721d84679f548d23f26c7a268",
+   "short": "4563a91cf60d",
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "generation": 3,
+   "created_seq": 32,
+   "hypothesis": "Try variation 22 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 122,
+   "content": "# Project rules\n\nVersion 22\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 9\n+Version 22\n",
+   "median_pass_rate": 0.6666666666666666,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 8,
+     "total": 12,
+     "pass_rate": 0.6666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 8,
+     "total": 12,
+     "pass_rate": 0.6666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 8,
+     "total": 12,
+     "pass_rate": 0.6666666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "short": "53c587d65815",
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "generation": 4,
+   "created_seq": 33,
+   "hypothesis": "Try variation 23 of the rules (accepted).",
+   "verdict": "accepted",
+   "status": "accepted",
+   "is_current": false,
+   "size_bytes": 123,
+   "content": "# Project rules\n\nVersion 23\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 17\n+Version 23\n",
+   "median_pass_rate": 1,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "cd1b23d2c7e1e91d1d57420bdc85a7ff44e62a20b87fcf41807cc070d4900b18",
+   "short": "cd1b23d2c7e1",
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "generation": 4,
+   "created_seq": 34,
+   "hypothesis": "Try variation 24 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 124,
+   "content": "# Project rules\n\nVersion 24\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 17\n+Version 24\n",
+   "median_pass_rate": 0.9166666666666666,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "dcca155b9916be0f38e9b21f68f6f8522f58b0c956c11c1feab9f8329b68a378",
+   "short": "dcca155b9916",
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "generation": 4,
+   "created_seq": 35,
+   "hypothesis": "Try variation 25 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 125,
+   "content": "# Project rules\n\nVersion 25\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 17\n+Version 25\n",
+   "median_pass_rate": 0.9166666666666666,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "bda61d7e1f2710ffd5b8f78595ef52e238c3c7f96e121a5839749e5816ce9072",
+   "short": "bda61d7e1f27",
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "generation": 4,
+   "created_seq": 36,
+   "hypothesis": "Try variation 26 of the rules (noise).",
+   "verdict": "noise",
+   "status": "noise",
+   "is_current": false,
+   "size_bytes": 126,
+   "content": "# Project rules\n\nVersion 26\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 17\n+Version 26\n",
+   "median_pass_rate": 1,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "fb9aa0678eb160bcc13d80b2569003175f626679ce813acbdab136b992557766",
+   "short": "fb9aa0678eb1",
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "generation": 4,
+   "created_seq": 37,
+   "hypothesis": "Try variation 27 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 127,
+   "content": "# Project rules\n\nVersion 27\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 17\n+Version 27\n",
+   "median_pass_rate": 0.9166666666666666,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "1a1f42a3b80f91267330fe37f16d460d8fcd641fac17b83c9c2fe2017cd357c1",
+   "short": "1a1f42a3b80f",
+   "parent": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "generation": 5,
+   "created_seq": 38,
+   "hypothesis": "Try variation 28 of the rules (accepted).",
+   "verdict": "accepted",
+   "status": "accepted",
+   "is_current": true,
+   "size_bytes": 128,
+   "content": "# Project rules\n\nVersion 28\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 23\n+Version 28\n",
+   "median_pass_rate": 1,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "833c6e8a309b48406259434e737e09bd4b30a1628b3ef6b2b4d2ba13e335a1e8",
+   "short": "833c6e8a309b",
+   "parent": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "generation": 5,
+   "created_seq": 39,
+   "hypothesis": "Try variation 29 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 129,
+   "content": "# Project rules\n\nVersion 29\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 23\n+Version 29\n",
+   "median_pass_rate": 0.9166666666666666,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "b2f66d1406567e3b6a30a5886512115e4782f8a9b28baf980c4361d37774c3c3",
+   "short": "b2f66d140656",
+   "parent": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "generation": 5,
+   "created_seq": 40,
+   "hypothesis": "Try variation 30 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 130,
+   "content": "# Project rules\n\nVersion 30\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 23\n+Version 30\n",
+   "median_pass_rate": 0.9166666666666666,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 11,
+     "total": 12,
+     "pass_rate": 0.9166666666666666,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "73bc4b4c92641086679a83cb33a6a4f869ef96e6957b9d6414bdd9ab091457f8",
+   "short": "73bc4b4c9264",
+   "parent": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "generation": 5,
+   "created_seq": 41,
+   "hypothesis": "Try variation 31 of the rules (noise).",
+   "verdict": "noise",
+   "status": "noise",
+   "is_current": false,
+   "size_bytes": 131,
+   "content": "# Project rules\n\nVersion 31\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 23\n+Version 31\n",
+   "median_pass_rate": 1,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 12,
+     "total": 12,
+     "pass_rate": 1,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "909d20b183b3cfd67f9caa432f0ab6e217a392e96e6e23b43bb32bf888d5a348",
+   "short": "909d20b183b3",
+   "parent": "3dfc872dfcc8dbc058f2f62ead42fff08d099b8635b2c48ba9947aa5b0963808",
+   "generation": 2,
+   "created_seq": 42,
+   "hypothesis": "Try variation 32 of the rules (accepted).",
+   "verdict": "accepted",
+   "status": "accepted",
+   "is_current": false,
+   "size_bytes": 132,
+   "content": "# Project rules\n\nVersion 32\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 4\n+Version 32\n",
+   "median_pass_rate": 0.5833333333333334,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 7,
+     "total": 12,
+     "pass_rate": 0.5833333333333334,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 7,
+     "total": 12,
+     "pass_rate": 0.5833333333333334,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 7,
+     "total": 12,
+     "pass_rate": 0.5833333333333334,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  },
+  {
+   "hash": "bfb3879e07c9ce4502718287a257593a8f9aa771582a8cdc96243a58b3d3bab4",
+   "short": "bfb3879e07c9",
+   "parent": "3dfc872dfcc8dbc058f2f62ead42fff08d099b8635b2c48ba9947aa5b0963808",
+   "generation": 2,
+   "created_seq": 43,
+   "hypothesis": "Try variation 33 of the rules (rejected).",
+   "verdict": "rejected",
+   "status": "rejected",
+   "is_current": false,
+   "size_bytes": 133,
+   "content": "# Project rules\n\nVersion 33\n",
+   "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,3 @@\n # Project rules\n \n-Version 4\n+Version 33\n",
+   "median_pass_rate": 0.25,
+   "runs": [
+    {
+     "run_index": 0,
+     "seed": 1000,
+     "passed": 3,
+     "total": 12,
+     "pass_rate": 0.25,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 1,
+     "seed": 1001,
+     "passed": 3,
+     "total": 12,
+     "pass_rate": 0.25,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    },
+    {
+     "run_index": 2,
+     "seed": 1002,
+     "passed": 3,
+     "total": 12,
+     "pass_rate": 0.25,
+     "tokens_used": 1000,
+     "budget_exhausted": false
+    }
+   ]
+  }
+ ],
+ "edges": [
+  {
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "seq": 11,
+   "hypothesis": "Try variation 1 of the rules (accepted).",
+   "verdict": "accepted",
+   "reason": "median gain 25.0 points",
+   "parent_median": 0.25,
+   "child_median": 0.5,
+   "gain_pp": 25,
+   "paired_wins": 5,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "39d0bf750657b05364fb7752719581785259ecf35242a316104ba921a8fdf220",
+   "seq": 12,
+   "hypothesis": "Try variation 2 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.25,
+   "child_median": 0.16666666666666666,
+   "gain_pp": -8.333333333333334,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "ee7992794a4c93afa8089b7492d458d954f2f4e0a778fab4863ab4c229c36d56",
+   "seq": 13,
+   "hypothesis": "Try variation 3 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.25,
+   "child_median": 0.16666666666666666,
+   "gain_pp": -8.333333333333334,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "3dfc872dfcc8dbc058f2f62ead42fff08d099b8635b2c48ba9947aa5b0963808",
+   "seq": 14,
+   "hypothesis": "Try variation 4 of the rules (noise).",
+   "verdict": "noise",
+   "reason": "median gain 8.3 points",
+   "parent_median": 0.25,
+   "child_median": 0.3333333333333333,
+   "gain_pp": 8.333333333333332,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "982e796f2ebd517c3a6672fb449991bdecfa06659480a335da5c2b1bb5066e8b",
+   "seq": 15,
+   "hypothesis": "Try variation 5 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.25,
+   "child_median": 0.16666666666666666,
+   "gain_pp": -8.333333333333334,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "794adbcac3ff23b5c775d1d8d62fcf2adc82c1811c074d4e9c9a6bbd54eea200",
+   "seq": 16,
+   "hypothesis": "Try variation 6 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.25,
+   "child_median": 0.16666666666666666,
+   "gain_pp": -8.333333333333334,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "9ed96e4efc2a40789493dbc66e8ab11ebe741eebaadb7bbaeefb474809238fbd",
+   "seq": 17,
+   "hypothesis": "Try variation 7 of the rules (noise).",
+   "verdict": "noise",
+   "reason": "median gain 8.3 points",
+   "parent_median": 0.25,
+   "child_median": 0.3333333333333333,
+   "gain_pp": 8.333333333333332,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "5f461c02cf9abac4f970615f01d74f4f2b861ecc1d3712aced095fd9973ee00c",
+   "seq": 18,
+   "hypothesis": "Try variation 8 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.25,
+   "child_median": 0.16666666666666666,
+   "gain_pp": -8.333333333333334,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "seq": 19,
+   "hypothesis": "Try variation 9 of the rules (accepted).",
+   "verdict": "accepted",
+   "reason": "median gain 25.0 points",
+   "parent_median": 0.5,
+   "child_median": 0.75,
+   "gain_pp": 25,
+   "paired_wins": 5,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "f6bf4e90938b25ac2da89d830745de376ab54cd5152bb0861e71958f028cebbb",
+   "seq": 20,
+   "hypothesis": "Try variation 10 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.5,
+   "child_median": 0.4166666666666667,
+   "gain_pp": -8.333333333333332,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "16be802fdfbf739aedb3881f59388ab5f6009216aac801f2866e7ceb70bfaeba",
+   "seq": 21,
+   "hypothesis": "Try variation 11 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.5,
+   "child_median": 0.4166666666666667,
+   "gain_pp": -8.333333333333332,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "7f0f594b7df0c070676eb76df54b42fa6c5d015655cec681ad8c8eec6b8c37d0",
+   "seq": 22,
+   "hypothesis": "Try variation 12 of the rules (noise).",
+   "verdict": "noise",
+   "reason": "median gain 8.3 points",
+   "parent_median": 0.5,
+   "child_median": 0.5833333333333334,
+   "gain_pp": 8.333333333333337,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "45e743ab7e5279d2e460812119d17565f9bf28540843843b69dac4d2ced93de5",
+   "seq": 23,
+   "hypothesis": "Try variation 13 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.5,
+   "child_median": 0.4166666666666667,
+   "gain_pp": -8.333333333333332,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "de07ea1f44807919bebe5a0bb2b7f15c714a60ec962bdb812e3566828f456450",
+   "seq": 24,
+   "hypothesis": "Try variation 14 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.5,
+   "child_median": 0.4166666666666667,
+   "gain_pp": -8.333333333333332,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "0538b4b13a6a7c86e7c28fa9cd043576a2e56cc187e098ae205c76c0ca3caaae",
+   "seq": 25,
+   "hypothesis": "Try variation 15 of the rules (noise).",
+   "verdict": "noise",
+   "reason": "median gain 8.3 points",
+   "parent_median": 0.5,
+   "child_median": 0.5833333333333334,
+   "gain_pp": 8.333333333333337,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "b57a89d6fb93f3c28b2da6d61702a7f517ab89402c8cd238927ab3d236a574db",
+   "seq": 26,
+   "hypothesis": "Try variation 16 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.5,
+   "child_median": 0.4166666666666667,
+   "gain_pp": -8.333333333333332,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "child": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "seq": 27,
+   "hypothesis": "Try variation 17 of the rules (accepted).",
+   "verdict": "accepted",
+   "reason": "median gain 25.0 points",
+   "parent_median": 0.75,
+   "child_median": 1,
+   "gain_pp": 25,
+   "paired_wins": 5,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "child": "22ae6bc6b0aedb03eefcd71203e511cc7d43d3b2bab01753be82c73ad235b13c",
+   "seq": 28,
+   "hypothesis": "Try variation 18 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.75,
+   "child_median": 0.6666666666666666,
+   "gain_pp": -8.333333333333337,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "child": "b69e5c5689045f36abc5b3765385bbf590ad6a58a48c53cd2d6707855bbe2225",
+   "seq": 29,
+   "hypothesis": "Try variation 19 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.75,
+   "child_median": 0.6666666666666666,
+   "gain_pp": -8.333333333333337,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "child": "8338095767d9739b9b3f23d40705fdd48879cd6b2868af4ca86a02d70e590eba",
+   "seq": 30,
+   "hypothesis": "Try variation 20 of the rules (noise).",
+   "verdict": "noise",
+   "reason": "median gain 8.3 points",
+   "parent_median": 0.75,
+   "child_median": 0.8333333333333334,
+   "gain_pp": 8.333333333333337,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "child": "de19180125ff114c0e96af82c36b5e0a250076c5b588947c790355acf6efdacd",
+   "seq": 31,
+   "hypothesis": "Try variation 21 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.75,
+   "child_median": 0.6666666666666666,
+   "gain_pp": -8.333333333333337,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "child": "4563a91cf60dbc039c6254d5887256fd7e4d115721d84679f548d23f26c7a268",
+   "seq": 32,
+   "hypothesis": "Try variation 22 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.75,
+   "child_median": 0.6666666666666666,
+   "gain_pp": -8.333333333333337,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "child": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "seq": 33,
+   "hypothesis": "Try variation 23 of the rules (accepted).",
+   "verdict": "accepted",
+   "reason": "median gain 0.0 points",
+   "parent_median": 1,
+   "child_median": 1,
+   "gain_pp": 0,
+   "paired_wins": 5,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "child": "cd1b23d2c7e1e91d1d57420bdc85a7ff44e62a20b87fcf41807cc070d4900b18",
+   "seq": 34,
+   "hypothesis": "Try variation 24 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 1,
+   "child_median": 0.9166666666666666,
+   "gain_pp": -8.333333333333337,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "child": "dcca155b9916be0f38e9b21f68f6f8522f58b0c956c11c1feab9f8329b68a378",
+   "seq": 35,
+   "hypothesis": "Try variation 25 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 1,
+   "child_median": 0.9166666666666666,
+   "gain_pp": -8.333333333333337,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "child": "bda61d7e1f2710ffd5b8f78595ef52e238c3c7f96e121a5839749e5816ce9072",
+   "seq": 36,
+   "hypothesis": "Try variation 26 of the rules (noise).",
+   "verdict": "noise",
+   "reason": "median gain 0.0 points",
+   "parent_median": 1,
+   "child_median": 1,
+   "gain_pp": 0,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "child": "fb9aa0678eb160bcc13d80b2569003175f626679ce813acbdab136b992557766",
+   "seq": 37,
+   "hypothesis": "Try variation 27 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 1,
+   "child_median": 0.9166666666666666,
+   "gain_pp": -8.333333333333337,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "child": "1a1f42a3b80f91267330fe37f16d460d8fcd641fac17b83c9c2fe2017cd357c1",
+   "seq": 38,
+   "hypothesis": "Try variation 28 of the rules (accepted).",
+   "verdict": "accepted",
+   "reason": "median gain 0.0 points",
+   "parent_median": 1,
+   "child_median": 1,
+   "gain_pp": 0,
+   "paired_wins": 5,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "child": "833c6e8a309b48406259434e737e09bd4b30a1628b3ef6b2b4d2ba13e335a1e8",
+   "seq": 39,
+   "hypothesis": "Try variation 29 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 1,
+   "child_median": 0.9166666666666666,
+   "gain_pp": -8.333333333333337,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "child": "b2f66d1406567e3b6a30a5886512115e4782f8a9b28baf980c4361d37774c3c3",
+   "seq": 40,
+   "hypothesis": "Try variation 30 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 1,
+   "child_median": 0.9166666666666666,
+   "gain_pp": -8.333333333333337,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "child": "73bc4b4c92641086679a83cb33a6a4f869ef96e6957b9d6414bdd9ab091457f8",
+   "seq": 41,
+   "hypothesis": "Try variation 31 of the rules (noise).",
+   "verdict": "noise",
+   "reason": "median gain 0.0 points",
+   "parent_median": 1,
+   "child_median": 1,
+   "gain_pp": 0,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "3dfc872dfcc8dbc058f2f62ead42fff08d099b8635b2c48ba9947aa5b0963808",
+   "child": "909d20b183b3cfd67f9caa432f0ab6e217a392e96e6e23b43bb32bf888d5a348",
+   "seq": 42,
+   "hypothesis": "Try variation 32 of the rules (accepted).",
+   "verdict": "accepted",
+   "reason": "median gain 25.0 points",
+   "parent_median": 0.3333333333333333,
+   "child_median": 0.5833333333333334,
+   "gain_pp": 25.000000000000007,
+   "paired_wins": 5,
+   "repeats": 5,
+   "pairs": []
+  },
+  {
+   "parent": "3dfc872dfcc8dbc058f2f62ead42fff08d099b8635b2c48ba9947aa5b0963808",
+   "child": "bfb3879e07c9ce4502718287a257593a8f9aa771582a8cdc96243a58b3d3bab4",
+   "seq": 43,
+   "hypothesis": "Try variation 33 of the rules (rejected).",
+   "verdict": "rejected",
+   "reason": "median gain -8.3 points",
+   "parent_median": 0.3333333333333333,
+   "child_median": 0.25,
+   "gain_pp": -8.333333333333332,
+   "paired_wins": 1,
+   "repeats": 5,
+   "pairs": []
+  }
+ ],
+ "refused": [
+  {
+   "seq": 44,
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "hypothesis": "Refused idea 1-0",
+   "reason": "this content already exists in the tree",
+   "seed": null,
+   "provider": "mock"
+  },
+  {
+   "seq": 45,
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "hypothesis": "Refused idea 1-1",
+   "reason": "this content already exists in the tree",
+   "seed": null,
+   "provider": "mock"
+  },
+  {
+   "seq": 46,
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "hypothesis": "Refused idea 1-2",
+   "reason": "this content already exists in the tree",
+   "seed": null,
+   "provider": "mock"
+  },
+  {
+   "seq": 47,
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "hypothesis": "Refused idea 9-0",
+   "reason": "this content already exists in the tree",
+   "seed": null,
+   "provider": "mock"
+  },
+  {
+   "seq": 48,
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "hypothesis": "Refused idea 9-1",
+   "reason": "this content already exists in the tree",
+   "seed": null,
+   "provider": "mock"
+  },
+  {
+   "seq": 49,
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "hypothesis": "Refused idea 17-0",
+   "reason": "this content already exists in the tree",
+   "seed": null,
+   "provider": "mock"
+  }
+ ],
+ "series": [
+  {
+   "attempt": 1,
+   "seq": 11,
+   "outcome": "accepted",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "hypothesis": "Try variation 1 of the rules (accepted).",
+   "parent_median": 0.25,
+   "child_median": 0.5,
+   "gain_pp": 25,
+   "current_after": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "current_median_after": 0.5
+  },
+  {
+   "attempt": 2,
+   "seq": 12,
+   "outcome": "rejected",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "39d0bf750657b05364fb7752719581785259ecf35242a316104ba921a8fdf220",
+   "hypothesis": "Try variation 2 of the rules (rejected).",
+   "parent_median": 0.25,
+   "child_median": 0.16666666666666666,
+   "gain_pp": -8.333333333333334,
+   "current_after": "39d0bf750657b05364fb7752719581785259ecf35242a316104ba921a8fdf220",
+   "current_median_after": 0.16666666666666666
+  },
+  {
+   "attempt": 3,
+   "seq": 13,
+   "outcome": "rejected",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "ee7992794a4c93afa8089b7492d458d954f2f4e0a778fab4863ab4c229c36d56",
+   "hypothesis": "Try variation 3 of the rules (rejected).",
+   "parent_median": 0.25,
+   "child_median": 0.16666666666666666,
+   "gain_pp": -8.333333333333334,
+   "current_after": "ee7992794a4c93afa8089b7492d458d954f2f4e0a778fab4863ab4c229c36d56",
+   "current_median_after": 0.16666666666666666
+  },
+  {
+   "attempt": 4,
+   "seq": 14,
+   "outcome": "noise",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "3dfc872dfcc8dbc058f2f62ead42fff08d099b8635b2c48ba9947aa5b0963808",
+   "hypothesis": "Try variation 4 of the rules (noise).",
+   "parent_median": 0.25,
+   "child_median": 0.3333333333333333,
+   "gain_pp": 8.333333333333332,
+   "current_after": "3dfc872dfcc8dbc058f2f62ead42fff08d099b8635b2c48ba9947aa5b0963808",
+   "current_median_after": 0.3333333333333333
+  },
+  {
+   "attempt": 5,
+   "seq": 15,
+   "outcome": "rejected",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "982e796f2ebd517c3a6672fb449991bdecfa06659480a335da5c2b1bb5066e8b",
+   "hypothesis": "Try variation 5 of the rules (rejected).",
+   "parent_median": 0.25,
+   "child_median": 0.16666666666666666,
+   "gain_pp": -8.333333333333334,
+   "current_after": "982e796f2ebd517c3a6672fb449991bdecfa06659480a335da5c2b1bb5066e8b",
+   "current_median_after": 0.16666666666666666
+  },
+  {
+   "attempt": 6,
+   "seq": 16,
+   "outcome": "rejected",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "794adbcac3ff23b5c775d1d8d62fcf2adc82c1811c074d4e9c9a6bbd54eea200",
+   "hypothesis": "Try variation 6 of the rules (rejected).",
+   "parent_median": 0.25,
+   "child_median": 0.16666666666666666,
+   "gain_pp": -8.333333333333334,
+   "current_after": "794adbcac3ff23b5c775d1d8d62fcf2adc82c1811c074d4e9c9a6bbd54eea200",
+   "current_median_after": 0.16666666666666666
+  },
+  {
+   "attempt": 7,
+   "seq": 17,
+   "outcome": "noise",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "9ed96e4efc2a40789493dbc66e8ab11ebe741eebaadb7bbaeefb474809238fbd",
+   "hypothesis": "Try variation 7 of the rules (noise).",
+   "parent_median": 0.25,
+   "child_median": 0.3333333333333333,
+   "gain_pp": 8.333333333333332,
+   "current_after": "9ed96e4efc2a40789493dbc66e8ab11ebe741eebaadb7bbaeefb474809238fbd",
+   "current_median_after": 0.3333333333333333
+  },
+  {
+   "attempt": 8,
+   "seq": 18,
+   "outcome": "rejected",
+   "parent": "4684a0bf2dddca02a52e205b58cfa3f7c426e14b49192c023088ec5831003cd8",
+   "child": "5f461c02cf9abac4f970615f01d74f4f2b861ecc1d3712aced095fd9973ee00c",
+   "hypothesis": "Try variation 8 of the rules (rejected).",
+   "parent_median": 0.25,
+   "child_median": 0.16666666666666666,
+   "gain_pp": -8.333333333333334,
+   "current_after": "5f461c02cf9abac4f970615f01d74f4f2b861ecc1d3712aced095fd9973ee00c",
+   "current_median_after": 0.16666666666666666
+  },
+  {
+   "attempt": 9,
+   "seq": 19,
+   "outcome": "accepted",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "hypothesis": "Try variation 9 of the rules (accepted).",
+   "parent_median": 0.5,
+   "child_median": 0.75,
+   "gain_pp": 25,
+   "current_after": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "current_median_after": 0.75
+  },
+  {
+   "attempt": 10,
+   "seq": 20,
+   "outcome": "rejected",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "f6bf4e90938b25ac2da89d830745de376ab54cd5152bb0861e71958f028cebbb",
+   "hypothesis": "Try variation 10 of the rules (rejected).",
+   "parent_median": 0.5,
+   "child_median": 0.4166666666666667,
+   "gain_pp": -8.333333333333332,
+   "current_after": "f6bf4e90938b25ac2da89d830745de376ab54cd5152bb0861e71958f028cebbb",
+   "current_median_after": 0.4166666666666667
+  },
+  {
+   "attempt": 11,
+   "seq": 21,
+   "outcome": "rejected",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "16be802fdfbf739aedb3881f59388ab5f6009216aac801f2866e7ceb70bfaeba",
+   "hypothesis": "Try variation 11 of the rules (rejected).",
+   "parent_median": 0.5,
+   "child_median": 0.4166666666666667,
+   "gain_pp": -8.333333333333332,
+   "current_after": "16be802fdfbf739aedb3881f59388ab5f6009216aac801f2866e7ceb70bfaeba",
+   "current_median_after": 0.4166666666666667
+  },
+  {
+   "attempt": 12,
+   "seq": 22,
+   "outcome": "noise",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "7f0f594b7df0c070676eb76df54b42fa6c5d015655cec681ad8c8eec6b8c37d0",
+   "hypothesis": "Try variation 12 of the rules (noise).",
+   "parent_median": 0.5,
+   "child_median": 0.5833333333333334,
+   "gain_pp": 8.333333333333337,
+   "current_after": "7f0f594b7df0c070676eb76df54b42fa6c5d015655cec681ad8c8eec6b8c37d0",
+   "current_median_after": 0.5833333333333334
+  },
+  {
+   "attempt": 13,
+   "seq": 23,
+   "outcome": "rejected",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "45e743ab7e5279d2e460812119d17565f9bf28540843843b69dac4d2ced93de5",
+   "hypothesis": "Try variation 13 of the rules (rejected).",
+   "parent_median": 0.5,
+   "child_median": 0.4166666666666667,
+   "gain_pp": -8.333333333333332,
+   "current_after": "45e743ab7e5279d2e460812119d17565f9bf28540843843b69dac4d2ced93de5",
+   "current_median_after": 0.4166666666666667
+  },
+  {
+   "attempt": 14,
+   "seq": 24,
+   "outcome": "rejected",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "de07ea1f44807919bebe5a0bb2b7f15c714a60ec962bdb812e3566828f456450",
+   "hypothesis": "Try variation 14 of the rules (rejected).",
+   "parent_median": 0.5,
+   "child_median": 0.4166666666666667,
+   "gain_pp": -8.333333333333332,
+   "current_after": "de07ea1f44807919bebe5a0bb2b7f15c714a60ec962bdb812e3566828f456450",
+   "current_median_after": 0.4166666666666667
+  },
+  {
+   "attempt": 15,
+   "seq": 25,
+   "outcome": "noise",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "0538b4b13a6a7c86e7c28fa9cd043576a2e56cc187e098ae205c76c0ca3caaae",
+   "hypothesis": "Try variation 15 of the rules (noise).",
+   "parent_median": 0.5,
+   "child_median": 0.5833333333333334,
+   "gain_pp": 8.333333333333337,
+   "current_after": "0538b4b13a6a7c86e7c28fa9cd043576a2e56cc187e098ae205c76c0ca3caaae",
+   "current_median_after": 0.5833333333333334
+  },
+  {
+   "attempt": 16,
+   "seq": 26,
+   "outcome": "rejected",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": "b57a89d6fb93f3c28b2da6d61702a7f517ab89402c8cd238927ab3d236a574db",
+   "hypothesis": "Try variation 16 of the rules (rejected).",
+   "parent_median": 0.5,
+   "child_median": 0.4166666666666667,
+   "gain_pp": -8.333333333333332,
+   "current_after": "b57a89d6fb93f3c28b2da6d61702a7f517ab89402c8cd238927ab3d236a574db",
+   "current_median_after": 0.4166666666666667
+  },
+  {
+   "attempt": 17,
+   "seq": 27,
+   "outcome": "accepted",
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "child": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "hypothesis": "Try variation 17 of the rules (accepted).",
+   "parent_median": 0.75,
+   "child_median": 1,
+   "gain_pp": 25,
+   "current_after": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "current_median_after": 1
+  },
+  {
+   "attempt": 18,
+   "seq": 28,
+   "outcome": "rejected",
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "child": "22ae6bc6b0aedb03eefcd71203e511cc7d43d3b2bab01753be82c73ad235b13c",
+   "hypothesis": "Try variation 18 of the rules (rejected).",
+   "parent_median": 0.75,
+   "child_median": 0.6666666666666666,
+   "gain_pp": -8.333333333333337,
+   "current_after": "22ae6bc6b0aedb03eefcd71203e511cc7d43d3b2bab01753be82c73ad235b13c",
+   "current_median_after": 0.6666666666666666
+  },
+  {
+   "attempt": 19,
+   "seq": 29,
+   "outcome": "rejected",
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "child": "b69e5c5689045f36abc5b3765385bbf590ad6a58a48c53cd2d6707855bbe2225",
+   "hypothesis": "Try variation 19 of the rules (rejected).",
+   "parent_median": 0.75,
+   "child_median": 0.6666666666666666,
+   "gain_pp": -8.333333333333337,
+   "current_after": "b69e5c5689045f36abc5b3765385bbf590ad6a58a48c53cd2d6707855bbe2225",
+   "current_median_after": 0.6666666666666666
+  },
+  {
+   "attempt": 20,
+   "seq": 30,
+   "outcome": "noise",
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "child": "8338095767d9739b9b3f23d40705fdd48879cd6b2868af4ca86a02d70e590eba",
+   "hypothesis": "Try variation 20 of the rules (noise).",
+   "parent_median": 0.75,
+   "child_median": 0.8333333333333334,
+   "gain_pp": 8.333333333333337,
+   "current_after": "8338095767d9739b9b3f23d40705fdd48879cd6b2868af4ca86a02d70e590eba",
+   "current_median_after": 0.8333333333333334
+  },
+  {
+   "attempt": 21,
+   "seq": 31,
+   "outcome": "rejected",
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "child": "de19180125ff114c0e96af82c36b5e0a250076c5b588947c790355acf6efdacd",
+   "hypothesis": "Try variation 21 of the rules (rejected).",
+   "parent_median": 0.75,
+   "child_median": 0.6666666666666666,
+   "gain_pp": -8.333333333333337,
+   "current_after": "de19180125ff114c0e96af82c36b5e0a250076c5b588947c790355acf6efdacd",
+   "current_median_after": 0.6666666666666666
+  },
+  {
+   "attempt": 22,
+   "seq": 32,
+   "outcome": "rejected",
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "child": "4563a91cf60dbc039c6254d5887256fd7e4d115721d84679f548d23f26c7a268",
+   "hypothesis": "Try variation 22 of the rules (rejected).",
+   "parent_median": 0.75,
+   "child_median": 0.6666666666666666,
+   "gain_pp": -8.333333333333337,
+   "current_after": "4563a91cf60dbc039c6254d5887256fd7e4d115721d84679f548d23f26c7a268",
+   "current_median_after": 0.6666666666666666
+  },
+  {
+   "attempt": 23,
+   "seq": 33,
+   "outcome": "accepted",
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "child": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "hypothesis": "Try variation 23 of the rules (accepted).",
+   "parent_median": 1,
+   "child_median": 1,
+   "gain_pp": 0,
+   "current_after": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "current_median_after": 1
+  },
+  {
+   "attempt": 24,
+   "seq": 34,
+   "outcome": "rejected",
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "child": "cd1b23d2c7e1e91d1d57420bdc85a7ff44e62a20b87fcf41807cc070d4900b18",
+   "hypothesis": "Try variation 24 of the rules (rejected).",
+   "parent_median": 1,
+   "child_median": 0.9166666666666666,
+   "gain_pp": -8.333333333333337,
+   "current_after": "cd1b23d2c7e1e91d1d57420bdc85a7ff44e62a20b87fcf41807cc070d4900b18",
+   "current_median_after": 0.9166666666666666
+  },
+  {
+   "attempt": 25,
+   "seq": 35,
+   "outcome": "rejected",
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "child": "dcca155b9916be0f38e9b21f68f6f8522f58b0c956c11c1feab9f8329b68a378",
+   "hypothesis": "Try variation 25 of the rules (rejected).",
+   "parent_median": 1,
+   "child_median": 0.9166666666666666,
+   "gain_pp": -8.333333333333337,
+   "current_after": "dcca155b9916be0f38e9b21f68f6f8522f58b0c956c11c1feab9f8329b68a378",
+   "current_median_after": 0.9166666666666666
+  },
+  {
+   "attempt": 26,
+   "seq": 36,
+   "outcome": "noise",
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "child": "bda61d7e1f2710ffd5b8f78595ef52e238c3c7f96e121a5839749e5816ce9072",
+   "hypothesis": "Try variation 26 of the rules (noise).",
+   "parent_median": 1,
+   "child_median": 1,
+   "gain_pp": 0,
+   "current_after": "bda61d7e1f2710ffd5b8f78595ef52e238c3c7f96e121a5839749e5816ce9072",
+   "current_median_after": 1
+  },
+  {
+   "attempt": 27,
+   "seq": 37,
+   "outcome": "rejected",
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "child": "fb9aa0678eb160bcc13d80b2569003175f626679ce813acbdab136b992557766",
+   "hypothesis": "Try variation 27 of the rules (rejected).",
+   "parent_median": 1,
+   "child_median": 0.9166666666666666,
+   "gain_pp": -8.333333333333337,
+   "current_after": "fb9aa0678eb160bcc13d80b2569003175f626679ce813acbdab136b992557766",
+   "current_median_after": 0.9166666666666666
+  },
+  {
+   "attempt": 28,
+   "seq": 38,
+   "outcome": "accepted",
+   "parent": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "child": "1a1f42a3b80f91267330fe37f16d460d8fcd641fac17b83c9c2fe2017cd357c1",
+   "hypothesis": "Try variation 28 of the rules (accepted).",
+   "parent_median": 1,
+   "child_median": 1,
+   "gain_pp": 0,
+   "current_after": "1a1f42a3b80f91267330fe37f16d460d8fcd641fac17b83c9c2fe2017cd357c1",
+   "current_median_after": 1
+  },
+  {
+   "attempt": 29,
+   "seq": 39,
+   "outcome": "rejected",
+   "parent": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "child": "833c6e8a309b48406259434e737e09bd4b30a1628b3ef6b2b4d2ba13e335a1e8",
+   "hypothesis": "Try variation 29 of the rules (rejected).",
+   "parent_median": 1,
+   "child_median": 0.9166666666666666,
+   "gain_pp": -8.333333333333337,
+   "current_after": "833c6e8a309b48406259434e737e09bd4b30a1628b3ef6b2b4d2ba13e335a1e8",
+   "current_median_after": 0.9166666666666666
+  },
+  {
+   "attempt": 30,
+   "seq": 40,
+   "outcome": "rejected",
+   "parent": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "child": "b2f66d1406567e3b6a30a5886512115e4782f8a9b28baf980c4361d37774c3c3",
+   "hypothesis": "Try variation 30 of the rules (rejected).",
+   "parent_median": 1,
+   "child_median": 0.9166666666666666,
+   "gain_pp": -8.333333333333337,
+   "current_after": "b2f66d1406567e3b6a30a5886512115e4782f8a9b28baf980c4361d37774c3c3",
+   "current_median_after": 0.9166666666666666
+  },
+  {
+   "attempt": 31,
+   "seq": 41,
+   "outcome": "noise",
+   "parent": "53c587d6581517dfd3fb5119aa93cad6eb639abed8c8b4889c7390fc25f30784",
+   "child": "73bc4b4c92641086679a83cb33a6a4f869ef96e6957b9d6414bdd9ab091457f8",
+   "hypothesis": "Try variation 31 of the rules (noise).",
+   "parent_median": 1,
+   "child_median": 1,
+   "gain_pp": 0,
+   "current_after": "73bc4b4c92641086679a83cb33a6a4f869ef96e6957b9d6414bdd9ab091457f8",
+   "current_median_after": 1
+  },
+  {
+   "attempt": 32,
+   "seq": 42,
+   "outcome": "accepted",
+   "parent": "3dfc872dfcc8dbc058f2f62ead42fff08d099b8635b2c48ba9947aa5b0963808",
+   "child": "909d20b183b3cfd67f9caa432f0ab6e217a392e96e6e23b43bb32bf888d5a348",
+   "hypothesis": "Try variation 32 of the rules (accepted).",
+   "parent_median": 0.3333333333333333,
+   "child_median": 0.5833333333333334,
+   "gain_pp": 25.000000000000007,
+   "current_after": "909d20b183b3cfd67f9caa432f0ab6e217a392e96e6e23b43bb32bf888d5a348",
+   "current_median_after": 0.5833333333333334
+  },
+  {
+   "attempt": 33,
+   "seq": 43,
+   "outcome": "rejected",
+   "parent": "3dfc872dfcc8dbc058f2f62ead42fff08d099b8635b2c48ba9947aa5b0963808",
+   "child": "bfb3879e07c9ce4502718287a257593a8f9aa771582a8cdc96243a58b3d3bab4",
+   "hypothesis": "Try variation 33 of the rules (rejected).",
+   "parent_median": 0.3333333333333333,
+   "child_median": 0.25,
+   "gain_pp": -8.333333333333332,
+   "current_after": "bfb3879e07c9ce4502718287a257593a8f9aa771582a8cdc96243a58b3d3bab4",
+   "current_median_after": 0.25
+  },
+  {
+   "attempt": 34,
+   "seq": 44,
+   "outcome": "refused",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": null,
+   "hypothesis": "Refused idea 1-0",
+   "parent_median": null,
+   "child_median": null,
+   "gain_pp": null,
+   "current_after": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "current_median_after": 0.5
+  },
+  {
+   "attempt": 35,
+   "seq": 45,
+   "outcome": "refused",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": null,
+   "hypothesis": "Refused idea 1-1",
+   "parent_median": null,
+   "child_median": null,
+   "gain_pp": null,
+   "current_after": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "current_median_after": 0.5
+  },
+  {
+   "attempt": 36,
+   "seq": 46,
+   "outcome": "refused",
+   "parent": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "child": null,
+   "hypothesis": "Refused idea 1-2",
+   "parent_median": null,
+   "child_median": null,
+   "gain_pp": null,
+   "current_after": "fe2f5efca3a037072e17102c52ba5d5afd911f9e273dd846544c1f5978dd5647",
+   "current_median_after": 0.5
+  },
+  {
+   "attempt": 37,
+   "seq": 47,
+   "outcome": "refused",
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "child": null,
+   "hypothesis": "Refused idea 9-0",
+   "parent_median": null,
+   "child_median": null,
+   "gain_pp": null,
+   "current_after": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "current_median_after": 0.75
+  },
+  {
+   "attempt": 38,
+   "seq": 48,
+   "outcome": "refused",
+   "parent": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "child": null,
+   "hypothesis": "Refused idea 9-1",
+   "parent_median": null,
+   "child_median": null,
+   "gain_pp": null,
+   "current_after": "99722c1fb7ee22631310cdb129085410668203290defc78d7b7591162f7585e9",
+   "current_median_after": 0.75
+  },
+  {
+   "attempt": 39,
+   "seq": 49,
+   "outcome": "refused",
+   "parent": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "child": null,
+   "hypothesis": "Refused idea 17-0",
+   "parent_median": null,
+   "child_median": null,
+   "gain_pp": null,
+   "current_after": "bab36d41e1648cbdfd7757b33ee728f35bed007c7acda66462316a7f36d4035e",
+   "current_median_after": 1
+  }
+ ]
+}

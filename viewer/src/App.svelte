@@ -266,9 +266,10 @@
   .stat.refused .n { color: var(--tx-refused); }
   .stage {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(340px, 460px);
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 410px);
     gap: 1rem;
-    height: 720px;
+    /* Fills the window below the header so the whole graph is visible without scrolling. */
+    height: clamp(480px, calc(100vh - 190px), 780px);
   }
   .graphcard {
     overflow: hidden;
