@@ -1,0 +1,136 @@
+:root {
+  --bg: #f5f6f8;
+  --panel: #ffffff;
+  --panel-2: #f0f2f5;
+  --fg: #1c2330;
+  --muted: #5d6879;
+  --line: #dfe3ea;
+  --accent: #3563e9;
+  --accent-fg: #ffffff;
+  --shadow: 0 1px 2px rgba(20, 30, 50, 0.06), 0 4px 16px rgba(20, 30, 50, 0.05);
+  --c-accepted: #1f9d57;
+  --c-rejected: #d23f3f;
+  --c-noise: #c4850c;
+  --c-pending: #6b7a90;
+  --c-root: #3563e9;
+  --c-refused: #8a94a3;
+  --bg-accepted: #e4f6ec;
+  --bg-rejected: #fbe7e7;
+  --bg-noise: #fbf0d8;
+  --bg-pending: #e9edf3;
+  --bg-root: #e3eafd;
+  --bg-refused: #f3f4f6;
+  --radius: 12px;
+  --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
+  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+:root[data-theme='dark'] {
+  --bg: #0f1319;
+  --panel: #171c25;
+  --panel-2: #1e2430;
+  --fg: #e4e9f1;
+  --muted: #9aa5b6;
+  --line: #2a3140;
+  --accent: #6c93ff;
+  --accent-fg: #0f1319;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.25);
+  --c-accepted: #46c47f;
+  --c-rejected: #f06a6a;
+  --c-noise: #e8ae3d;
+  --c-pending: #8f9db3;
+  --c-root: #6c93ff;
+  --c-refused: #7d8798;
+  --bg-accepted: #153326;
+  --bg-rejected: #3a1b1d;
+  --bg-noise: #3a2e14;
+  --bg-pending: #232b38;
+  --bg-root: #1b2748;
+  --bg-refused: #1b212b;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: var(--accent);
+}
+
+code,
+.mono {
+  font-family: var(--mono);
+  font-size: 0.92em;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  cursor: pointer;
+}
+.btn:hover {
+  background: var(--panel-2);
+}
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+  font-weight: 600;
+}
+.btn.primary:hover {
+  filter: brightness(1.06);
+}
+.btn:focus-visible,
+.node-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.05rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  border: 1px solid currentColor;
+}
+.badge.accepted { color: var(--c-accepted); background: var(--bg-accepted); }
+.badge.rejected { color: var(--c-rejected); background: var(--bg-rejected); }
+.badge.noise { color: var(--c-noise); background: var(--bg-noise); }
+.badge.pending { color: var(--c-pending); background: var(--bg-pending); }
+.badge.root { color: var(--c-root); background: var(--bg-root); }
+.badge.refused { color: var(--c-refused); background: var(--bg-refused); }
+
+/* diff2html dark mode needs a transparent wrapper so the card shows through */
+.d2h-wrapper {
+  font-size: 0.85rem;
+}
