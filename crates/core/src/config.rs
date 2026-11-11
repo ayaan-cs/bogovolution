@@ -27,7 +27,7 @@ pub struct BudgetConfig {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MetaConfig {
-    /// `false` until the user has confirmed the evaluation and budget values.
+    /// `true` once the evaluation and budget values have been confirmed.
     pub defaults_confirmed: bool,
 }
 
@@ -59,7 +59,7 @@ impl Config {
                 max_tokens_per_run: 200_000,
             },
             meta: MetaConfig {
-                defaults_confirmed: false,
+                defaults_confirmed: true,
             },
         }
     }
@@ -69,9 +69,7 @@ impl Config {
         format!(
             "# rules-evolve config\n\
              #\n\
-             # The [evaluation] and [budget] values below are DEFAULTS that have\n\
-             # NOT been confirmed by the user yet. Change them if you like, then set\n\
-             # defaults_confirmed = true in [meta].\n\
+             # The [evaluation] and [budget] values below were confirmed by the project owner.\n\
              \n\
              [project]\n\
              # Rules file to evolve, relative to the repo root.\n\
@@ -176,7 +174,7 @@ mod tests {
         assert_eq!(parsed.evaluation.accept_threshold_pp, 10.0);
         assert_eq!(parsed.evaluation.min_paired_wins, 4);
         assert_eq!(parsed.budget.max_tokens_per_run, 200_000);
-        assert!(!parsed.meta.defaults_confirmed);
+        assert!(parsed.meta.defaults_confirmed);
     }
 
     #[test]

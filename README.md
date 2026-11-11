@@ -81,8 +81,8 @@ It writes:
 | `.rules-evolve/HEAD` | Newest `seq` and `hash`, used to spot cut off logs |
 | `.rules-evolve/blobs/<sha256>` | Rules file versions, named by content hash |
 
-Default settings (these are **defaults that the user has not confirmed yet**,
-and `config.toml` says so with `defaults_confirmed = false`):
+Default settings (confirmed by the project owner, and recorded in `config.toml`
+as `defaults_confirmed = true`):
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
@@ -156,7 +156,7 @@ without a bump. Object keys are sorted.
 `data` per command:
 
 - `init`: `repo_root`, `rules_file`, `detected` (bool), `other_candidates`,
-  `notes`, `model`, `root_hash`, `defaults_confirmed` (always false),
+  `notes`, `model`, `root_hash`, `defaults_confirmed` (true),
   `files_created`.
 - `status`: `repo_root`, `valid` (chain and blobs both fine), `chain` (see
   below), `blob_problems`, `tree` (or null if the log is invalid), `config`.
@@ -256,5 +256,5 @@ engine runs the same checks before it appends a new event.
 ## Cost
 
 Phase 1 makes no network calls and costs nothing to run. Later phases will use
-your own API key, and a per run token cap (default 200000, unconfirmed) is part
+your own API key, and a per run token cap (default 200000) is part
 of the config from the start.

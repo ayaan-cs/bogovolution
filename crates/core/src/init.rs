@@ -178,7 +178,7 @@ pub fn init(opts: &InitOptions) -> Result<InitReport> {
         notes,
         model: opts.model.clone(),
         root_hash: root_hash.clone(),
-        defaults_confirmed: false,
+        defaults_confirmed: true,
         files_created: vec![
             rel("config.toml"),
             rel("tasks.toml"),
@@ -212,7 +212,7 @@ mod tests {
         assert_eq!(report.rules_file, "AGENTS.md");
         assert!(report.detected);
         assert_eq!(report.other_candidates, vec!["CLAUDE.md".to_string()]);
-        assert!(!report.defaults_confirmed);
+        assert!(report.defaults_confirmed);
 
         let store = Store::for_repo(dir.path());
         assert!(store.config_path().is_file());
@@ -221,7 +221,7 @@ mod tests {
 
         let cfg = Config::load(&store.config_path()).unwrap();
         assert_eq!(cfg.evaluation.repeats, 5);
-        assert!(!cfg.meta.defaults_confirmed);
+        assert!(cfg.meta.defaults_confirmed);
 
         let repo = Repo::open(dir.path()).unwrap();
         let status = repo.status().unwrap();

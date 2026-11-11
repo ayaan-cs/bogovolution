@@ -137,8 +137,7 @@ fn run(cli: &Cli) -> Result<Output> {
                 text.push_str(&format!("  {f}\n"));
             }
             text.push_str(
-                "\nThe evaluation and budget settings are DEFAULTS and are not confirmed yet.\n\
-                 Review .rules-evolve/config.toml and edit .rules-evolve/tasks.toml.\n",
+                "\nReview .rules-evolve/config.toml and edit .rules-evolve/tasks.toml.\n",
             );
             Ok(Output {
                 command: "init",
@@ -272,9 +271,6 @@ fn status_text(s: &StatusReport) -> String {
             cfg.evaluation.min_paired_wins,
             cfg.budget.max_tokens_per_run
         ));
-        if !cfg.meta.defaults_confirmed {
-            t.push_str("  (defaults, not confirmed yet)\n");
-        }
     }
     match &s.tree {
         Some(tree) => {

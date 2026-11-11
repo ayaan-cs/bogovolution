@@ -44,7 +44,7 @@ fn init_then_status_then_log_then_verify() {
     assert_eq!(v["data"]["tree"]["model"], "demo-model");
     assert_eq!(v["data"]["tree"]["nodes"].as_array().unwrap().len(), 1);
     assert_eq!(v["data"]["config"]["evaluation"]["repeats"], 5);
-    assert_eq!(v["data"]["config"]["meta"]["defaults_confirmed"], false);
+    assert_eq!(v["data"]["config"]["meta"]["defaults_confirmed"], true);
 
     let out = run(dir.path(), &["log", "--json"]);
     let v = json_of(&out);
@@ -63,7 +63,7 @@ fn init_then_status_then_log_then_verify() {
     let out = run(dir.path(), &["status"]);
     let text = String::from_utf8_lossy(&out.stdout);
     assert!(text.contains("intact"));
-    assert!(text.contains("defaults, not confirmed"));
+    assert!(!text.contains("not confirmed"));
 }
 
 #[test]
@@ -77,7 +77,7 @@ fn init_writes_expected_files_and_template() {
     let cfg = std::fs::read_to_string(root.join("config.toml")).unwrap();
     assert!(cfg.contains("repeats = 5"));
     assert!(cfg.contains("max_tokens_per_run = 200000"));
-    assert!(cfg.contains("defaults_confirmed = false"));
+    assert!(cfg.contains("defaults_confirmed = true"));
 }
 
 #[test]
