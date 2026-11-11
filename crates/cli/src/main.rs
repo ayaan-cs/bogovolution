@@ -9,6 +9,7 @@ use rules_evolve_core::digest::{build_digest, render_markdown};
 use rules_evolve_core::event::{Event, EventKind, Payload};
 use rules_evolve_core::export::{build_export, to_json as export_json};
 use rules_evolve_core::init::{init, InitOptions};
+use rules_evolve_core::isolation::Isolation;
 use rules_evolve_core::model::{build_provider, Model, ProviderSpec};
 use rules_evolve_core::mutate::{evolve, mutate, EvolveOptions, MutateOptions};
 use rules_evolve_core::repo::{FullVerify, Repo, StatusReport};
@@ -61,9 +62,25 @@ struct ProviderArgs {
     /// is slow enough to watch in `watch`. Only for `--provider replay`
     #[arg(long, default_value_t = 0, value_name = "MS")]
     pace: u64,
+    /// How check commands are isolated: auto, bwrap, docker, podman or none.
+    /// Overrides `[sandbox] isolation` in config.toml. `none` is unsafe
+    #[arg(long, value_name = "BACKEND")]
+    isolation: Option<String>,
 }
 
 impl ProviderArgs {
+    /// Open the repo with the `--isolation` override applied.
+    fn open_repo(&self, dir: &std::path::Path) -> Result<Repo> {
+        let mut repo = Repo::open(dir)?;
+        let over = self
+            .isolation
+            .as_deref()
+            .map(str::parse::<Isolation>)
+            .transpose()?;
+        repo.set_isolation_override(over);
+        Ok(repo)
+    }
+
     fn build(&self, dir: &std::path::Path) -> Result<Box<dyn Model>> {
         let rel = |p: &PathBuf| {
             if p.is_absolute() {
@@ -203,6 +220,8 @@ enum Command {
         #[command(flatten)]
         provider: ProviderArgs,
     },
+    /// Show which isolation backends work on this machine and which one `auto` picks
+    Isolation,
     /// Compare a child to its parent with the fixed rule and record the verdict
     Verify {
         /// The child version: a hash prefix
@@ -299,6 +318,41 @@ fn run(cli: &Cli) -> Result<Output> {
                 exit: 0,
             })
         }
+        Command::Isolation => {
+            let repo = Repo::open(&cli.dir)?;
+            let settings = repo.sandbox_settings()?;
+            settings.validate()?;
+            let (backends, auto) = rules_evolve_core::isolation::survey(&settings);
+            let mut text = format!("Configured isolation: {}\n", settings.isolation.as_str());
+            for b in &backends {
+                match &b.problem {
+                    None => text.push_str(&format!("  {}: works\n", b.backend.as_str())),
+                    Some(p) => text.push_str(&format!(
+                        "  {}: does not work here ({})\n",
+                        b.backend.as_str(),
+                        p
+                    )),
+                }
+            }
+            text.push_str(&match auto {
+                Some(b) => format!("auto would use: {}\n", b.as_str()),
+                None => format!(
+                    "auto would use: {} (a real provider would be refused)\n",
+                    rules_evolve_core::isolation::UNSAFE_LABEL
+                ),
+            });
+            Ok(Output {
+                command: "isolation",
+                data: json!({
+                    "configured": settings.isolation.as_str(),
+                    "image": settings.image,
+                    "backends": backends,
+                    "auto": auto.map(|b| b.as_str()).unwrap_or("none"),
+                }),
+                text,
+                exit: 0,
+            })
+        }
         Command::Status => {
             let repo = Repo::open(&cli.dir)?;
             let status = repo.status()?;
@@ -379,7 +433,7 @@ fn run(cli: &Cli) -> Result<Output> {
             seed,
             provider,
         } => {
-            let repo = Repo::open(&cli.dir)?;
+            let repo = provider.open_repo(&cli.dir)?;
             let model = provider.build(&cli.dir)?;
             let report = run_version(
                 &repo,
@@ -418,6 +472,10 @@ fn run(cli: &Cli) -> Result<Output> {
                     report.skipped_existing
                 ));
             }
+            text.push_str(&format!(
+                "Isolation: {}\n",
+                label_isolation(&report.isolation)
+            ));
             text.push_str(&format!("Total tokens: {}\n", report.total_tokens));
             text.push_str(&counters_text(model.as_ref(), provider));
             Ok(Output {
@@ -432,7 +490,7 @@ fn run(cli: &Cli) -> Result<Output> {
             seed,
             provider,
         } => {
-            let repo = Repo::open(&cli.dir)?;
+            let repo = provider.open_repo(&cli.dir)?;
             let model = provider.build(&cli.dir)?;
             let out = mutate(
                 &repo,
@@ -478,7 +536,7 @@ fn run(cli: &Cli) -> Result<Output> {
             seed,
             provider,
         } => {
-            let repo = Repo::open(&cli.dir)?;
+            let repo = provider.open_repo(&cli.dir)?;
             let model = provider.build(&cli.dir)?;
             let report = evolve(
                 &repo,
@@ -519,6 +577,9 @@ fn run(cli: &Cli) -> Result<Output> {
                     },
                     short(&g.current)
                 ));
+            }
+            if let Some(iso) = &report.isolation {
+                text.push_str(&format!("Isolation: {}\n", label_isolation(iso)));
             }
             text.push_str(&format!(
                 "Accepted {}, rejected {}, noise {}, refused {}. Total tokens: {}\n",
@@ -717,6 +778,15 @@ fn counters_text(model: &dyn Model, args: &ProviderArgs) -> String {
         format!("Served {} answers from the replay file.\n", c.replayed)
     } else {
         String::new()
+    }
+}
+
+/// Backend name for people. `none` always says it is unsafe.
+fn label_isolation(name: &str) -> &str {
+    if name == "none" {
+        rules_evolve_core::isolation::UNSAFE_LABEL
+    } else {
+        name
     }
 }
 

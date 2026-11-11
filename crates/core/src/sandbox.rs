@@ -11,19 +11,23 @@
 //! 4. applies the model's edits, refusing any that touch hidden or protected
 //!    paths;
 //! 5. puts the hidden files back, overwriting anything at those paths;
-//! 6. runs the check command in the copy with a timeout and a cleared
-//!    environment.
+//! 6. runs the check command in the copy through an isolation
+//!    [`Runner`](crate::isolation::Runner) (bwrap, docker, podman, or none),
+//!    with a timeout and a cleared environment.
 //!
-//! Threat model, and its limits, are in the README. In short: this keeps a
-//! model from READING the tests while it produces its answer. It is not an
-//! operating system sandbox.
+//! Threat model, and its limits, are in the README. In short: steps 1 to 5 keep
+//! a model from READING the tests while it produces its answer, and the runner
+//! keeps code that runs during the check away from the rest of the machine. A
+//! sandbox built with [`Sandbox::scan`] alone uses no isolation (`none`); the
+//! benchmark harness always sets a runner chosen by the isolation policy.
 
-use crate::error::{io_err, Error, Result};
+use crate::error::{io_err, Result};
+pub use crate::isolation::CheckStatus;
+use crate::isolation::Runner;
 use crate::model::FileEdit;
 use crate::tasks::SandboxConfig;
 use std::path::{Component, Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use tempfile::TempDir;
 
 /// Folders that are never copied into a worktree.
@@ -83,6 +87,7 @@ pub struct Sandbox {
     visible_files: Vec<String>,
     hidden_files: Vec<String>,
     skipped_symlinks: usize,
+    runner: Runner,
 }
 
 fn is_normal_relative(path: &str) -> bool {
@@ -105,11 +110,23 @@ impl Sandbox {
             visible_files: Vec::new(),
             hidden_files: Vec::new(),
             skipped_symlinks: 0,
+            runner: Runner::unsafe_none(),
         };
         sb.walk(repo_dir, "")?;
         sb.visible_files.sort();
         sb.hidden_files.sort();
         Ok(sb)
+    }
+
+    /// Run checks with this runner. Without it a sandbox uses no isolation,
+    /// which is only for tests and the mock and replay providers.
+    pub fn with_runner(mut self, runner: Runner) -> Sandbox {
+        self.runner = runner;
+        self
+    }
+
+    pub fn runner(&self) -> &Runner {
+        &self.runner
     }
 
     fn is_excluded(&self, rel: &str) -> bool {
@@ -216,14 +233,6 @@ fn copy_into(from_root: &Path, to_root: &Path, rel: &str) -> Result<()> {
     Ok(())
 }
 
-/// How a check command ended.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CheckStatus {
-    Passed,
-    Failed,
-    TimedOut,
-}
-
 /// A temp copy of the repo. Deleted when dropped.
 pub struct Worktree<'a> {
     dir: TempDir,
@@ -267,56 +276,25 @@ impl Worktree<'_> {
         Ok(())
     }
 
-    /// Run a shell command in the worktree. Output is discarded. The
-    /// environment is cleared except for `PATH` and the passthrough list.
+    /// Run a shell command in the worktree through the sandbox's runner, with
+    /// a timeout. Output is discarded. The environment is cleared except for
+    /// the names in `env_passthrough` (and `PATH` and `HOME`, which the
+    /// backend sets itself).
     pub fn run_check(&self, command: &str, timeout: Duration) -> Result<CheckStatus> {
-        let mut cmd = Command::new("sh");
-        cmd.arg("-c")
-            .arg(command)
-            .current_dir(self.path())
-            .env_clear()
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .env("HOME", self.path());
-        if let Some(path) = std::env::var_os("PATH") {
-            cmd.env("PATH", path);
-        }
-        for name in &self.sandbox.env_passthrough {
-            if let Some(v) = std::env::var_os(name) {
-                cmd.env(name, v);
-            }
-        }
-        let mut child = cmd
-            .spawn()
-            .map_err(|e| Error::Input(format!("could not start the check command: {e}")))?;
-        let deadline = Instant::now() + timeout;
-        loop {
-            match child.try_wait() {
-                Ok(Some(status)) => {
-                    return Ok(if status.success() {
-                        CheckStatus::Passed
-                    } else {
-                        CheckStatus::Failed
-                    })
-                }
-                Ok(None) => {
-                    if Instant::now() >= deadline {
-                        let _ = child.kill();
-                        let _ = child.wait();
-                        return Ok(CheckStatus::TimedOut);
-                    }
-                    std::thread::sleep(Duration::from_millis(10));
-                }
-                Err(e) => return Err(Error::Input(format!("check command failed: {e}"))),
-            }
-        }
+        let env: Vec<(String, String)> = self
+            .sandbox
+            .env_passthrough
+            .iter()
+            .filter_map(|n| std::env::var(n).ok().map(|v| (n.clone(), v)))
+            .collect();
+        self.sandbox.runner.run(self.path(), command, &env, timeout)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Instant;
     use tempfile::tempdir;
 
     fn write(root: &Path, rel: &str, content: &str) {

@@ -3,6 +3,7 @@
 use crate::config::Config;
 use crate::error::{Error, Result};
 use crate::event::{Event, EventKind, Payload};
+use crate::isolation::{Isolation, SandboxSettings};
 use crate::log::{Log, Problem, VerifyReport};
 use crate::store::{BlobState, Store};
 use crate::tasks::TasksFile;
@@ -14,6 +15,7 @@ pub struct Repo {
     dir: PathBuf,
     store: Store,
     log: Log,
+    isolation_override: Option<Isolation>,
 }
 
 /// Result of `verify-log`: the chain check plus a check of stored blobs.
@@ -49,7 +51,23 @@ impl Repo {
             dir: dir.to_path_buf(),
             store,
             log,
+            isolation_override: None,
         })
+    }
+
+    /// Use this isolation instead of the one in `config.toml` (the command
+    /// line override).
+    pub fn set_isolation_override(&mut self, isolation: Option<Isolation>) {
+        self.isolation_override = isolation;
+    }
+
+    /// The `[sandbox]` settings in force: the config, then the override.
+    pub fn sandbox_settings(&self) -> Result<SandboxSettings> {
+        let mut s = self.config()?.sandbox;
+        if let Some(i) = self.isolation_override {
+            s.isolation = i;
+        }
+        Ok(s)
     }
 
     pub fn dir(&self) -> &Path {

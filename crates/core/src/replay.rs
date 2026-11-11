@@ -20,6 +20,7 @@
 
 use crate::error::{io_err, Error, Result};
 use crate::hash::{canonical_json, sha256_hex};
+use crate::isolation::ProviderKind;
 use crate::model::{
     Counters, Model, ModelRequest, ModelResponse, MutationRequest, MutationResponse,
 };
@@ -273,6 +274,10 @@ impl Model for RecordingModel {
         self.inner.name()
     }
 
+    fn kind(&self) -> ProviderKind {
+        self.inner.kind()
+    }
+
     fn estimate_tokens(&self, req: &ModelRequest) -> u64 {
         self.inner.estimate_tokens(req)
     }
@@ -392,6 +397,10 @@ impl ReplayModel {
 impl Model for ReplayModel {
     fn name(&self) -> String {
         "replay".to_string()
+    }
+
+    fn kind(&self) -> ProviderKind {
+        ProviderKind::Local
     }
 
     /// The recorded token count, or 0 on a miss so that `complete` can report

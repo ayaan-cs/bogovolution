@@ -12,6 +12,7 @@ pub mod export;
 pub mod git;
 pub mod hash;
 pub mod init;
+pub mod isolation;
 pub mod log;
 pub mod model;
 pub mod mutate;

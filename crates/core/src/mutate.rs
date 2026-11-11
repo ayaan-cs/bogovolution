@@ -117,6 +117,8 @@ pub struct MutateOutcome {
 /// written. A model answer that breaks a rule is written as a refusal.
 pub fn mutate(repo: &Repo, model: &dyn Model, opts: &MutateOptions) -> Result<MutateOutcome> {
     let config = repo.config()?;
+    // A real provider must not run without isolation. Refuse before any call.
+    crate::isolation::check_policy(model.kind(), repo.sandbox_settings()?.isolation)?;
     let tree = Tree::from_events(&repo.events()?)?;
     let parent = tree.resolve(&opts.parent)?;
     let parent_bytes = repo.store().get_blob(&parent)?;
@@ -240,6 +242,9 @@ pub struct EvolveReport {
     pub noise: u32,
     pub refused: u32,
     pub total_tokens: u64,
+    /// Isolation backend the checks ran with. `None` when no check ran (every
+    /// attempt was refused).
+    pub isolation: Option<String>,
     pub generations: Vec<Generation>,
 }
 
@@ -258,6 +263,7 @@ pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<Ev
         noise: 0,
         refused: 0,
         total_tokens: 0,
+        isolation: None,
         generations: Vec::new(),
     };
 
@@ -294,6 +300,7 @@ pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<Ev
                 };
                 let parent_runs = run_version(repo, model, &run_opts(&parent))?;
                 let child_runs = run_version(repo, model, &run_opts(&child))?;
+                report.isolation.get_or_insert(child_runs.isolation.clone());
                 gen.parent_runs_recorded = parent_runs.runs.len();
                 gen.child_runs_recorded = child_runs.runs.len();
                 tokens += parent_runs.total_tokens + child_runs.total_tokens;
@@ -374,6 +381,10 @@ mod tests {
     impl Model for Fixed {
         fn name(&self) -> String {
             "fixed".into()
+        }
+
+        fn kind(&self) -> crate::model::ProviderKind {
+            crate::model::ProviderKind::Local
         }
         fn estimate_tokens(&self, _r: &crate::model::ModelRequest) -> u64 {
             1

@@ -165,6 +165,10 @@ pub struct RunRecordedPayload {
     /// Per task results. Empty for runs recorded without detail.
     #[serde(default)]
     pub tasks: Vec<TaskOutcome>,
+    /// Isolation backend the checks ran with (`bwrap`, `docker`, `podman` or
+    /// `none`). Missing in logs written before it existed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub isolation: Option<String>,
 }
 
 /// The final decision about a child, by the fixed public rule.
@@ -273,5 +277,35 @@ impl Event {
             "prev_hash": self.prev_hash,
         });
         sha256_hex(canonical_json(&body).as_bytes())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn run_events_from_before_isolation_existed_still_read() {
+        let old = serde_json::json!({
+            "node": "a",
+            "run_index": 0,
+            "passed": 3,
+            "total": 4
+        });
+        let p: RunRecordedPayload = serde_json::from_value(old).unwrap();
+        assert_eq!(p.isolation, None);
+    }
+
+    #[test]
+    fn a_missing_isolation_is_not_written_so_old_lines_keep_their_bytes() {
+        let p = RunRecordedPayload::default();
+        let v = serde_json::to_value(&p).unwrap();
+        assert!(v.get("isolation").is_none());
+        let p = RunRecordedPayload {
+            isolation: Some("bwrap".into()),
+            ..Default::default()
+        };
+        let v = serde_json::to_value(&p).unwrap();
+        assert_eq!(v["isolation"], "bwrap");
     }
 }

@@ -1273,3 +1273,167 @@ fn the_core_crate_has_no_terminal_dependencies() {
     let watch = std::fs::read_to_string(repo_file("crates/watch/Cargo.toml")).unwrap();
     assert!(watch.contains("ratatui"));
 }
+
+// ---------------------------------------------------------------------
+// v1.2: isolation
+// ---------------------------------------------------------------------
+
+fn survey_json(dir: &Path) -> Value {
+    ok_json(dir, &["isolation"])["data"].clone()
+}
+
+fn backend_works(survey: &Value, name: &str) -> bool {
+    survey["backends"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|b| b["backend"] == name && b["works"] == true)
+}
+
+#[test]
+fn init_writes_the_sandbox_table_with_safe_defaults() {
+    let dir = project();
+    let text = std::fs::read_to_string(dir.path().join(".rules-evolve/config.toml")).unwrap();
+    assert!(text.contains("[sandbox]"));
+    assert!(text.contains("isolation = \"auto\""));
+    assert!(text.contains("image = \"docker.io/library/alpine:3.20\""));
+    assert!(text.contains("max_processes = 256"));
+}
+
+#[test]
+fn isolation_command_reports_what_works_and_what_auto_picks() {
+    let dir = project();
+    let d = survey_json(dir.path());
+    assert_eq!(d["configured"], "auto");
+    let names: Vec<&str> = d["backends"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|b| b["backend"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, vec!["bwrap", "podman", "docker"]);
+    // Every backend that does not work says why.
+    for b in d["backends"].as_array().unwrap() {
+        if b["works"] == false {
+            assert!(!b["problem"].as_str().unwrap().is_empty());
+        }
+    }
+    // auto is the first one that works, or none.
+    let first = ["bwrap", "podman", "docker"]
+        .into_iter()
+        .find(|n| backend_works(&d, n))
+        .unwrap_or("none");
+    assert_eq!(d["auto"], first);
+    let out = run(dir.path(), &["isolation"]);
+    assert!(out.status.success());
+    let text = String::from_utf8(out.stdout).unwrap();
+    assert!(text.contains("auto would use:"));
+}
+
+#[test]
+fn run_labels_none_as_unsafe_and_records_it_in_the_log() {
+    let dir = demo_project();
+    let out = run(
+        dir.path(),
+        &["run", "--repeats", "1", "--isolation", "none"],
+    );
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let text = String::from_utf8(out.stdout).unwrap();
+    assert!(text.contains("Isolation: none (UNSAFE"), "{text}");
+
+    let v = ok_json(
+        dir.path(),
+        &["run", "--repeats", "2", "--isolation", "none"],
+    );
+    assert_eq!(v["data"]["isolation"], "none");
+    let runs = ok_json(dir.path(), &["log", "--kind", "run_recorded"]);
+    for e in runs["data"]["events"].as_array().unwrap() {
+        assert_eq!(e["payload"]["isolation"], "none");
+    }
+}
+
+#[test]
+fn run_uses_the_backend_auto_picks_and_records_it() {
+    let dir = demo_project();
+    let want = survey_json(dir.path())["auto"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let v = ok_json(dir.path(), &["run", "--repeats", "1"]);
+    assert_eq!(v["data"]["isolation"], want.as_str());
+    let runs = ok_json(dir.path(), &["log", "--kind", "run_recorded"]);
+    let events = runs["data"]["events"].as_array().unwrap();
+    assert_eq!(events.len(), 1);
+    assert_eq!(events[0]["payload"]["isolation"], want.as_str());
+    // The demo tasks pass the same way under isolation or without it.
+    assert!(v["data"]["runs"][0]["passed"].as_u64().is_some());
+}
+
+#[test]
+fn the_isolation_setting_in_config_and_the_flag_both_work() {
+    let dir = demo_project();
+    let cfg = dir.path().join(".rules-evolve/config.toml");
+    let text = std::fs::read_to_string(&cfg).unwrap();
+    std::fs::write(
+        &cfg,
+        text.replace("isolation = \"auto\"", "isolation = \"none\""),
+    )
+    .unwrap();
+    let v = ok_json(dir.path(), &["run", "--repeats", "1"]);
+    assert_eq!(v["data"]["isolation"], "none");
+    // The flag wins over the config.
+    let want = survey_json(dir.path());
+    if backend_works(&want, "bwrap") {
+        let v = ok_json(
+            dir.path(),
+            &["run", "--repeats", "2", "--isolation", "bwrap"],
+        );
+        assert_eq!(v["data"]["isolation"], "bwrap");
+    }
+}
+
+#[test]
+fn unknown_or_missing_backends_are_clear_errors_not_silent_fallbacks() {
+    let dir = demo_project();
+    let out = run(dir.path(), &["run", "--isolation", "chroot", "--json"]);
+    assert_eq!(out.status.code(), Some(1));
+    assert!(json_of(&out)["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("unknown isolation"));
+    let d = survey_json(dir.path());
+    for name in ["docker", "podman"] {
+        if !backend_works(&d, name) {
+            let out = run(dir.path(), &["run", "--isolation", name, "--json"]);
+            assert_eq!(out.status.code(), Some(1));
+            let msg = json_of(&out)["error"]["message"]
+                .as_str()
+                .unwrap()
+                .to_string();
+            assert!(msg.contains("does not work here"), "{msg}");
+        }
+    }
+    // Nothing was run or recorded by any of these.
+    let runs = ok_json(dir.path(), &["log", "--kind", "run_recorded"]);
+    assert_eq!(runs["data"]["total"], 0);
+}
+
+#[test]
+fn the_demo_replay_still_gives_the_same_lineage_under_isolation() {
+    // evolved_demo runs the committed replay with the default (auto) setting.
+    let dir = evolved_demo();
+    let v = ok_json(dir.path(), &["status"]);
+    assert_eq!(v["data"]["valid"], true);
+    let runs = ok_json(dir.path(), &["log", "--kind", "run_recorded"]);
+    let want = survey_json(dir.path())["auto"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    for e in runs["data"]["events"].as_array().unwrap() {
+        assert_eq!(e["payload"]["isolation"], want.as_str());
+    }
+}

@@ -10,6 +10,7 @@ use crate::event::{
     TaskStatus, VerdictPayload,
 };
 use crate::hash::sha256_hex;
+use crate::isolation::Runner;
 use crate::model::{Model, ModelRequest};
 use crate::repo::Repo;
 use crate::sandbox::{CheckStatus, Sandbox};
@@ -59,6 +60,9 @@ pub struct RunReport {
     pub base_seed: u64,
     pub repeats: u32,
     pub max_tokens_per_run: u64,
+    /// Isolation backend the checks ran with: `bwrap`, `docker`, `podman` or
+    /// `none` (unsafe).
+    pub isolation: String,
     /// Run indexes that were already recorded and so were not run again.
     pub skipped_existing: Vec<u32>,
     pub runs: Vec<RunDetail>,
@@ -93,7 +97,11 @@ pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<
     let cap = config.budget.max_tokens_per_run;
     let rules_bytes = repo.store().get_blob(&version)?;
     let rules_text = String::from_utf8_lossy(&rules_bytes).to_string();
-    let sandbox = Sandbox::scan(repo.dir(), &tree.rules_file, &tasks.sandbox)?;
+    // The policy lives here: a real provider cannot get a runner without
+    // isolation, and this is the only place checks are started from.
+    let runner = Runner::resolve(&repo.sandbox_settings()?, model.kind())?;
+    let isolation = runner.backend().as_str().to_string();
+    let sandbox = Sandbox::scan(repo.dir(), &tree.rules_file, &tasks.sandbox)?.with_runner(runner);
 
     let existing: HashMap<u32, Option<u64>> = tree
         .node(&version)
@@ -106,6 +114,7 @@ pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<
         base_seed: opts.base_seed,
         repeats,
         max_tokens_per_run: cap,
+        isolation: isolation.clone(),
         skipped_existing: Vec::new(),
         runs: Vec::new(),
         total_tokens: 0,
@@ -149,6 +158,7 @@ pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<
             provider: Some(model.name()),
             budget_exhausted: outcome.budget_exhausted,
             tasks: outcome.tasks.clone(),
+            isolation: Some(isolation.clone()),
         }))?;
         report.total_tokens += outcome.tokens_used;
         report.runs.push(RunDetail {
@@ -678,6 +688,10 @@ mod tests {
         fn name(&self) -> String {
             "overspender".into()
         }
+
+        fn kind(&self) -> crate::model::ProviderKind {
+            crate::model::ProviderKind::Local
+        }
         fn estimate_tokens(&self, _r: &ModelRequest) -> u64 {
             10
         }
@@ -712,6 +726,10 @@ mod tests {
     impl Model for Spy {
         fn name(&self) -> String {
             "spy".into()
+        }
+
+        fn kind(&self) -> crate::model::ProviderKind {
+            crate::model::ProviderKind::Local
         }
         fn estimate_tokens(&self, _r: &ModelRequest) -> u64 {
             1
@@ -910,5 +928,180 @@ mod tests {
         for i in 0..50 {
             assert!(run_seed(i, i as u32) < (1u64 << 48));
         }
+    }
+
+    // ---- isolation (v1.2) ----
+
+    fn set_isolation(repo: &Repo, value: &str) {
+        let p = repo.store().config_path();
+        let t = std::fs::read_to_string(&p).unwrap();
+        let out: Vec<String> = t
+            .lines()
+            .map(|l| {
+                if l.starts_with("isolation = ") {
+                    format!("isolation = \"{value}\"")
+                } else {
+                    l.to_string()
+                }
+            })
+            .collect();
+        std::fs::write(&p, out.join("\n") + "\n").unwrap();
+    }
+
+    /// Pretends to be a real, networked provider (none exist yet), so the
+    /// isolation policy can be tested before one is added.
+    struct FakeReal(MockModel);
+    impl Model for FakeReal {
+        fn name(&self) -> String {
+            "fake-real".into()
+        }
+        fn kind(&self) -> crate::model::ProviderKind {
+            crate::model::ProviderKind::Real
+        }
+        fn estimate_tokens(&self, r: &ModelRequest) -> u64 {
+            self.0.estimate_tokens(r)
+        }
+        fn complete(&self, r: &ModelRequest) -> Result<ModelResponse> {
+            self.0.complete(r)
+        }
+        fn estimate_mutation_tokens(&self, r: &crate::model::MutationRequest) -> u64 {
+            self.0.estimate_mutation_tokens(r)
+        }
+        fn propose_mutation(
+            &self,
+            r: &crate::model::MutationRequest,
+        ) -> Result<crate::model::MutationResponse> {
+            self.0.propose_mutation(r)
+        }
+    }
+
+    fn bwrap_works() -> bool {
+        let ok = crate::isolation::probe_backend(
+            crate::isolation::Backend::Bwrap,
+            &crate::isolation::SandboxSettings::default(),
+        );
+        if let Err(why) = &ok {
+            eprintln!("SKIPPED: bwrap does not work here: {why}");
+        }
+        ok.is_ok()
+    }
+
+    fn recorded_isolation(repo: &Repo) -> Vec<Option<String>> {
+        repo.events()
+            .unwrap()
+            .iter()
+            .filter_map(|e| match Payload::from_event(e).unwrap() {
+                Payload::RunRecorded(r) => Some(r.isolation),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_real_provider_cannot_run_checks_without_isolation() {
+        let (_d, repo) = fixture(&mock_toml(1.0, ""));
+        set_isolation(&repo, "none");
+        let fake = FakeReal(mock(&repo));
+        let before = repo.events().unwrap().len();
+        let err = run_version(&repo, &fake, &opts("root"))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("real provider must run isolated"), "{err}");
+        // Nothing ran and nothing was recorded.
+        assert_eq!(repo.events().unwrap().len(), before);
+        // The same goes for mutate and evolve, before any model call.
+        let m = crate::mutate::mutate(
+            &repo,
+            &fake,
+            &crate::mutate::MutateOptions {
+                parent: "root".into(),
+                seed: 0,
+            },
+        );
+        assert!(m
+            .unwrap_err()
+            .to_string()
+            .contains("real provider must run isolated"));
+        let e = crate::mutate::evolve(
+            &repo,
+            &fake,
+            &crate::mutate::EvolveOptions {
+                generations: 1,
+                base_seed: 0,
+            },
+        );
+        assert!(e
+            .unwrap_err()
+            .to_string()
+            .contains("real provider must run isolated"));
+        assert_eq!(repo.events().unwrap().len(), before);
+        // The command line override cannot be used to get around it either.
+        let mut repo2 = Repo::open(repo.dir()).unwrap();
+        repo2.set_isolation_override(Some(crate::isolation::Isolation::None));
+        set_isolation(&repo, "auto");
+        assert!(run_version(&repo2, &fake, &opts("root")).is_err());
+    }
+
+    #[test]
+    fn a_real_provider_runs_when_a_backend_works_and_is_refused_when_none_does() {
+        let (_d, repo) = fixture(&mock_toml(1.0, ""));
+        let fake = FakeReal(mock(&repo));
+        let mut o = opts("root");
+        o.repeats = Some(1);
+        let r = run_version(&repo, &fake, &o);
+        if bwrap_works() {
+            let report = r.unwrap();
+            assert_eq!(report.isolation, "bwrap");
+            assert_eq!(recorded_isolation(&repo), vec![Some("bwrap".to_string())]);
+        } else {
+            // No bwrap here. Docker and podman may still work.
+            match r {
+                Ok(report) => assert!(report.isolation == "docker" || report.isolation == "podman"),
+                Err(e) => assert!(e.to_string().contains("no isolation backend works")),
+            }
+        }
+    }
+
+    #[test]
+    fn each_run_event_records_the_backend_that_was_used() {
+        let (_d, repo) = fixture(&mock_toml(1.0, ""));
+        set_isolation(&repo, "none");
+        let mut o = opts("root");
+        o.repeats = Some(2);
+        let report = run_version(&repo, &mock(&repo), &o).unwrap();
+        assert_eq!(report.isolation, "none");
+        assert_eq!(
+            recorded_isolation(&repo),
+            vec![Some("none".to_string()), Some("none".to_string())]
+        );
+    }
+
+    #[test]
+    fn the_check_runs_inside_the_isolation_and_cannot_see_the_real_repo() {
+        if !bwrap_works() {
+            return;
+        }
+        let (d, repo) = fixture(&mock_toml(1.0, ""));
+        // A check that passes only when the real repo path is not visible.
+        let hidden = d.path().join("check.sh");
+        let tasks = format!(
+            "[sandbox]\nhidden = [\"check.sh\"]\n[[task]]\nid=\"t0\"\nprompt=\"p\"\ncheck=\"test ! -e '{}' && test -e check.sh\"\n",
+            hidden.display()
+        );
+        std::fs::write(repo.store().tasks_path(), tasks).unwrap();
+        let mut o = opts("root");
+        o.repeats = Some(1);
+        set_isolation(&repo, "bwrap");
+        let isolated = run_version(&repo, &mock(&repo), &o).unwrap();
+        assert_eq!(isolated.runs[0].tasks[0].status, TaskStatus::Passed);
+        // Control: with none, the real path is visible, so the same check fails.
+        set_isolation(&repo, "bwrap");
+        let mut repo2 = Repo::open(repo.dir()).unwrap();
+        repo2.set_isolation_override(Some(crate::isolation::Isolation::None));
+        let mut o2 = opts("root");
+        o2.repeats = Some(2);
+        let open = run_version(&repo2, &mock(&repo), &o2).unwrap();
+        assert_eq!(open.isolation, "none");
+        assert_eq!(open.runs[0].tasks[0].status, TaskStatus::Failed);
     }
 }

@@ -6,6 +6,7 @@
 //! a later phase.
 
 use crate::error::{Error, Result};
+pub use crate::isolation::ProviderKind;
 use crate::replay::{RecordingModel, ReplayModel};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -87,6 +88,10 @@ pub struct Counters {
 pub trait Model {
     /// Short provider name recorded in the log, for example `mock`.
     fn name(&self) -> String;
+    /// Whether this provider needs isolation. Every provider must say, so a new
+    /// one cannot skip the policy by accident: `Real` providers refuse to run
+    /// without `bwrap`, `docker` or `podman`.
+    fn kind(&self) -> ProviderKind;
     /// A cautious guess of the tokens one call would use. The harness skips
     /// the call when this would go over the budget.
     fn estimate_tokens(&self, request: &ModelRequest) -> u64;
@@ -326,6 +331,10 @@ impl MockModel {
 impl Model for MockModel {
     fn name(&self) -> String {
         "mock".to_string()
+    }
+
+    fn kind(&self) -> ProviderKind {
+        ProviderKind::Local
     }
 
     fn estimate_tokens(&self, req: &ModelRequest) -> u64 {

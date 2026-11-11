@@ -1,6 +1,7 @@
 //! Project config (`config.toml`) and the task file template (`tasks.toml`).
 
 use crate::error::{Error, Result};
+use crate::isolation::SandboxSettings;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -52,6 +53,9 @@ pub struct Config {
     pub budget: BudgetConfig,
     #[serde(default)]
     pub mutation: MutationConfig,
+    /// Isolation of the check command. Old configs have no `[sandbox]` table.
+    #[serde(default)]
+    pub sandbox: SandboxSettings,
     pub meta: MetaConfig,
 }
 
@@ -75,6 +79,7 @@ impl Config {
                 max_tokens_per_run: 200_000,
             },
             mutation: MutationConfig::default(),
+            sandbox: SandboxSettings::default(),
             meta: MetaConfig {
                 defaults_confirmed: true,
             },
@@ -110,6 +115,21 @@ impl Config {
              # Largest allowed change between parent and child, in bytes.\n\
              max_change_bytes = {max_change}\n\
              \n\
+             [sandbox]\n\
+             # How check commands are isolated: auto, bwrap, docker, podman or none.\n\
+             # auto picks the strongest backend that works here (bwrap, then podman, then docker).\n\
+             # none is UNSAFE and only for the mock and replay providers. A real provider refuses it.\n\
+             isolation = {isolation}\n\
+             # Container image for docker and podman. It must exist locally, runs never pull.\n\
+             image = {image}\n\
+             # Limits for one check.\n\
+             memory_mb = {memory}\n\
+             cpus = {cpus:?}\n\
+             max_processes = {procs}\n\
+             max_file_mb = {file_mb}\n\
+             # Extra host folders mounted read only, for example a toolchain.\n\
+             ro_binds = {ro_binds}\n\
+             \n\
              [meta]\n\
              defaults_confirmed = {confirmed}\n",
             rules_file = toml_string(&self.project.rules_file),
@@ -119,6 +139,19 @@ impl Config {
             wins = self.evaluation.min_paired_wins,
             tokens = self.budget.max_tokens_per_run,
             max_change = self.mutation.max_change_bytes,
+            isolation = toml_string(self.sandbox.isolation.as_str()),
+            image = toml_string(&self.sandbox.image),
+            memory = self.sandbox.memory_mb,
+            cpus = self.sandbox.cpus,
+            procs = self.sandbox.max_processes,
+            file_mb = self.sandbox.max_file_mb,
+            ro_binds = toml::Value::Array(
+                self.sandbox
+                    .ro_binds
+                    .iter()
+                    .map(|p| toml::Value::String(p.clone()))
+                    .collect()
+            ),
             confirmed = self.meta.defaults_confirmed,
         )
     }
@@ -150,6 +183,27 @@ mod tests {
         assert_eq!(parsed.evaluation.min_paired_wins, 4);
         assert_eq!(parsed.budget.max_tokens_per_run, 200_000);
         assert!(parsed.meta.defaults_confirmed);
+    }
+
+    #[test]
+    fn old_configs_without_a_sandbox_table_still_load() {
+        let cfg = Config::with_defaults("AGENTS.md", "m");
+        let text = cfg.to_toml_template();
+        let cut = text.find("[sandbox]").unwrap();
+        let end = text.find("[meta]").unwrap();
+        let old = format!("{}{}", &text[..cut], &text[end..]);
+        let parsed: Config = toml::from_str(&old).unwrap();
+        assert_eq!(parsed.sandbox, SandboxSettings::default());
+    }
+
+    #[test]
+    fn sandbox_table_can_be_changed_and_round_trips() {
+        let mut cfg = Config::with_defaults("AGENTS.md", "m");
+        cfg.sandbox.isolation = crate::isolation::Isolation::Podman;
+        cfg.sandbox.ro_binds = vec!["/opt/toolchain".into()];
+        cfg.sandbox.cpus = 1.5;
+        let parsed: Config = toml::from_str(&cfg.to_toml_template()).unwrap();
+        assert_eq!(parsed, cfg);
     }
 
     #[test]
