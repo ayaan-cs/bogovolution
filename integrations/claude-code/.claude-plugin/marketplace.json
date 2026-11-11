@@ -1,0 +1,14 @@
+{
+  "name": "rules-evolve-local",
+  "description": "Local marketplace for the rules-evolve plugin. Add it from a path on disk, nothing is hosted.",
+  "owner": {
+    "name": "Ayaan Syed"
+  },
+  "plugins": [
+    {
+      "name": "rules-evolve",
+      "source": "./plugin",
+      "description": "Slash commands and repo gated hooks that wrap the rules-evolve CLI (mock and replay only)."
+    }
+  ]
+}

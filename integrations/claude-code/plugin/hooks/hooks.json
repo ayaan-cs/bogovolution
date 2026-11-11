@@ -1,0 +1,31 @@
+{
+  "description": "rules-evolve hooks. Both only act in a repo that has .rules-evolve/, never block, never call a model, and exit quietly when the rules-evolve binary is missing. Turn them off with RULES_EVOLVE_HOOKS=off or a .rules-evolve/hooks.off file.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh",
+            "args": [],
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/edit-warn.sh",
+            "args": [],
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

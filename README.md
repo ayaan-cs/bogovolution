@@ -24,7 +24,7 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: v1.2.3
+## Status: v2.0.0
 
 No real model is ever called yet. Everything runs on a deterministic **mock
 model**, so nothing here costs money or touches the network.
@@ -130,8 +130,18 @@ Done in v1.2.4 (readable lineage graph):
   9 px and 3 px). `viewer/test-fixtures/wide-tree.json` is a synthetic wide
   tree used by the tests and the smoke check.
 
-Planned later (not built yet): real bring-your-own-key providers and a Claude
-Code plugin. See the roadmap below.
+Done in v2.0.0 (Claude Code plugin):
+
+- `integrations/claude-code/` holds a Claude Code plugin and a small local
+  marketplace. Seven slash commands (`/rules-evolve:status`, `digest`,
+  `verify-log`, `export`, `propose`, `evolve`, `init`) shell out to the
+  `rules-evolve` binary, and two hooks (a session start status line and a warning
+  when the rules file is edited directly) are on only in repos that have
+  `.rules-evolve/`. Mock and replay only: the plugin refuses any other provider.
+  See "Claude Code plugin" below.
+
+Planned later (not built yet): real bring-your-own-key providers. See the
+roadmap below.
 
 ## Roadmap and remaining gaps
 
@@ -156,9 +166,10 @@ missing before a real provider that runs tools or code is switched on:
   fix in plain words (see "Shadow warnings"), but they are not prevented.
   List folders, not files, in `hidden` where you can.
 
-Other planned work: a Claude Code plugin and the real bring-your-own-key
-providers. No network provider exists in the code, and none should be added
-before the first bullet above is done.
+Other planned work: the real bring-your-own-key providers. No network provider
+exists in the code, and none should be added before the first bullet above is
+done. (The Claude Code plugin shipped in v2.0.0 and only allows `mock` and
+`replay`.)
 
 ## Not doing
 
@@ -188,6 +199,9 @@ a skipped backend ran nothing. Set `RULES_EVOLVE_REQUIRE_BACKENDS=bwrap,docker,p
 The `watch` command is behind the cargo feature `watch`, which is on by default.
 To build a binary without any terminal code, run
 `cargo build -p rules-evolve-cli --no-default-features`.
+
+The Claude Code plugin has its own tests, see "Claude Code plugin" below:
+`integrations/claude-code/tests/run-all.sh`.
 
 ## Commands
 
@@ -687,6 +701,145 @@ npm run screenshots # rewrites docs/screenshots (needs an installed Chrome)
 The smoke test and the screenshots use `playwright-core` with a Chrome or
 Chromium that is already installed (set `CHROME_PATH` if it is not in a usual
 place). Nothing is downloaded.
+
+## Claude Code plugin
+
+`integrations/claude-code/` is a [Claude Code plugin](https://code.claude.com/docs/en/plugins)
+that wraps this CLI. It adds slash commands and two small hooks. It never calls a
+model: the commands only pass `--provider mock` or `--provider replay`, and a
+wrapper script (`plugin/scripts/re.sh`) refuses any other provider before the
+binary runs. It sends nothing over the network.
+
+Layout (the format follows the official plugin docs):
+
+```
+integrations/claude-code/
+  .claude-plugin/marketplace.json     local marketplace "rules-evolve-local"
+  plugin/
+    .claude-plugin/plugin.json        manifest, plugin name "rules-evolve"
+    skills/<command>/SKILL.md         one folder per slash command
+    hooks/hooks.json                  the two hooks
+    scripts/                          re.sh (wrapper), session-start.sh, edit-warn.sh, lib.sh
+  tests/                              structural, hook and smoke tests
+```
+
+The slash commands are skills (the folder-per-command form that the docs
+recommend over the older flat `commands/` files). They run as
+`/rules-evolve:<name>`.
+
+### Install
+
+1. Build the binary and make it findable. The plugin looks, in this order, at
+   `RULES_EVOLVE_BIN`, `rules-evolve` on `PATH`, and `target/release` or
+   `target/debug` of this repo:
+
+   ```
+   cargo build --release
+   export RULES_EVOLVE_BIN="$PWD/target/release/rules-evolve"   # or put target/release on PATH
+   ```
+
+2. Install the plugin. Pick one.
+
+   Try it for one session without installing (nothing is saved):
+
+   ```
+   claude --plugin-dir integrations/claude-code/plugin
+   ```
+
+   Or add the local marketplace and install from it (it reads the files in place,
+   so edits show up at the next session start or after `/reload-plugins`):
+
+   ```
+   claude plugin marketplace add ./integrations/claude-code
+   claude plugin install rules-evolve@rules-evolve-local
+   ```
+
+   Inside a session the same steps are `/plugin marketplace add ./integrations/claude-code`
+   and `/plugin install rules-evolve@rules-evolve-local`.
+
+3. In the repo whose rules you want to evolve, run `/rules-evolve:init <model-name>`
+   once (or `rules-evolve init --model <name>` in a shell).
+
+Nothing is hosted and nothing is pushed anywhere. To remove it:
+`claude plugin uninstall rules-evolve@rules-evolve-local` and
+`claude plugin marketplace remove rules-evolve-local`.
+
+### Slash commands
+
+| Command | What it does | State change |
+| --- | --- | --- |
+| `/rules-evolve:status` | Log health, versions, accepted, rejected and noise counts, current version, edges with hypotheses | none |
+| `/rules-evolve:digest` | The plain English brief: what worked, what failed, noise, pending, untried directions | none |
+| `/rules-evolve:verify-log` | Checks the hash chain and the stored versions, reports intact or the exact problems | none |
+| `/rules-evolve:export [path]` | Writes the lineage JSON for the static viewer (default `rules-evolve-lineage.json`) | writes one file |
+| `/rules-evolve:propose <what to change and why>` | Drafts one small change, writes it to `.rules-evolve/scratch/` and records it as a child version with `propose` (refusals are logged and explained) | appends to the log |
+| `/rules-evolve:evolve [generations] [--seed N] [--replay-file PATH]` | Runs the loop on the mock model (default 3 generations) or a replay file, then summarizes each generation | appends to the log |
+| `/rules-evolve:init <model-name>` | Sets up `.rules-evolve/` | creates files |
+
+The read only commands may also be used by Claude on its own when you ask about
+the lineage. The commands that change anything (`export`, `propose`, `evolve`,
+`init`) only run when you type them (`disable-model-invocation: true`). Each command
+pre approves only the one wrapper script, so nothing else is allowed without a
+prompt. `watch` is a terminal screen, so it has no command: run `rules-evolve
+watch` in another terminal.
+
+The plugin does not copy a version into your real `AGENTS.md` or `CLAUDE.md`.
+An accepted version is stored as `.rules-evolve/blobs/<hash>`, and applying it
+stays your decision.
+
+### Hooks
+
+Both hooks only act when the repo has a `.rules-evolve/` folder, so installing the
+plugin changes nothing in other repos. Both always exit 0 (they never block or
+deny anything), print nothing and exit quietly when the `rules-evolve` binary is
+missing or anything unexpected happens, make no model call and use no network.
+They use `jq` when it is installed and plain `sed` when it is not.
+
+| Hook | Event | What it does |
+| --- | --- | --- |
+| `session-start.sh` | `SessionStart` (`startup`, `resume`) | Runs `rules-evolve status` (read only) and shows one line, for example `rules-evolve: log intact (64 events); versions 9 (deepest generation 3); mutations 8 (accepted 2, rejected 5, noise 1, pending 0); current cd28eb296938`. If the log fails verification the line says so and points to `/rules-evolve:verify-log`. The same facts are given to Claude as context. |
+| `edit-warn.sh` | `PostToolUse` for `Edit`, `Write`, `MultiEdit` | Warns when the file just edited is the `rules_file` from `.rules-evolve/config.toml`, or `AGENTS.md`, `CLAUDE.md` or a file in `.cursor/rules` at the repo root. The warning says the change is not recorded or benchmarked and points to `/rules-evolve:propose`. It warns once per file per session. It is a warning only: the edit is not undone or blocked. |
+
+### Turn the hooks off
+
+Any one of these works. The commands keep working either way.
+
+- For one shell or session: `RULES_EVOLVE_HOOKS=off claude` (also `0`, `false`, `no`).
+- For one repo, committed or not: create an empty file `.rules-evolve/hooks.off`.
+- All Claude Code hooks, for a run: `claude --settings '{"disableAllHooks": true}'`.
+- The whole plugin: `claude plugin disable rules-evolve@rules-evolve-local`, or
+  `claude plugin uninstall rules-evolve@rules-evolve-local`.
+- Remove just the hooks: delete `integrations/claude-code/plugin/hooks/hooks.json`.
+
+### Plugin tests
+
+```
+integrations/claude-code/tests/run-all.sh
+```
+
+It runs, with no network and no model:
+
+- `validate-plugin.test.mjs` (`node --test`, no dependencies): the manifest and
+  marketplace use only documented fields, names are kebab-case and not reserved,
+  every skill has valid frontmatter and calls only the wrapper, every CLI
+  subcommand and flag the skills use exists, hooks use the documented shape,
+  scripts never exit 2 or return a block decision, and no file has an em or en
+  dash.
+- `hooks.test.sh`: runs both hook scripts and `re.sh` against fixture repos, with
+  a fake binary and with the real binary on the committed demo replay lineage,
+  each hook case with and without `jq`. It covers the missing binary, a broken
+  log, switched off hooks, odd paths, dedupe and the refusal of a paid provider.
+- If the `claude` CLI is installed, `claude plugin validate` on the plugin and the
+  marketplace, and `claude-smoke.sh`. The smoke test uses a throwaway `HOME`,
+  installs the plugin from the local marketplace and runs `claude --init-only`,
+  which runs the `SessionStart` hook without starting a conversation, then reads
+  the debug log. No model is called. Without the CLI these steps are skipped and
+  say so.
+
+What is not tested automatically: the `PostToolUse` warning inside a live Claude
+Code session, because that needs a model turn. It is covered by feeding the
+documented hook input to the script. Slash commands are instructions that Claude
+follows, so their wording is checked structurally but a live run is the real test.
 
 ## Mock model
 

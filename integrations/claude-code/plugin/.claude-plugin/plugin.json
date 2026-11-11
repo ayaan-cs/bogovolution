@@ -1,0 +1,17 @@
+{
+  "name": "rules-evolve",
+  "displayName": "rules-evolve",
+  "version": "2.0.0",
+  "description": "Slash commands and hooks for rules-evolve, the CLI that evolves a repo's agent rules file with measured, hash-chained experiments. Mock and replay providers only: no model is called.",
+  "author": {
+    "name": "Ayaan Syed"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "rules",
+    "agents-md",
+    "claude-md",
+    "evaluation",
+    "lineage"
+  ]
+}
