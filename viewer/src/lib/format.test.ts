@@ -22,7 +22,7 @@ describe('format', () => {
 
   it('labels edges with the pass rate change', () => {
     const accepted = d.edges.find((e) => e.verdict === 'accepted') as TreeEdge;
-    expect(edgeLabel(accepted)).toBe('pass rate +33 pts');
+    expect(edgeLabel(accepted)).toBe('pass rate\n+33 pts');
     const pending = { ...accepted, verdict: null, gain_pp: null } as TreeEdge;
     expect(edgeLabel(pending)).toBe('pending');
     const none = { ...accepted, gain_pp: null } as TreeEdge;

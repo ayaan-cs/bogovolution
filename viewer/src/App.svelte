@@ -259,11 +259,11 @@
     font-size: 0.72rem;
     color: var(--muted);
   }
-  .stat.accepted .n { color: var(--c-accepted); }
-  .stat.rejected .n { color: var(--c-rejected); }
-  .stat.noise .n { color: var(--c-noise); }
-  .stat.pending .n { color: var(--c-pending); }
-  .stat.refused .n { color: var(--c-refused); }
+  .stat.accepted .n { color: var(--tx-accepted); }
+  .stat.rejected .n { color: var(--tx-rejected); }
+  .stat.noise .n { color: var(--tx-noise); }
+  .stat.pending .n { color: var(--tx-pending); }
+  .stat.refused .n { color: var(--tx-refused); }
   .stage {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(340px, 460px);

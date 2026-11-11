@@ -216,7 +216,7 @@
     font-size: 0.75rem;
   }
   tr.win td:last-child {
-    color: var(--c-accepted);
+    color: var(--tx-accepted);
     font-weight: 600;
   }
   .node-link {

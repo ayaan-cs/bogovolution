@@ -20,6 +20,13 @@
   --bg-pending: #e9edf3;
   --bg-root: #e3eafd;
   --bg-refused: #f3f4f6;
+  /* Text colors for badges and numbers. Darker than the fill colors so small text reads in the light theme. */
+  --tx-accepted: #16793f;
+  --tx-rejected: #b32d2d;
+  --tx-noise: #895800;
+  --tx-pending: #53617a;
+  --tx-root: #2a52c9;
+  --tx-refused: #5d6776;
   --radius: 12px;
   --mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -47,6 +54,12 @@
   --bg-pending: #232b38;
   --bg-root: #1b2748;
   --bg-refused: #1b212b;
+  --tx-accepted: var(--c-accepted);
+  --tx-rejected: var(--c-rejected);
+  --tx-noise: var(--c-noise);
+  --tx-pending: var(--c-pending);
+  --tx-root: var(--c-root);
+  --tx-refused: var(--c-refused);
 }
 
 * {
@@ -123,12 +136,12 @@ code,
   letter-spacing: 0.02em;
   border: 1px solid currentColor;
 }
-.badge.accepted { color: var(--c-accepted); background: var(--bg-accepted); }
-.badge.rejected { color: var(--c-rejected); background: var(--bg-rejected); }
-.badge.noise { color: var(--c-noise); background: var(--bg-noise); }
-.badge.pending { color: var(--c-pending); background: var(--bg-pending); }
-.badge.root { color: var(--c-root); background: var(--bg-root); }
-.badge.refused { color: var(--c-refused); background: var(--bg-refused); }
+.badge.accepted { color: var(--tx-accepted); background: var(--bg-accepted); }
+.badge.rejected { color: var(--tx-rejected); background: var(--bg-rejected); }
+.badge.noise { color: var(--tx-noise); background: var(--bg-noise); }
+.badge.pending { color: var(--tx-pending); background: var(--bg-pending); }
+.badge.root { color: var(--tx-root); background: var(--bg-root); }
+.badge.refused { color: var(--tx-refused); background: var(--bg-refused); }
 
 /* diff2html dark mode needs a transparent wrapper so the card shows through */
 .d2h-wrapper {

@@ -29,7 +29,7 @@ describe('buildElements', () => {
     for (const s of ['root', 'accepted', 'rejected', 'noise', 'refused']) expect(statuses.has(s)).toBe(true);
     const accepted = edges.filter((e) => e.data.status === 'accepted');
     expect(accepted).toHaveLength(2);
-    expect(accepted.every((e) => e.data.label === 'pass rate +33 pts')).toBe(true);
+    expect(accepted.every((e) => e.data.label === 'pass rate\n+33 pts')).toBe(true);
   });
 
   it('marks exactly one node as current', () => {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import * as Plot from '@observablehq/plot';
+  import { paddedAxis, percentAxis } from '../lib/chart';
   import { pct, points, shortHash } from '../lib/format';
   import { cssVar, type Theme } from '../lib/theme';
   import type { LineageExport, Selection } from '../lib/types';
@@ -51,7 +52,7 @@
       Plot.plot({
         ...base(passW, 280),
         x: { label: 'Attempt', tickFormat: 'd', ticks: Math.min(s.length, 12), grid: false },
-        y: { label: 'Median pass rate (%)', domain: [0, 100], grid: true },
+        y: { label: 'Median pass rate (%)', domain: percentAxis().domain, ticks: percentAxis().ticks, grid: true },
         color: palette(),
         marks: [
           Plot.lineY(s, { x: 'attempt', y: (d) => (d.current_median_after ?? NaN) * 100, curve: 'step-after', stroke: accent, strokeWidth: 2 }),
@@ -86,12 +87,14 @@
     if (!gainEl || data.series.length === 0) return gainEl?.replaceChildren();
     const s = data.series.filter((d) => d.gain_pp !== null);
     const thr = data.config.accept_threshold_pp;
+    // Always room for every bar and the accept line, so nothing touches or passes the edge.
+    const axis = paddedAxis(s.map((d) => d.gain_pp), { include: [thr] });
     put(
       gainEl,
       Plot.plot({
         ...base(gainW, 280),
         x: { label: 'Attempt', tickFormat: 'd', ticks: Math.min(data.series.length, 12), domain: data.series.map((d) => d.attempt), type: 'band' },
-        y: { label: 'Gain over parent (points)', grid: true },
+        y: { label: 'Gain over parent (points)', domain: axis.domain, ticks: axis.ticks, grid: true },
         color: palette(),
         marks: [
           Plot.barY(s, {
@@ -103,7 +106,7 @@
           }),
           Plot.ruleY([0], { stroke: cssVar('--muted') }),
           Plot.ruleY([thr], { stroke: cssVar('--c-accepted'), strokeDasharray: '5,4' }),
-          Plot.text([`accept at +${thr} pts`], { y: [thr], frameAnchor: 'right', textAnchor: 'end', dy: -8, fill: cssVar('--c-accepted') }),
+          Plot.text([`accept at +${thr} pts`], { y: [thr], frameAnchor: 'right', textAnchor: 'end', dy: -8, fill: cssVar('--tx-accepted') }),
         ],
       }),
     );
@@ -146,7 +149,7 @@
           tickFormat: (i: number) => labels[i] ?? '',
           tickRotate: -40,
         },
-        y: { label: 'Pass rate per run (%)', domain: [0, 100], grid: true },
+        y: { label: 'Pass rate per run (%)', domain: percentAxis().domain, ticks: percentAxis().ticks, grid: true },
         color: statusColor,
         marks: [
           Plot.dot(runs, {
