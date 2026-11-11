@@ -87,8 +87,51 @@ pub struct MutationRefusedPayload {
     pub reason: String,
 }
 
-/// One benchmark run of one rules version over the task set.
+/// How one task attempt ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TaskStatus {
+    /// The check command exited with 0.
+    Passed,
+    /// The check command exited with a non-zero code.
+    Failed,
+    /// The check command ran past its timeout and was killed.
+    Timeout,
+    /// The model tried to write a path it may not touch. Counts as failed.
+    Violation,
+    /// The model call returned an error. Counts as failed.
+    ModelError,
+    /// Not attempted because the token cap would have been passed. Counts as failed.
+    SkippedBudget,
+    /// The model reported more tokens than were left, so its answer was thrown
+    /// away. Counts as failed.
+    OverBudget,
+}
+
+impl TaskStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TaskStatus::Passed => "passed",
+            TaskStatus::Failed => "failed",
+            TaskStatus::Timeout => "timeout",
+            TaskStatus::Violation => "violation",
+            TaskStatus::ModelError => "model_error",
+            TaskStatus::SkippedBudget => "skipped_budget",
+            TaskStatus::OverBudget => "over_budget",
+        }
+    }
+}
+
+/// Result of one task inside one run.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TaskOutcome {
+    pub id: String,
+    pub status: TaskStatus,
+    pub tokens_used: u64,
+}
+
+/// One benchmark run of one rules version over the whole task set.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct RunRecordedPayload {
     pub node: String,
     pub run_index: u32,
@@ -96,6 +139,18 @@ pub struct RunRecordedPayload {
     pub total: u32,
     #[serde(default)]
     pub tokens_used: u64,
+    /// Seed of this run. Parent and child runs with the same index share it.
+    #[serde(default)]
+    pub seed: Option<u64>,
+    /// Which model provider ran it, for example `mock`.
+    #[serde(default)]
+    pub provider: Option<String>,
+    /// True when the run stopped early to stay under the token cap.
+    #[serde(default)]
+    pub budget_exhausted: bool,
+    /// Per task results. Empty for runs recorded without detail.
+    #[serde(default)]
+    pub tasks: Vec<TaskOutcome>,
 }
 
 /// The final decision about a child, by the fixed public rule.

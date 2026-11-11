@@ -1,11 +1,12 @@
 //! The `init` operation: pick the rules file, record the model, write files.
 
-use crate::config::{Config, TASKS_TEMPLATE};
+use crate::config::Config;
 use crate::error::{io_err, Error, Result};
 use crate::event::{InitPayload, Payload};
 use crate::git::{ensure_not_ignored, GitignoreReport};
 use crate::log::Log;
 use crate::store::{Store, DIR_NAME};
+use crate::tasks::TASKS_TEMPLATE;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 

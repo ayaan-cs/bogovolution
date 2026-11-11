@@ -21,6 +21,9 @@ pub struct RunSummary {
     pub passed: u32,
     pub total: u32,
     pub tokens_used: u64,
+    pub seed: Option<u64>,
+    pub provider: Option<String>,
+    pub budget_exhausted: bool,
 }
 
 /// One version of the rules file.
@@ -238,12 +241,26 @@ impl Tree {
         if p.passed > p.total {
             return Err(bad("a run cannot pass more tasks than it ran"));
         }
+        if self.nodes[idx]
+            .runs
+            .iter()
+            .any(|r| r.run_index == p.run_index)
+        {
+            return Err(bad(format!(
+                "version {} already has run {}",
+                short(&p.node),
+                p.run_index
+            )));
+        }
         self.nodes[idx].runs.push(RunSummary {
             seq,
             run_index: p.run_index,
             passed: p.passed,
             total: p.total,
             tokens_used: p.tokens_used,
+            seed: p.seed,
+            provider: p.provider.clone(),
+            budget_exhausted: p.budget_exhausted,
         });
         Ok(())
     }
@@ -284,6 +301,40 @@ impl Tree {
 
     pub fn node(&self, hash: &str) -> Option<&Node> {
         self.node_index.get(hash).map(|&i| &self.nodes[i])
+    }
+
+    pub fn edge_for_child(&self, child: &str) -> Option<&Edge> {
+        self.edge_index.get(child).map(|&i| &self.edges[i])
+    }
+
+    /// Turn `root`, `current`, a full hash, or a unique hash prefix (4 or more
+    /// characters) into a full version hash.
+    pub fn resolve(&self, spec: &str) -> Result<String> {
+        match spec {
+            "root" => return Ok(self.root.clone()),
+            "current" => return Ok(self.current.clone()),
+            _ => {}
+        }
+        if self.node_index.contains_key(spec) {
+            return Ok(spec.to_string());
+        }
+        if spec.len() < 4 {
+            return Err(Error::Input(format!(
+                "version {spec:?} not found (use root, current, or at least 4 hash characters)"
+            )));
+        }
+        let hits: Vec<&Node> = self
+            .nodes
+            .iter()
+            .filter(|n| n.hash.starts_with(spec))
+            .collect();
+        match hits.len() {
+            1 => Ok(hits[0].hash.clone()),
+            0 => Err(Error::Input(format!("no version matches {spec:?}"))),
+            n => Err(Error::Input(format!(
+                "{n} versions match {spec:?}; use more characters"
+            ))),
+        }
     }
 
     pub fn children_of(&self, hash: &str) -> Vec<&Node> {
@@ -375,6 +426,7 @@ mod tests {
                 passed: 3,
                 total: 5,
                 tokens_used: 1000,
+                ..Default::default()
             }),
             verdict('a', 'b', VerdictKind::Accepted),
             proposed('b', 'c', "add test hint"),

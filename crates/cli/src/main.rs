@@ -4,8 +4,10 @@
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use rules_evolve_core::bench::{propose, run_version, verify_child, RunOptions};
 use rules_evolve_core::event::{Event, EventKind, Payload};
 use rules_evolve_core::init::{init, InitOptions};
+use rules_evolve_core::model::build_provider;
 use rules_evolve_core::repo::{FullVerify, Repo, StatusReport};
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -60,6 +62,43 @@ enum Command {
     },
     /// Check the hash chain and stored files for tampering or cut off data
     VerifyLog,
+    /// Add a child rules version from a file. Temporary stand in for the
+    /// model driven `mutate` that comes in a later phase
+    Propose {
+        /// File holding the full new rules text
+        #[arg(long)]
+        file: PathBuf,
+        /// Plain English reason this change should help
+        #[arg(long)]
+        hypothesis: String,
+        /// Version to change: root, current, or a hash prefix
+        #[arg(long, default_value = "current")]
+        parent: String,
+    },
+    /// Benchmark one rules version: run the task set several times and record each run
+    Run {
+        /// Version to run: root, current, or a hash prefix
+        #[arg(long, default_value = "current")]
+        version: String,
+        /// Number of runs. Defaults to `repeats` from config.toml
+        #[arg(long)]
+        repeats: Option<u32>,
+        /// Base seed. Use the same one for parent and child so runs are paired
+        #[arg(long, default_value_t = 0)]
+        seed: u64,
+        /// Model provider. Only `mock` exists so far
+        #[arg(long, default_value = "mock")]
+        provider: String,
+        /// Settings for the mock model
+        #[arg(long, default_value = ".rules-evolve/mock.toml")]
+        mock_config: PathBuf,
+    },
+    /// Compare a child to its parent with the fixed rule and record the verdict
+    Verify {
+        /// The child version: a hash prefix
+        #[arg(long)]
+        child: String,
+    },
 }
 
 /// What a command produced.
@@ -190,6 +229,133 @@ fn run(cli: &Cli) -> Result<Output> {
                 exit: 0,
             })
         }
+        Command::Propose {
+            file,
+            hypothesis,
+            parent,
+        } => {
+            let repo = Repo::open(&cli.dir)?;
+            let content = std::fs::read(file)
+                .map_err(|e| anyhow::anyhow!("could not read {}: {e}", file.display()))?;
+            let cfg = repo.config()?;
+            let out = propose(&repo, &cfg, parent, &content, hypothesis)?;
+            let refused = out.outcome == "refused";
+            let text = if refused {
+                format!(
+                    "Refused: {}\nRecorded as event #{}.\n",
+                    out.reason.clone().unwrap_or_default(),
+                    out.event_seq
+                )
+            } else {
+                format!(
+                    "Proposed {} from {} ({} bytes changed, limit {}).\nNext: run both versions, then `verify --child {}`.\n",
+                    short(out.child.as_deref().unwrap_or("")),
+                    short(&out.parent),
+                    out.change_bytes,
+                    out.max_change_bytes,
+                    short(out.child.as_deref().unwrap_or("")),
+                )
+            };
+            Ok(Output {
+                command: "propose",
+                data: serde_json::to_value(&out)?,
+                text,
+                exit: if refused { 3 } else { 0 },
+            })
+        }
+        Command::Run {
+            version,
+            repeats,
+            seed,
+            provider,
+            mock_config,
+        } => {
+            let repo = Repo::open(&cli.dir)?;
+            let mock_path = if mock_config.is_absolute() {
+                mock_config.clone()
+            } else {
+                cli.dir.join(mock_config)
+            };
+            let model = build_provider(provider, &mock_path)?;
+            let report = run_version(
+                &repo,
+                model.as_ref(),
+                &RunOptions {
+                    version: version.clone(),
+                    repeats: *repeats,
+                    base_seed: *seed,
+                },
+            )?;
+            let mut text = format!(
+                "Version {} with provider {} (seed {}, token cap {} per run)\n",
+                short(&report.version),
+                report.provider,
+                report.base_seed,
+                report.max_tokens_per_run
+            );
+            for r in &report.runs {
+                text.push_str(&format!(
+                    "  run {}: {}/{} passed ({:.0}%), {} tokens{}\n",
+                    r.run_index,
+                    r.passed,
+                    r.total,
+                    r.pass_rate * 100.0,
+                    r.tokens_used,
+                    if r.budget_exhausted {
+                        " (stopped at the token cap)"
+                    } else {
+                        ""
+                    }
+                ));
+            }
+            if !report.skipped_existing.is_empty() {
+                text.push_str(&format!(
+                    "  already recorded, not run again: {:?}\n",
+                    report.skipped_existing
+                ));
+            }
+            text.push_str(&format!("Total tokens: {}\n", report.total_tokens));
+            Ok(Output {
+                command: "run",
+                data: serde_json::to_value(&report)?,
+                text,
+                exit: 0,
+            })
+        }
+        Command::Verify { child } => {
+            let repo = Repo::open(&cli.dir)?;
+            let out = verify_child(&repo, child)?;
+            let d = &out.decision;
+            let mut text = format!(
+                "{} -> {}: {}\n  parent median {:.3}, child median {:.3}, gain {:.1} points\n  paired wins {} of {} (needs {} and a gain of {} points)\n  {}\n",
+                short(&out.parent),
+                short(&out.child),
+                d.verdict.as_str().to_uppercase(),
+                d.parent_median,
+                d.child_median,
+                d.gain_pp,
+                d.paired_wins,
+                d.repeats,
+                out.min_paired_wins,
+                out.accept_threshold_pp,
+                d.reason
+            );
+            for p in &d.pairs {
+                text.push_str(&format!(
+                    "  pair {}: parent {:.2}, child {:.2}{}\n",
+                    p.run_index,
+                    p.parent_rate,
+                    p.child_rate,
+                    if p.win { " (child wins)" } else { "" }
+                ));
+            }
+            Ok(Output {
+                command: "verify",
+                data: serde_json::to_value(&out)?,
+                text,
+                exit: 0,
+            })
+        }
         Command::VerifyLog => {
             let repo = Repo::open(&cli.dir)?;
             let v = repo.verify()?;
@@ -226,12 +392,18 @@ fn event_summary(e: &Event) -> String {
             format!("from {}: refused: {}", short(&p.parent), p.reason)
         }
         Ok(Payload::RunRecorded(p)) => format!(
-            "{} run {}: {}/{} passed, {} tokens",
+            "{} run {}: {}/{} passed, {} tokens{}{}",
             short(&p.node),
             p.run_index,
             p.passed,
             p.total,
-            p.tokens_used
+            p.tokens_used,
+            p.seed.map(|s| format!(", seed {s}")).unwrap_or_default(),
+            if p.budget_exhausted {
+                ", hit token cap"
+            } else {
+                ""
+            }
         ),
         Ok(Payload::Verdict(p)) => format!(
             "{} -> {}: {}",

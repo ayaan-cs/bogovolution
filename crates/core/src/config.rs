@@ -26,6 +26,20 @@ pub struct BudgetConfig {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct MutationConfig {
+    /// Largest allowed change, in bytes, between a parent and a child rules file.
+    pub max_change_bytes: usize,
+}
+
+impl Default for MutationConfig {
+    fn default() -> Self {
+        MutationConfig {
+            max_change_bytes: 1000,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MetaConfig {
     /// `true` once the evaluation and budget values have been confirmed.
     pub defaults_confirmed: bool,
@@ -36,6 +50,8 @@ pub struct Config {
     pub project: ProjectConfig,
     pub evaluation: EvaluationConfig,
     pub budget: BudgetConfig,
+    #[serde(default)]
+    pub mutation: MutationConfig,
     pub meta: MetaConfig,
 }
 
@@ -58,6 +74,7 @@ impl Config {
             budget: BudgetConfig {
                 max_tokens_per_run: 200_000,
             },
+            mutation: MutationConfig::default(),
             meta: MetaConfig {
                 defaults_confirmed: true,
             },
@@ -89,6 +106,10 @@ impl Config {
              # Token cap for one run.\n\
              max_tokens_per_run = {tokens}\n\
              \n\
+             [mutation]\n\
+             # Largest allowed change between parent and child, in bytes.\n\
+             max_change_bytes = {max_change}\n\
+             \n\
              [meta]\n\
              defaults_confirmed = {confirmed}\n",
             rules_file = toml_string(&self.project.rules_file),
@@ -97,6 +118,7 @@ impl Config {
             threshold = self.evaluation.accept_threshold_pp,
             wins = self.evaluation.min_paired_wins,
             tokens = self.budget.max_tokens_per_run,
+            max_change = self.mutation.max_change_bytes,
             confirmed = self.meta.defaults_confirmed,
         )
     }
@@ -112,53 +134,6 @@ impl Config {
         })
     }
 }
-
-/// One benchmark task: a prompt for the agent and a shell command that
-/// decides pass or fail (exit code 0 means pass).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct Task {
-    pub id: String,
-    pub prompt: String,
-    pub check: String,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct TasksFile {
-    #[serde(default)]
-    pub task: Vec<Task>,
-}
-
-impl TasksFile {
-    pub fn load(path: &Path) -> Result<TasksFile> {
-        let text = std::fs::read_to_string(path).map_err(|e| Error::Io {
-            path: path.to_path_buf(),
-            source: e,
-        })?;
-        toml::from_str(&text).map_err(|e| Error::Parse {
-            path: path.to_path_buf(),
-            message: e.to_string(),
-        })
-    }
-}
-
-/// Template written to `tasks.toml`. It holds one placeholder task.
-pub const TASKS_TEMPLATE: &str = r#"# rules-evolve tasks
-#
-# Each [[task]] is one small job taken from your repo. The agent gets the
-# prompt. Then the check command runs in the repo. Exit code 0 means pass.
-#
-# Good tasks come from your own history: a test that used to fail, or an
-# issue with a known fix. Keep the check command out of the agent's reach.
-#
-# Phase 1 only creates this file. Nothing runs these tasks yet.
-#
-# The task below is a PLACEHOLDER. Replace it with real tasks.
-
-[[task]]
-id = "example-fix-failing-test"
-prompt = "The test suite has one failing test. Fix the code so all tests pass."
-check = "cargo test --quiet"
-"#;
 
 #[cfg(test)]
 mod tests {
@@ -182,12 +157,5 @@ mod tests {
         let cfg = Config::with_defaults("AGENTS.md", "weird \"name\"");
         let parsed: Config = toml::from_str(&cfg.to_toml_template()).unwrap();
         assert_eq!(parsed.project.model, "weird \"name\"");
-    }
-
-    #[test]
-    fn tasks_template_parses() {
-        let parsed: TasksFile = toml::from_str(TASKS_TEMPLATE).unwrap();
-        assert_eq!(parsed.task.len(), 1);
-        assert_eq!(parsed.task[0].id, "example-fix-failing-test");
     }
 }

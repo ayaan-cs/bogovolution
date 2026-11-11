@@ -5,6 +5,7 @@ use crate::error::{Error, Result};
 use crate::event::{Event, EventKind, Payload};
 use crate::log::{Log, Problem, VerifyReport};
 use crate::store::{BlobState, Store};
+use crate::tasks::TasksFile;
 use crate::tree::Tree;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -59,6 +60,14 @@ impl Repo {
     }
     pub fn log(&self) -> &Log {
         &self.log
+    }
+
+    pub fn config(&self) -> Result<Config> {
+        Config::load(&self.store.config_path())
+    }
+
+    pub fn tasks(&self) -> Result<TasksFile> {
+        TasksFile::load(&self.store.tasks_path())
     }
 
     /// Append an event, but only if the lineage stays consistent.
