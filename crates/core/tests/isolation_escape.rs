@@ -8,12 +8,35 @@
 //! subset) to turn a skip into a failure, for example in CI.
 
 use rules_evolve_core::isolation::{
-    probe_backend, Backend, CheckStatus, Isolation, Runner, SandboxSettings,
+    probe_backend, Backend, CheckStatus, Isolation, Protected, Runner, SandboxSettings,
 };
 use rules_evolve_core::model::ProviderKind;
 use std::net::TcpListener;
 use std::path::Path;
 use std::time::{Duration, Instant};
+
+/// `Runner::run` with nothing protected, for the general escape tests.
+trait Go {
+    fn go(
+        &self,
+        dir: &Path,
+        check: &str,
+        env: &[(String, String)],
+        timeout: Duration,
+    ) -> rules_evolve_core::Result<CheckStatus>;
+}
+
+impl Go for Runner {
+    fn go(
+        &self,
+        dir: &Path,
+        check: &str,
+        env: &[(String, String)],
+        timeout: Duration,
+    ) -> rules_evolve_core::Result<CheckStatus> {
+        self.run(dir, check, env, &Protected::default(), timeout)
+    }
+}
 
 fn settings(i: Isolation) -> SandboxSettings {
     SandboxSettings {
@@ -106,14 +129,14 @@ fn network_is_blocked(runner: &Runner, none: &Runner) {
          else echo notool > net; fi"
     );
     let d = tempfile::tempdir().unwrap();
-    runner.run(d.path(), &script, &[], T).unwrap();
+    runner.go(d.path(), &script, &[], T).unwrap();
     let got = read(d.path(), "net");
     assert_eq!(got.trim(), "blocked", "the check reached the host network");
 
     // Control: without isolation the same check reaches the listener, so the
     // result above means something. Skipped when the host has no client tool.
     let c = tempfile::tempdir().unwrap();
-    none.run(c.path(), &script, &[], T).unwrap();
+    none.go(c.path(), &script, &[], T).unwrap();
     let control = read(c.path(), "net");
     if control.trim() == "notool" {
         eprintln!("note: no python3, nc or wget on the host, so no network control ran");
@@ -145,7 +168,7 @@ fn writes_outside_the_worktree_fail(runner: &Runner) {
          echo tmp > /tmp/{uniq} && cat /tmp/{uniq} > tmpres",
         parent = host_parent.display()
     );
-    runner.run(d.path(), &script, &[], T).unwrap();
+    runner.go(d.path(), &script, &[], T).unwrap();
     let res = read(d.path(), "res");
     assert!(!res.contains("WROTE"), "a write escaped:\n{res}");
     assert_eq!(res.lines().count(), 6, "{res}");
@@ -179,7 +202,7 @@ fn hidden_files_are_not_readable(runner: &Runner, none: &Runner) {
         r = repo.path().display(),
         w = worktree.path().display()
     );
-    runner.run(worktree.path(), &script, &[], T).unwrap();
+    runner.go(worktree.path(), &script, &[], T).unwrap();
     assert_eq!(
         read(worktree.path(), "res").trim(),
         "denied\ndenied\ndenied"
@@ -188,7 +211,7 @@ fn hidden_files_are_not_readable(runner: &Runner, none: &Runner) {
 
     // Control: with no isolation the same check reads the real file.
     let c = tempfile::tempdir().unwrap();
-    none.run(
+    none.go(
         c.path(),
         &script.replace(
             &worktree.path().display().to_string(),
@@ -207,7 +230,7 @@ fn environment_is_cleared(runner: &Runner) {
     std::env::set_var(&secret_name, "do-not-leak");
     let d = tempfile::tempdir().unwrap();
     let pass = [("RULES_EVOLVE_PASSED".to_string(), "yes".to_string())];
-    runner.run(d.path(), "env > envout", &pass, T).unwrap();
+    runner.go(d.path(), "env > envout", &pass, T).unwrap();
     std::env::remove_var(&secret_name);
     let out = read(d.path(), "envout");
     assert!(
@@ -225,7 +248,7 @@ fn limits_and_timeouts_hold(runner: &Runner, backend: Backend) {
     let bomb = format!("# {marker}\nbomb() {{ bomb | bomb & }}; bomb; wait");
     let t = Instant::now();
     let st = runner
-        .run(d.path(), &bomb, &[], Duration::from_secs(6))
+        .go(d.path(), &bomb, &[], Duration::from_secs(6))
         .unwrap();
     // It may end on its own (forks start failing at the cap) or at the timeout.
     // Either way it is contained.
@@ -244,7 +267,7 @@ fn limits_and_timeouts_hold(runner: &Runner, backend: Backend) {
     );
     // The sandbox still works afterwards.
     assert_eq!(
-        runner.run(d.path(), "true", &[], T).unwrap(),
+        runner.go(d.path(), "true", &[], T).unwrap(),
         CheckStatus::Passed
     );
 
@@ -253,7 +276,7 @@ fn limits_and_timeouts_hold(runner: &Runner, backend: Backend) {
     // shell exits when a fork fails, and it logs every pid it got (a builtin,
     // so logging needs no process of its own).
     runner
-        .run(
+        .go(
             d.path(),
             "(i=0; while [ $i -lt 200 ]; do sleep 20 & echo $! >> pids; i=$((i+1)); done) 2>/dev/null",
             &[],
@@ -270,7 +293,7 @@ fn limits_and_timeouts_hold(runner: &Runner, backend: Backend) {
     let marker = format!("RE_SLEEP_{}_{}", backend.as_str(), std::process::id());
     let t = Instant::now();
     let st = runner
-        .run(
+        .go(
             d.path(),
             &format!("# {marker}\nsleep 60"),
             &[],
@@ -288,7 +311,7 @@ fn limits_and_timeouts_hold(runner: &Runner, backend: Backend) {
     // A child that outlives the shell is killed too.
     let marker = format!("RE_BG_{}_{}", backend.as_str(), std::process::id());
     let st = runner
-        .run(
+        .go(
             d.path(),
             &format!("# {marker}\nsleep 60 & sleep 60"),
             &[],
@@ -304,7 +327,7 @@ fn limits_and_timeouts_hold(runner: &Runner, backend: Backend) {
 
     // Memory: a 1 GiB buffer is refused under a 256 MiB limit, a small one is fine.
     let big = runner
-        .run(
+        .go(
             d.path(),
             "dd if=/dev/zero of=/dev/null bs=1G count=1 2>/dev/null",
             &[],
@@ -313,7 +336,7 @@ fn limits_and_timeouts_hold(runner: &Runner, backend: Backend) {
         .unwrap();
     assert_eq!(big, CheckStatus::Failed, "the memory limit did not apply");
     let small = runner
-        .run(
+        .go(
             d.path(),
             "dd if=/dev/zero of=/dev/null bs=1M count=1 2>/dev/null",
             &[],
@@ -324,7 +347,7 @@ fn limits_and_timeouts_hold(runner: &Runner, backend: Backend) {
 
     // File size: 1 MiB is the most one file may grow to.
     let _ = runner
-        .run(
+        .go(
             d.path(),
             "dd if=/dev/zero of=big bs=1M count=10 2>/dev/null",
             &[],
@@ -362,7 +385,7 @@ fn bwrap_shows_only_the_system_and_the_worktree() {
     };
     let d = tempfile::tempdir().unwrap();
     runner
-        .run(
+        .go(
             d.path(),
             "ls / > rootls; ls /work > worklist; id -u > uid",
             &[],

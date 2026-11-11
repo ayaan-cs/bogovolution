@@ -10,10 +10,13 @@
 //!    command either);
 //! 4. applies the model's edits, refusing any that touch hidden or protected
 //!    paths;
-//! 5. puts the hidden files back, overwriting anything at those paths;
+//! 5. puts the hidden files back from pristine copies kept outside the
+//!    worktree, removing whatever the model left at those paths (links are
+//!    removed, never followed);
 //! 6. runs the check command in the copy through an isolation
 //!    [`Runner`](crate::isolation::Runner) (bwrap, docker, podman, or none),
-//!    with a timeout and a cleared environment.
+//!    with a timeout and a cleared environment. The isolation backends mount
+//!    the hidden paths read only from the pristine copies.
 //!
 //! Threat model, and its limits, are in the README. In short: steps 1 to 5 keep
 //! a model from READING the tests while it produces its answer, and the runner
@@ -23,10 +26,12 @@
 
 use crate::error::{io_err, Result};
 pub use crate::isolation::CheckStatus;
-use crate::isolation::Runner;
+use crate::isolation::{Protected, ReadOnlyMount, Runner};
 use crate::model::FileEdit;
 use crate::tasks::SandboxConfig;
+use std::collections::BTreeSet;
 use std::path::{Component, Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 use tempfile::TempDir;
 
@@ -86,6 +91,13 @@ pub struct Sandbox {
     env_passthrough: Vec<String>,
     visible_files: Vec<String>,
     hidden_files: Vec<String>,
+    /// Top-most folders that match `hidden`. Everything in them is hidden.
+    hidden_dirs: Vec<String>,
+    /// Pristine copies of the hidden files, outside any worktree. The check
+    /// sees these (read only under an isolation backend) and `restore_hidden`
+    /// copies from here, so the original tests survive whatever the model did.
+    pristine: Arc<TempDir>,
+    protected: Protected,
     skipped_symlinks: usize,
     runner: Runner,
 }
@@ -109,13 +121,85 @@ impl Sandbox {
             env_passthrough: cfg.env_passthrough.clone(),
             visible_files: Vec::new(),
             hidden_files: Vec::new(),
+            hidden_dirs: Vec::new(),
+            pristine: Arc::new(
+                tempfile::Builder::new()
+                    .prefix("rules-evolve-pristine-")
+                    .tempdir()
+                    .map_err(io_err(std::env::temp_dir()))?,
+            ),
+            protected: Protected::default(),
             skipped_symlinks: 0,
             runner: Runner::unsafe_none(),
         };
         sb.walk(repo_dir, "")?;
         sb.visible_files.sort();
         sb.hidden_files.sort();
+        sb.hidden_dirs.sort();
+        sb.keep_pristine_copies()?;
+        sb.protected = sb.build_protected();
         Ok(sb)
+    }
+
+    /// Copy every hidden file (and make every hidden folder) into the pristine
+    /// store, once, so later changes in a worktree or the repo cannot reach it.
+    fn keep_pristine_copies(&self) -> Result<()> {
+        let root = self.pristine.path();
+        for rel in &self.hidden_files {
+            copy_into(&self.repo_dir, root, rel)?;
+        }
+        for rel in &self.hidden_dirs {
+            let d = root.join(rel);
+            std::fs::create_dir_all(&d).map_err(io_err(&d))?;
+        }
+        Ok(())
+    }
+
+    fn under_hidden_dir(&self, rel: &str) -> bool {
+        self.hidden_dirs
+            .iter()
+            .any(|d| rel == d || rel.starts_with(&format!("{d}/")))
+    }
+
+    /// The read only mounts and pinned folders for an isolation backend.
+    fn build_protected(&self) -> Protected {
+        let root = self.pristine.path();
+        let mut entries: Vec<&String> = self.hidden_dirs.iter().collect();
+        entries.extend(
+            self.hidden_files
+                .iter()
+                .filter(|f| !self.under_hidden_dir(f)),
+        );
+        let mut pins: BTreeSet<(usize, String)> = BTreeSet::new();
+        for rel in &entries {
+            let parts: Vec<&str> = rel.split('/').collect();
+            for n in 1..parts.len() {
+                let anc = parts[..n].join("/");
+                pins.insert((n, anc));
+            }
+        }
+        let mut read_only: Vec<ReadOnlyMount> = entries
+            .iter()
+            .map(|rel| ReadOnlyMount {
+                rel: (*rel).clone(),
+                source: root.join(rel),
+            })
+            .collect();
+        read_only.sort_by(|a, b| a.rel.cmp(&b.rel));
+        Protected {
+            pin_dirs: pins.into_iter().map(|(_, p)| p).collect(),
+            read_only,
+        }
+    }
+
+    /// Folders that match `hidden` (the top-most ones).
+    pub fn hidden_dirs(&self) -> &[String] {
+        &self.hidden_dirs
+    }
+
+    /// What a backend protects in the worktree during the check.
+    pub fn protected(&self) -> &Protected {
+        &self.protected
     }
 
     /// Run checks with this runner. Without it a sandbox uses no isolation,
@@ -157,6 +241,9 @@ impl Sandbox {
                 continue;
             }
             if meta.is_dir() {
+                if self.is_hidden(&rel) && !self.under_hidden_dir(&rel) {
+                    self.hidden_dirs.push(rel.clone());
+                }
                 self.walk(&entry.path(), &rel)?;
             } else if meta.is_file() {
                 if rel == self.rules_file {
@@ -233,6 +320,50 @@ fn copy_into(from_root: &Path, to_root: &Path, rel: &str) -> Result<()> {
     Ok(())
 }
 
+/// Make every folder above `rel` a real folder under `root`. A symlink or a
+/// file in the way is removed first (a symlink is never followed).
+fn ensure_real_parents(root: &Path, rel: &str) -> Result<()> {
+    let parts: Vec<&str> = rel.split('/').collect();
+    let mut cur = root.to_path_buf();
+    for part in &parts[..parts.len().saturating_sub(1)] {
+        cur.push(part);
+        match std::fs::symlink_metadata(&cur) {
+            Ok(m) if m.is_dir() => {}
+            Ok(_) => {
+                std::fs::remove_file(&cur).map_err(io_err(&cur))?;
+                std::fs::create_dir(&cur).map_err(io_err(&cur))?;
+            }
+            Err(_) => std::fs::create_dir(&cur).map_err(io_err(&cur))?,
+        }
+    }
+    Ok(())
+}
+
+/// Remove whatever is at `path`: a file, a link (not followed) or a folder.
+fn remove_any(path: &Path) -> Result<()> {
+    match std::fs::symlink_metadata(path) {
+        Ok(m) if m.is_dir() => std::fs::remove_dir_all(path).map_err(io_err(path)),
+        Ok(_) => std::fs::remove_file(path).map_err(io_err(path)),
+        Err(_) => Ok(()),
+    }
+}
+
+/// Copy a folder of plain files and folders. Anything else is ignored.
+fn copy_tree(from: &Path, to: &Path) -> Result<()> {
+    std::fs::create_dir_all(to).map_err(io_err(to))?;
+    for entry in std::fs::read_dir(from).map_err(io_err(from))? {
+        let entry = entry.map_err(io_err(from))?;
+        let meta = std::fs::symlink_metadata(entry.path()).map_err(io_err(entry.path()))?;
+        let dest = to.join(entry.file_name());
+        if meta.is_dir() {
+            copy_tree(&entry.path(), &dest)?;
+        } else if meta.is_file() {
+            std::fs::copy(entry.path(), &dest).map_err(io_err(entry.path()))?;
+        }
+    }
+    Ok(())
+}
+
 /// A temp copy of the repo. Deleted when dropped.
 pub struct Worktree<'a> {
     dir: TempDir,
@@ -268,10 +399,27 @@ impl Worktree<'_> {
         Ok(())
     }
 
-    /// Put the hidden benchmark files back, overwriting whatever is there.
+    /// Put the pristine hidden files and folders back, whatever the model left
+    /// at those paths: a changed file, a deleted one, a symlink in its place, a
+    /// symlink or a plain file where a parent folder should be. Anything in the
+    /// way is removed (links are removed, never followed) and the parents are
+    /// made real folders again. The copies come from the pristine store, not
+    /// from the live repo. If anything cannot be put back this fails, so the
+    /// check never runs against something else.
     pub fn restore_hidden(&self) -> Result<()> {
-        for rel in &self.sandbox.hidden_files {
-            copy_into(&self.sandbox.repo_dir, self.path(), rel)?;
+        let sb = self.sandbox;
+        let pristine = sb.pristine.path();
+        for rel in &sb.hidden_dirs {
+            let target = self.path().join(rel);
+            ensure_real_parents(self.path(), rel)?;
+            remove_any(&target)?;
+            copy_tree(&pristine.join(rel), &target)?;
+        }
+        for rel in sb.hidden_files.iter().filter(|f| !sb.under_hidden_dir(f)) {
+            let target = self.path().join(rel);
+            ensure_real_parents(self.path(), rel)?;
+            remove_any(&target)?;
+            copy_into(pristine, self.path(), rel)?;
         }
         Ok(())
     }
@@ -287,7 +435,9 @@ impl Worktree<'_> {
             .iter()
             .filter_map(|n| std::env::var(n).ok().map(|v| (n.clone(), v)))
             .collect();
-        self.sandbox.runner.run(self.path(), command, &env, timeout)
+        self.sandbox
+            .runner
+            .run(self.path(), command, &env, &self.sandbox.protected, timeout)
     }
 }
 
@@ -538,6 +688,188 @@ mod tests {
         assert_eq!(
             std::fs::read_to_string(wt.path().join(".cursor/rules/main.mdc")).unwrap(),
             "new"
+        );
+    }
+
+    // ---- hidden paths: pristine copies, read only mounts, restore ----
+
+    #[test]
+    fn scan_works_out_hidden_folders_pins_and_read_only_mounts() {
+        let (d, cfg) = fixture();
+        let sb = Sandbox::scan(d.path(), "AGENTS.md", &cfg).unwrap();
+        // Only the top-most hidden folder is listed.
+        assert_eq!(sb.hidden_dirs(), ["tests".to_string()]);
+        let p = sb.protected();
+        let rels: Vec<&str> = p.read_only.iter().map(|m| m.rel.as_str()).collect();
+        // Files under a hidden folder are covered by the folder mount.
+        assert_eq!(rels, vec!["check.sh", "pkg/a_test.txt", "tests"]);
+        // The folder that holds a hidden file is pinned. Hidden folders
+        // themselves and the root are not.
+        assert_eq!(p.pin_dirs, vec!["pkg".to_string()]);
+        // Sources are pristine copies outside the repo and outside any worktree.
+        for m in &p.read_only {
+            assert!(!m.source.starts_with(d.path()), "{:?}", m.source);
+            assert!(m.source.exists(), "{:?}", m.source);
+        }
+        assert_eq!(
+            std::fs::read_to_string(&p.read_only[1].source).unwrap(),
+            "glob hidden"
+        );
+        assert_eq!(
+            std::fs::read_to_string(p.read_only[2].source.join("deep/more.txt")).unwrap(),
+            "SECRET TOO"
+        );
+    }
+
+    #[test]
+    fn pins_cover_every_folder_above_a_hidden_path() {
+        let d = tempdir().unwrap();
+        write(d.path(), "AGENTS.md", "r");
+        write(d.path(), "a/b/c/test_x.txt", "x");
+        write(d.path(), "a/b/vis.txt", "v");
+        write(d.path(), "m/n/suite/t.txt", "t");
+        let cfg = SandboxConfig {
+            hidden: vec!["a/b/c/test_x.txt".into(), "m/n/suite".into()],
+            ..SandboxConfig::default()
+        };
+        let sb = Sandbox::scan(d.path(), "AGENTS.md", &cfg).unwrap();
+        assert_eq!(
+            sb.protected().pin_dirs,
+            ["a", "m", "a/b", "m/n", "a/b/c"].map(String::from).to_vec()
+        );
+    }
+
+    #[test]
+    fn nothing_hidden_means_nothing_protected() {
+        let d = tempdir().unwrap();
+        write(d.path(), "AGENTS.md", "r");
+        write(d.path(), "x.txt", "x");
+        let sb = Sandbox::scan(d.path(), "AGENTS.md", &SandboxConfig::default()).unwrap();
+        assert!(sb.protected().is_empty());
+    }
+
+    #[test]
+    fn restore_puts_back_the_original_after_any_edit_delete_or_replacement() {
+        use std::os::unix::fs::symlink;
+        let (d, cfg) = fixture();
+        let sb = Sandbox::scan(d.path(), "AGENTS.md", &cfg).unwrap();
+        let outside = tempdir().unwrap();
+        write(outside.path(), "keep.txt", "outside stays");
+        let wt = sb.prepare(b"r").unwrap();
+        let w = wt.path();
+        // 1. Changed content.
+        write(w, "check.sh", "evil");
+        // 2. A hidden file replaced by a symlink to a file outside.
+        std::fs::create_dir_all(w.join("pkg")).unwrap();
+        symlink(outside.path().join("keep.txt"), w.join("pkg/a_test.txt")).unwrap();
+        // 3. A hidden folder replaced by a symlink to a folder outside.
+        symlink(outside.path(), w.join("tests")).unwrap();
+        wt.restore_hidden().unwrap();
+        for (rel, want) in [
+            ("check.sh", "exit 0"),
+            ("pkg/a_test.txt", "glob hidden"),
+            ("tests/secret.txt", "SECRET TEST"),
+            ("tests/deep/more.txt", "SECRET TOO"),
+        ] {
+            let p = w.join(rel);
+            assert!(!std::fs::symlink_metadata(&p)
+                .unwrap()
+                .file_type()
+                .is_symlink());
+            assert_eq!(std::fs::read_to_string(&p).unwrap(), want, "{rel}");
+        }
+        assert!(std::fs::symlink_metadata(w.join("tests"))
+            .unwrap()
+            .file_type()
+            .is_dir());
+        // Nothing was written through a link into the outside folder.
+        assert_eq!(
+            std::fs::read_to_string(outside.path().join("keep.txt")).unwrap(),
+            "outside stays"
+        );
+        assert_eq!(std::fs::read_dir(outside.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn restore_fixes_a_parent_folder_that_was_replaced() {
+        use std::os::unix::fs::symlink;
+        let (d, cfg) = fixture();
+        let sb = Sandbox::scan(d.path(), "AGENTS.md", &cfg).unwrap();
+        let outside = tempdir().unwrap();
+        // The parent of a hidden file is a symlink to an outside folder.
+        let wt = sb.prepare(b"r").unwrap();
+        std::fs::remove_dir_all(wt.path().join("pkg")).ok();
+        symlink(outside.path(), wt.path().join("pkg")).unwrap();
+        wt.restore_hidden().unwrap();
+        assert!(std::fs::symlink_metadata(wt.path().join("pkg"))
+            .unwrap()
+            .file_type()
+            .is_dir());
+        assert_eq!(
+            std::fs::read_to_string(wt.path().join("pkg/a_test.txt")).unwrap(),
+            "glob hidden"
+        );
+        assert_eq!(std::fs::read_dir(outside.path()).unwrap().count(), 0);
+        // The parent is a plain file instead.
+        let wt = sb.prepare(b"r").unwrap();
+        std::fs::remove_dir_all(wt.path().join("pkg")).ok();
+        std::fs::write(wt.path().join("pkg"), "i am a file").unwrap();
+        wt.restore_hidden().unwrap();
+        assert_eq!(
+            std::fs::read_to_string(wt.path().join("pkg/a_test.txt")).unwrap(),
+            "glob hidden"
+        );
+        // A hidden file replaced by a folder.
+        let wt = sb.prepare(b"r").unwrap();
+        std::fs::create_dir_all(wt.path().join("check.sh/inner")).unwrap();
+        wt.restore_hidden().unwrap();
+        assert!(wt.path().join("check.sh").is_file());
+    }
+
+    #[test]
+    fn extra_files_the_model_put_in_a_hidden_folder_do_not_survive_restore() {
+        let (d, cfg) = fixture();
+        let sb = Sandbox::scan(d.path(), "AGENTS.md", &cfg).unwrap();
+        let wt = sb.prepare(b"r").unwrap();
+        write(wt.path(), "tests/conftest.txt", "shadow");
+        wt.restore_hidden().unwrap();
+        assert!(!wt.path().join("tests/conftest.txt").exists());
+    }
+
+    #[test]
+    fn restore_uses_the_pristine_copy_not_the_live_repo() {
+        let (d, cfg) = fixture();
+        let sb = Sandbox::scan(d.path(), "AGENTS.md", &cfg).unwrap();
+        // The repo changes after the scan. The scan's copy is what counts.
+        write(d.path(), "check.sh", "changed in the repo");
+        std::fs::remove_dir_all(d.path().join("tests")).unwrap();
+        let wt = sb.prepare(b"r").unwrap();
+        wt.restore_hidden().unwrap();
+        assert_eq!(
+            std::fs::read_to_string(wt.path().join("check.sh")).unwrap(),
+            "exit 0"
+        );
+        assert_eq!(
+            std::fs::read_to_string(wt.path().join("tests/secret.txt")).unwrap(),
+            "SECRET TEST"
+        );
+    }
+
+    #[test]
+    fn under_none_a_check_can_still_write_to_hidden_files() {
+        // Documented behavior: `none` restores the pristine copy before the
+        // check but does not stop writes during it.
+        let (d, cfg) = fixture();
+        let sb = Sandbox::scan(d.path(), "AGENTS.md", &cfg).unwrap();
+        let wt = sb.prepare(b"r").unwrap();
+        wt.restore_hidden().unwrap();
+        let st = wt
+            .run_check("echo evil > check.sh", Duration::from_secs(10))
+            .unwrap();
+        assert_eq!(st, CheckStatus::Passed);
+        assert_eq!(
+            std::fs::read_to_string(wt.path().join("check.sh")).unwrap(),
+            "evil\n"
         );
     }
 }

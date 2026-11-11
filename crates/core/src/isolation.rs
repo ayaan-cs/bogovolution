@@ -220,6 +220,52 @@ pub struct HostIds {
     pub gid: u32,
 }
 
+/// One path inside the worktree that must show the original content and stay
+/// read only during the check.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReadOnlyMount {
+    /// Path relative to the worktree, with `/` separators.
+    pub rel: String,
+    /// The pristine copy on the host, outside the worktree. A file or a folder.
+    pub source: PathBuf,
+}
+
+/// What the backend must protect inside the worktree while the check runs.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Protected {
+    /// Folders (relative, shallowest first) that hold a protected path. They are
+    /// bound onto themselves so they cannot be renamed, moved or replaced by a
+    /// link while the check runs: a mount point cannot be renamed or removed.
+    pub pin_dirs: Vec<String>,
+    /// Read only mounts of the pristine copies, over the worktree paths.
+    pub read_only: Vec<ReadOnlyMount>,
+}
+
+impl Protected {
+    pub fn is_empty(&self) -> bool {
+        self.pin_dirs.is_empty() && self.read_only.is_empty()
+    }
+
+    /// Container volumes are written `src:dst:ro`, so a path with `:` or `,`
+    /// cannot be passed safely. Refuse it rather than guess.
+    fn check_container_paths(&self, worktree: &Path) -> Result<()> {
+        let bad = |t: &str| t.contains([':', ',', '\n', '\0']);
+        let wt = worktree.to_string_lossy();
+        let mut paths: Vec<String> = vec![wt.to_string()];
+        paths.extend(self.pin_dirs.iter().cloned());
+        for m in &self.read_only {
+            paths.push(m.rel.clone());
+            paths.push(m.source.to_string_lossy().to_string());
+        }
+        match paths.into_iter().find(|p| bad(p)) {
+            Some(p) => Err(Error::Input(format!(
+                "the path {p:?} has a ':' or ',' in it, which docker and podman volumes cannot hold safely. Rename it, or use isolation = \"bwrap\""
+            ))),
+            None => Ok(()),
+        }
+    }
+}
+
 fn mib(n: u64) -> u64 {
     n * 1024 * 1024
 }
@@ -247,6 +293,8 @@ pub struct CheckRequest<'a> {
     pub check: &'a str,
     /// The passthrough variables from `tasks.toml`, after lookup.
     pub env: &'a [(String, String)],
+    /// Paths that must show their original content and stay read only.
+    pub protected: &'a Protected,
     /// The host `PATH`, used only to find `bwrap`, `docker`, `podman` or `sh`.
     pub launcher_path: Option<&'a str>,
     /// A unique container name.
@@ -260,6 +308,7 @@ pub fn build_command(backend: Backend, s: &SandboxSettings, req: &CheckRequest) 
         worktree,
         check,
         env,
+        protected,
         launcher_path,
         container,
         ids,
@@ -312,17 +361,20 @@ pub fn build_command(backend: Backend, s: &SandboxSettings, req: &CheckRequest) 
             }
             let tmp_size = mib(256).to_string();
             push(&[
-                "--proc",
-                "/proc",
-                "--dev",
-                "/dev",
-                "--size",
-                &tmp_size,
-                "--tmpfs",
-                "/tmp",
-                "--bind",
-                &wt,
-                WORK_DIR,
+                "--proc", "/proc", "--dev", "/dev", "--size", &tmp_size, "--tmpfs", "/tmp",
+                "--bind", &wt, WORK_DIR,
+            ]);
+            // Pin every folder that holds a protected path, then lay the
+            // pristine copies over their paths, read only. Parents come first.
+            for rel in &protected.pin_dirs {
+                let src = worktree.join(rel).to_string_lossy().to_string();
+                push(&["--bind", &src, &format!("{WORK_DIR}/{rel}")]);
+            }
+            for m in &protected.read_only {
+                let src = m.source.to_string_lossy().to_string();
+                push(&["--ro-bind", &src, &format!("{WORK_DIR}/{}", m.rel)]);
+            }
+            push(&[
                 "--remount-ro",
                 "/",
                 "--chdir",
@@ -419,6 +471,14 @@ pub fn build_command(backend: Backend, s: &SandboxSettings, req: &CheckRequest) 
                 push(&["--env", &format!("{k}={v}")]);
             }
             push(&["--volume", &format!("{wt}:{WORK_DIR}:rw")]);
+            for rel in &protected.pin_dirs {
+                let src = worktree.join(rel).to_string_lossy().to_string();
+                push(&["--volume", &format!("{src}:{WORK_DIR}/{rel}:rw")]);
+            }
+            for m in &protected.read_only {
+                let src = m.source.to_string_lossy().to_string();
+                push(&["--volume", &format!("{src}:{WORK_DIR}/{}:ro", m.rel)]);
+            }
             for p in &s.ro_binds {
                 push(&["--volume", &format!("{p}:{p}:ro")]);
             }
@@ -675,9 +735,13 @@ impl Runner {
         worktree: &Path,
         check: &str,
         env: &[(String, String)],
+        protected: &Protected,
         timeout: Duration,
     ) -> Result<CheckStatus> {
-        let spec = self.spec(worktree, check, env);
+        if matches!(self.backend, Backend::Docker | Backend::Podman) {
+            protected.check_container_paths(worktree)?;
+        }
+        let spec = self.spec(worktree, check, env, protected);
         if matches!(self.backend, Backend::Docker | Backend::Podman) {
             open_for_nobody_if_root(worktree);
         }
@@ -685,7 +749,13 @@ impl Runner {
     }
 
     /// The command that [`Runner::run`] would start.
-    pub fn spec(&self, worktree: &Path, check: &str, env: &[(String, String)]) -> CommandSpec {
+    pub fn spec(
+        &self,
+        worktree: &Path,
+        check: &str,
+        env: &[(String, String)],
+        protected: &Protected,
+    ) -> CommandSpec {
         let path = std::env::var("PATH").ok();
         build_command(
             self.backend,
@@ -694,6 +764,7 @@ impl Runner {
                 worktree,
                 check,
                 env,
+                protected,
                 launcher_path: path.as_deref(),
                 container: &unique_name(),
                 ids: host_ids(worktree),
@@ -761,7 +832,7 @@ pub fn probe_backend(
     if matches!(backend, Backend::Docker | Backend::Podman) {
         open_for_nobody_if_root(dir.path());
     }
-    let spec = runner.spec(dir.path(), "true", &[]);
+    let spec = runner.spec(dir.path(), "true", &[], &Protected::default());
     match run_spec(&spec, Duration::from_secs(90), true) {
         Ok((CheckStatus::Passed, _)) => Ok(()),
         Ok((CheckStatus::TimedOut, _)) => Err("starting it took more than 90 seconds".into()),
@@ -818,6 +889,10 @@ mod tests {
     };
 
     fn spec(backend: Backend, s: &SandboxSettings) -> CommandSpec {
+        spec_with(backend, s, &Protected::default())
+    }
+
+    fn spec_with(backend: Backend, s: &SandboxSettings, protected: &Protected) -> CommandSpec {
         build_command(
             backend,
             s,
@@ -825,6 +900,7 @@ mod tests {
                 worktree: Path::new("/tmp/wt-1"),
                 check: "sh check.sh task-01",
                 env: &[("FOO".to_string(), "bar".to_string())],
+                protected,
                 launcher_path: Some("/usr/bin:/bin"),
                 container: "re-test",
                 ids: IDS,
@@ -1177,5 +1253,130 @@ mod tests {
         assert!(find_in_path("sh", Some("/usr/bin:/bin")).is_some());
         assert!(find_in_path("sh", Some("/nonexistent")).is_none());
         assert!(find_in_path("sh", None).is_none());
+    }
+
+    // ---- protected (hidden) paths ----
+
+    fn protected() -> Protected {
+        Protected {
+            pin_dirs: vec!["docs".into(), "docs/deep".into()],
+            read_only: vec![
+                ReadOnlyMount {
+                    rel: "check.sh".into(),
+                    source: "/pristine/check.sh".into(),
+                },
+                ReadOnlyMount {
+                    rel: "tests".into(),
+                    source: "/pristine/tests".into(),
+                },
+                ReadOnlyMount {
+                    rel: "docs/deep/spec.txt".into(),
+                    source: "/pristine/docs/deep/spec.txt".into(),
+                },
+            ],
+        }
+    }
+
+    /// Positions of a three-part flag in an argument list.
+    fn at(args: &[String], a: &str, b: &str, c: &str) -> Option<usize> {
+        args.windows(3)
+            .position(|w| w[0] == a && w[1] == b && w[2] == c)
+    }
+
+    #[test]
+    fn bwrap_binds_hidden_paths_read_only_over_themselves_after_the_worktree() {
+        let c = spec_with(Backend::Bwrap, &SandboxSettings::default(), &protected());
+        let a = &c.args;
+        let wt = at(a, "--bind", "/tmp/wt-1", "/work").expect("worktree bind");
+        let docs = at(a, "--bind", "/tmp/wt-1/docs", "/work/docs").expect("pin docs");
+        let deep = at(a, "--bind", "/tmp/wt-1/docs/deep", "/work/docs/deep").expect("pin deep");
+        let check = at(a, "--ro-bind", "/pristine/check.sh", "/work/check.sh").expect("check.sh");
+        let tests = at(a, "--ro-bind", "/pristine/tests", "/work/tests").expect("tests");
+        let spec = at(
+            a,
+            "--ro-bind",
+            "/pristine/docs/deep/spec.txt",
+            "/work/docs/deep/spec.txt",
+        )
+        .expect("spec");
+        // Order matters: worktree, parents (shallow first), then the read only files.
+        assert!(wt < docs && docs < deep && deep < check && deep < tests && deep < spec);
+        // Everything is mounted before the root is made read only.
+        let ro_root = a.iter().position(|x| x == "--remount-ro").unwrap();
+        assert!(spec < ro_root);
+        // Hidden paths are never mounted writable, and the only writable binds
+        // are the worktree and the pinned folders of the worktree.
+        for i in a
+            .iter()
+            .enumerate()
+            .filter(|(_, x)| *x == "--bind")
+            .map(|(i, _)| i)
+        {
+            assert!(a[i + 1].starts_with("/tmp/wt-1"), "{:?}", a[i + 1]);
+        }
+        for m in [
+            "/pristine/check.sh",
+            "/pristine/tests",
+            "/pristine/docs/deep/spec.txt",
+        ] {
+            let i = a.iter().position(|x| x == m).unwrap();
+            assert_eq!(a[i - 1], "--ro-bind");
+        }
+    }
+
+    #[test]
+    fn without_protected_paths_nothing_extra_is_mounted() {
+        let c = spec(Backend::Bwrap, &SandboxSettings::default());
+        assert_eq!(c.args.iter().filter(|x| *x == "--bind").count(), 1);
+        assert_eq!(c.args.iter().filter(|x| *x == "--ro-bind").count(), 0);
+    }
+
+    fn volumes(c: &CommandSpec) -> Vec<String> {
+        c.args
+            .windows(2)
+            .filter(|w| w[0] == "--volume")
+            .map(|w| w[1].clone())
+            .collect()
+    }
+
+    #[test]
+    fn containers_mount_hidden_paths_with_ro_after_the_worktree() {
+        for b in [Backend::Docker, Backend::Podman] {
+            let c = spec_with(b, &SandboxSettings::default(), &protected());
+            assert_eq!(
+                volumes(&c),
+                vec![
+                    "/tmp/wt-1:/work:rw",
+                    "/tmp/wt-1/docs:/work/docs:rw",
+                    "/tmp/wt-1/docs/deep:/work/docs/deep:rw",
+                    "/pristine/check.sh:/work/check.sh:ro",
+                    "/pristine/tests:/work/tests:ro",
+                    "/pristine/docs/deep/spec.txt:/work/docs/deep/spec.txt:ro",
+                ]
+            );
+        }
+    }
+
+    #[test]
+    fn container_paths_that_cannot_be_quoted_are_refused() {
+        let mut p = protected();
+        p.read_only.push(ReadOnlyMount {
+            rel: "we:ird.sh".into(),
+            source: "/pristine/we:ird.sh".into(),
+        });
+        let err = p.check_container_paths(Path::new("/tmp/wt-1")).unwrap_err();
+        assert!(err.to_string().contains("docker and podman volumes"));
+        let mut q = protected();
+        q.pin_dirs.push("a,b".into());
+        assert!(q.check_container_paths(Path::new("/tmp/wt-1")).is_err());
+        assert!(protected()
+            .check_container_paths(Path::new("/tmp/wt-1"))
+            .is_ok());
+    }
+
+    #[test]
+    fn none_does_not_mount_anything_so_writes_are_not_prevented() {
+        let c = spec_with(Backend::None, &SandboxSettings::default(), &protected());
+        assert_eq!(c.args, vec!["-c", "sh check.sh task-01"]);
     }
 }
