@@ -1,0 +1,121 @@
+# Settings for the mock model used by the demo. It stands in for a real model:
+# no network, no cost. The pass chance goes up or down when the rules contain a
+# marker phrase, and the [[mutation]] list is what `mutate` can propose.
+seed = 11
+base_pass_probability = 0.3
+tokens_per_call = 1000
+
+[[marker]]
+text = "run the test suite"
+delta = 0.35
+
+[[marker]]
+text = "failing test first"
+delta = 0.3
+
+[[marker]]
+text = "small commits"
+delta = 0.05
+
+[[marker]]
+text = "skip the tests"
+delta = -0.4
+
+[[mutation]]
+hypothesis = "Telling the agent to run the test suite before it finishes will catch more mistakes."
+append = "Always run the test suite before you finish a task."
+
+[[mutation]]
+hypothesis = "Reading the failing test before editing will point the agent at the real problem."
+append = "Read the failing test first, then change the code."
+
+[[mutation]]
+hypothesis = "A short summary at the end will make results easier to check."
+append = "End every task with a two line summary."
+
+[[mutation]]
+hypothesis = "Asking for small commits might help a little."
+append = "Prefer small commits."
+
+[[mutation]]
+hypothesis = "Skipping tests will make the agent faster."
+append = "You may skip the tests when you are in a hurry."
+
+[[mutation]]
+hypothesis = "Explaining every decision at length will make the agent more careful."
+append = "Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit. Always explain every decision in great detail before and after each edit."
+
+[[mutation]]
+hypothesis = "Leaving the rules as they are."
+
+[[answer]]
+task = "task-01"
+path = "answers/task-01.txt"
+pass_content = "ok\n"
+fail_content = "no\n"
+
+[[answer]]
+task = "task-02"
+path = "answers/task-02.txt"
+pass_content = "ok\n"
+fail_content = "no\n"
+
+[[answer]]
+task = "task-03"
+path = "answers/task-03.txt"
+pass_content = "ok\n"
+fail_content = "no\n"
+
+[[answer]]
+task = "task-04"
+path = "answers/task-04.txt"
+pass_content = "ok\n"
+fail_content = "no\n"
+
+[[answer]]
+task = "task-05"
+path = "answers/task-05.txt"
+pass_content = "ok\n"
+fail_content = "no\n"
+
+[[answer]]
+task = "task-06"
+path = "answers/task-06.txt"
+pass_content = "ok\n"
+fail_content = "no\n"
+
+[[answer]]
+task = "task-07"
+path = "answers/task-07.txt"
+pass_content = "ok\n"
+fail_content = "no\n"
+
+[[answer]]
+task = "task-08"
+path = "answers/task-08.txt"
+pass_content = "ok\n"
+fail_content = "no\n"
+
+[[answer]]
+task = "task-09"
+path = "answers/task-09.txt"
+pass_content = "ok\n"
+fail_content = "no\n"
+
+[[answer]]
+task = "task-10"
+path = "answers/task-10.txt"
+pass_content = "ok\n"
+fail_content = "no\n"
+
+[[answer]]
+task = "task-11"
+path = "answers/task-11.txt"
+pass_content = "ok\n"
+fail_content = "no\n"
+
+[[answer]]
+task = "task-12"
+path = "answers/task-12.txt"
+pass_content = "ok\n"
+fail_content = "no\n"

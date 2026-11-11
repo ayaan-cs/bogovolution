@@ -1,0 +1,65 @@
+# Demo tasks. Each task passes when the model writes "ok" to its answer file.
+# check.sh is the hidden benchmark file: the model never sees it.
+
+[sandbox]
+hidden = ["check.sh"]
+
+[[task]]
+id = "task-01"
+prompt = "Demo task 1: make the answer file for this task say ok."
+check = "sh check.sh task-01"
+
+[[task]]
+id = "task-02"
+prompt = "Demo task 2: make the answer file for this task say ok."
+check = "sh check.sh task-02"
+
+[[task]]
+id = "task-03"
+prompt = "Demo task 3: make the answer file for this task say ok."
+check = "sh check.sh task-03"
+
+[[task]]
+id = "task-04"
+prompt = "Demo task 4: make the answer file for this task say ok."
+check = "sh check.sh task-04"
+
+[[task]]
+id = "task-05"
+prompt = "Demo task 5: make the answer file for this task say ok."
+check = "sh check.sh task-05"
+
+[[task]]
+id = "task-06"
+prompt = "Demo task 6: make the answer file for this task say ok."
+check = "sh check.sh task-06"
+
+[[task]]
+id = "task-07"
+prompt = "Demo task 7: make the answer file for this task say ok."
+check = "sh check.sh task-07"
+
+[[task]]
+id = "task-08"
+prompt = "Demo task 8: make the answer file for this task say ok."
+check = "sh check.sh task-08"
+
+[[task]]
+id = "task-09"
+prompt = "Demo task 9: make the answer file for this task say ok."
+check = "sh check.sh task-09"
+
+[[task]]
+id = "task-10"
+prompt = "Demo task 10: make the answer file for this task say ok."
+check = "sh check.sh task-10"
+
+[[task]]
+id = "task-11"
+prompt = "Demo task 11: make the answer file for this task say ok."
+check = "sh check.sh task-11"
+
+[[task]]
+id = "task-12"
+prompt = "Demo task 12: make the answer file for this task say ok."
+check = "sh check.sh task-12"
