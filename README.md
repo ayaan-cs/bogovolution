@@ -24,7 +24,7 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: v1.2.1
+## Status: v1.2.2
 
 No real model is ever called yet. Everything runs on a deterministic **mock
 model**, so nothing here costs money or touches the network.
@@ -100,6 +100,15 @@ Done in v1.2.1 (hidden tests are read only during the check):
   replace them. Under `none` the pristine copy is put back before the check, and
   nothing stops writes after that.
 
+Done in v1.2.2 (shadow warnings at scan time):
+
+- When the sandbox is scanned, risky layouts are reported with a plain fix: a
+  hidden file in a folder that is not hidden, a writable folder around hidden
+  files, and runner config (`conftest.py`, `pytest.ini`, `package.json`,
+  `Cargo.toml`, `Makefile` and so on) that the model can edit and the check
+  likely reads. See "Shadow warnings" in "Sandbox and threat model".
+- `[sandbox] shadow_warnings = "warn" | "error" | "off"`, default `warn`.
+
 Planned later (not built yet): real bring-your-own-key providers and a Claude
 Code plugin. See the roadmap below.
 
@@ -122,6 +131,8 @@ missing before a real provider that runs tools or code is switched on:
   "Sandbox and threat model".
 - Files next to a hidden file, and non-hidden config the check reads, can still
   be added or changed by model code (see "A new file next to a hidden file").
+  Since v1.2.2 these layouts are detected and warned about when you run, with a
+  fix in plain words (see "Shadow warnings"), but they are not prevented.
   List folders, not files, in `hidden` where you can.
 
 Other planned work: a Claude Code plugin and the real bring-your-own-key
@@ -201,6 +212,7 @@ as `defaults_confirmed = true`):
 | `max_tokens_per_run` | 200000 | Token cap for one run |
 | `max_change_bytes` | 1000 | Largest allowed change for `propose` (under `[mutation]`) |
 | `isolation` | `auto` | How check commands are isolated (under `[sandbox]`, see "Sandbox and threat model") |
+| `shadow_warnings` | `warn` | `warn`, `error` or `off`: what to do about layouts where model files could shadow hidden tests (under `[sandbox]`, see "Shadow warnings") |
 
 A task in `tasks.toml` looks like this. The check command exits with 0 to pass.
 
@@ -323,7 +335,9 @@ report lists each generation with its mutation, verdict, and `current`.
 
 Shows which isolation backends start on this machine (`bwrap`, `podman`,
 `docker`, each with the reason when it does not) and which one `auto` would use.
-`--json` gives `configured`, `image`, `backends` and `auto`. It runs a trivial
+`--json` gives `configured`, `image`, `backends`, `auto`, `shadow_warnings` (the
+mode) and `warnings` (the shadow warnings for this repo, see "Shadow warnings").
+The text output ends with a "Shadow warnings" section. It runs a trivial
 command in each backend, so a container backend needs its image present.
 
 ### `verify --child V`
@@ -828,7 +842,8 @@ Be honest with yourself about these:
   module in the source tree. There is a test that shows this gap is real. The
   fix is on your side: list the folder, not just its files, in `hidden`
   (a folder is mounted whole, so nothing can be added to it), and list the
-  config files the check depends on.
+  config files the check depends on. Since v1.2.2 the tool looks for these
+  layouts and warns (see "Shadow warnings"). It still does not prevent them.
 - **Hidden folders must not need to write inside themselves.** A hidden folder is
   read only, so a test runner that writes caches or reports into it (for
   example `__pycache__` next to the tests) will fail there. Point such output
@@ -873,6 +888,63 @@ Be honest with yourself about these:
   checks run through `sh`, so there is no Windows support.
 - Flaky checks look like noise. That is why several repeats and a median are
   used.
+
+### Shadow warnings
+
+Whenever `run`, `evolve` or `isolation` scans the sandbox, `rules-evolve` checks
+the layout for ways model written files could shadow or influence the hidden
+tests, and prints a warning with a fix. Three cases:
+
+1. **A hidden file beside visible files.** A hidden file sits in a folder that is
+   not hidden and holds visible files. Fix: add the whole folder to `hidden`, or
+   move the hidden files into a folder of their own and hide that.
+2. **A writable folder around hidden files.** The folder holds only hidden files,
+   but is still writable by the model, so it could get a new `conftest.py`,
+   `__init__.py`, `pytest.ini` or similar. Same fix.
+3. **Editable runner config.** A well known config file is visible and editable
+   and the check uses the tool that reads it (a tool name appears in a task's
+   `check`, or in a hidden shell script). Fix: add the file to `hidden`, or to
+   `exclude` if the check does not need it.
+
+A folder that is hidden whole (`tests`, `tests/**`) never warns. Hidden files at
+the repo root are not flagged under cases 1 and 2, because the root cannot be
+hidden as a folder. Case 3 covers the config that matters there.
+
+The case 3 list is data, not logic: `CONFIG_RULES` in
+`crates/core/src/shadow.rs`. Each row has a name, the tool words that mean the
+check uses it, the config file patterns (same glob form as `hidden`) and a one
+line reason. It covers Python (`conftest.py`, `pytest.ini`, `pyproject.toml`,
+`setup.cfg`, `tox.ini`, `noxfile.py`, `sitecustomize.py`), JavaScript
+(`package.json`, `jest.config.*`, `vitest.config.*`, `vite.config.*`,
+`.mocharc*`, babel and tsconfig files, `.npmrc`), Rust (`Cargo.toml`,
+`build.rs`, `.cargo/config.toml`, `rust-toolchain*`), Make (`Makefile`, `*.mk`),
+Go (`go.mod`, `go.work`), Java (`pom.xml`, Gradle files, `build.xml`) and Ruby
+(`Rakefile`, `.rspec`, `Gemfile`). To cover another tool, add a row and a test.
+Hidden shell scripts are read (up to 64 KiB each, 200 files) so a check like
+`sh check.sh` that calls `pytest` inside it is understood. Long lists are
+shortened in the message ("and N more"), and the JSON `paths` array holds at
+most 20.
+
+Sample:
+
+```
+warning: docs/ holds the hidden file(s) docs/spec.txt next to visible files (docs/readme.txt). Code the model writes could add a file beside the hidden one, such as a conftest.py, an __init__.py or a module with the same name, and the test runner could pick it up first.
+  fix: Add "docs" to hidden in tasks.toml so the whole folder is hidden and read only. If the visible files there must stay visible, move the hidden files into a folder of their own and hide that folder.
+```
+
+Warnings never block a run by default. Set `[sandbox] shadow_warnings` in
+`config.toml`:
+
+- `warn` (default): print them, carry on.
+- `error`: `run` and `evolve` refuse to start while any warning exists, before
+  anything is recorded, and the error lists the warnings. `isolation` still
+  shows them, so you can see what to fix.
+- `off`: do not look.
+
+`init` writes the setting and reports a `warnings` array too, but it analyzes
+the template it has just written, so that array is empty. The real check
+happens on `run`, `evolve` and `isolation`, after you edit `tasks.toml`. The
+demo project has no warnings.
 
 ### What was tested
 
@@ -966,7 +1038,7 @@ without a bump. Object keys are sorted.
 `data` per command:
 
 - `init`: `repo_root`, `rules_file`, `detected` (bool), `other_candidates`,
-  `notes`, `model`, `root_hash`, `defaults_confirmed` (true),
+  `notes`, `warnings` (shadow warnings, empty for the template), `model`, `root_hash`, `defaults_confirmed` (true),
   `files_created`, `gitignore` (`status`, `rule`, `detail`).
 - `status`: `repo_root`, `valid` (chain and blobs both fine), `chain` (see
   below), `blob_problems`, `tree` (or null if the log is invalid), `config`.
@@ -980,7 +1052,7 @@ without a bump. Object keys are sorted.
   refused), `hypothesis`, `change_bytes`, `max_change_bytes`, `reason`,
   `event_seq`.
 - `run`: `version`, `provider`, `base_seed`, `repeats`, `max_tokens_per_run`,
-  `isolation` (`bwrap`, `docker`, `podman` or `none`), `skipped_existing` (run indexes already recorded), `total_tokens`, and `runs`.
+  `isolation` (`bwrap`, `docker`, `podman` or `none`), `skipped_existing` (run indexes already recorded), `total_tokens`, `warnings` (shadow warnings, `[]` when there are none), and `runs`.
   Each run has `run_index`, `seed`, `passed`, `total`, `pass_rate`,
   `tokens_used`, `budget_exhausted`, `event_seq`, and `tasks` (a list of
   `id`, `status`, `tokens_used`). Task `status` is one of `passed`, `failed`,
@@ -991,10 +1063,15 @@ without a bump. Object keys are sorted.
   exits with code 3.
 - `evolve`: `provider`, `base_seed`, `generations_requested`, `start` and `end`
   (the `current` version before and after), `accepted`, `rejected`, `noise`,
-  `refused`, `total_tokens`, `provider_stats`, and `generations`. Each
+  `refused`, `total_tokens`, `provider_stats`, `warnings` (as in `run`), and `generations`. Each
   generation has `generation` (from 1), `parent`, `mutation` (the `mutate`
   data), `parent_runs_recorded`, `child_runs_recorded`, `verdict` (the `verify`
   data, or null when the mutation was refused), `current`, and `tokens_used`.
+- `warnings` (on `run`, `evolve`, `isolation`, `init`): a list of shadow
+  warnings. Each has `kind` (`hidden_file_beside_visible_files`,
+  `writable_folder_around_hidden_file` or `editable_runner_config`), `paths`
+  (at most 20), `message` and `fix`. Example:
+  `{"kind":"hidden_file_beside_visible_files","paths":["docs","docs/spec.txt"],"message":"docs/ holds ...","fix":"Add \"docs\" to hidden ..."}`.
 - `provider_stats` (on `run`, `mutate`, `evolve`): `recorded` (new calls written
   to a replay file) and `replayed` (answers served from one).
 - `verify`: `parent`, `child`, `accept_threshold_pp`, `min_paired_wins`,
