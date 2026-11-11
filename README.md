@@ -24,7 +24,7 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: Phase 4
+## Status: v1.1
 
 No real model is ever called yet. Everything runs on a deterministic **mock
 model**, so nothing here costs money or touches the network.
@@ -73,8 +73,16 @@ Done in Phase 4 (digest, export and the static viewer):
   Plot, diff2html) that opens that file. The build is one `index.html` that works
   from disk with no server, no key and no network.
 
-Planned later (not built yet): real bring-your-own-key providers, an optional
-`watch` terminal view, and a Claude Code plugin. See the roadmap below.
+Done in v1.1 (the optional `watch` terminal view):
+
+- `watch`: a live ratatui view that follows the log while another process runs
+  `evolve`. It is read only, lives in its own crate (`crates/watch`), and the
+  core crate has no terminal dependencies. See "Watch" below.
+- `--pace MS` for the replay provider, so a replayed demo plays at a watchable
+  speed.
+
+Planned later (not built yet): real bring-your-own-key providers and a Claude
+Code plugin. See the roadmap below.
 
 ## Roadmap and required TODO
 
@@ -88,8 +96,8 @@ until checks and model tools run inside a container, a separate user, or an
 equivalent boundary. No network provider exists in the code yet, and none should
 be added before this is done.
 
-Other planned work: an optional `watch` terminal view, a Claude Code plugin, and
-the real bring-your-own-key providers.
+Other planned work: a Claude Code plugin and the real bring-your-own-key
+providers.
 
 ## Not doing
 
@@ -108,6 +116,10 @@ cargo fmt --check
 
 The binary is `target/debug/rules-evolve`. The viewer has its own checks, see
 "Viewer" below.
+
+The `watch` command is behind the cargo feature `watch`, which is on by default.
+To build a binary without any terminal code, run
+`cargo build -p rules-evolve-cli --no-default-features`.
 
 ## Commands
 
@@ -446,6 +458,81 @@ rules-evolve -C <copy of the same folder before that step> mutate --seed 1 \
 To record the demo again from the mock model, for example after changing
 `mock.toml`, run `examples/demo/demo.sh --record` and commit the new
 `replay.jsonl`. A test checks that the committed file matches a fresh recording.
+
+## Watch
+
+`rules-evolve watch [-C dir]` is a live terminal view of
+`.rules-evolve/log.jsonl`. Leave it open in one terminal and run `evolve` in
+another: the view polls the log (every 200 ms, change with `--interval`) and
+redraws as events arrive. It never writes to the log.
+
+```
+rules-evolve watch                  # follow the repo in the current folder
+rules-evolve watch --run "evolve --generations 3 --provider replay --replay-file r.jsonl"
+```
+
+Panes:
+
+- **Mutation tree**: indented lineage, colored by verdict (green accepted, red
+  rejected, yellow noise, grey pending), with `*` on the current version and
+  refused attempts dimmed under their parent.
+- **Details**: the selected version: hypothesis, verdict reason, medians, parent
+  to child pass rate and gain. Press `enter` for a full screen overlay with
+  the rules diff against the parent (`esc`, `enter` or `q` closes it).
+- **Run progress**: for the version being benchmarked, runs done out of repeats,
+  a gauge, and a sparkline of the pass rate per run.
+- **Verdict feed**: newest first, one line per finished verify or refusal, with
+  hypothesis, gain, paired wins and verdict.
+- **Status bar**: chain validity, event count, token totals (biggest run against
+  the cap), the child process if any, and key help.
+
+Keys: `up`/`down` or `j`/`k` move, `enter` opens or closes the details overlay, `tab` moves
+between panes, `f` toggles following the newest node, `q` quits (press it twice
+while a `--run` child is still going, which also stops the child).
+
+If the hash chain fails verification the view shows a red banner with the reason
+and stays read only, still drawing the part of the log that verified. A reader
+can catch a writer between appending an event and updating `HEAD`, so the alarm
+only appears after three bad reads in a row. Tampering is reported, never
+repaired.
+
+`--run "<command>"` starts one of `evolve`, `run`, `mutate`, `verify` or
+`propose` as a child process on the same repo and shows it live. The command
+text is split on spaces with simple quoting, runs without a shell, and may not
+contain `-C` (the repo is the one being watched).
+
+Replay demo with no key and no cost:
+
+```
+examples/demo/watch.sh        # 30 ms of simulated latency per model call
+examples/demo/watch.sh 100    # slower
+```
+
+`--pace MS` (replay provider only) sleeps before each replayed answer. It does
+not change any result or the log contents, only how fast they arrive.
+
+For scripts, docs and tests there is a mode that needs no terminal:
+
+```
+rules-evolve watch --snapshot --width 130 --height 34 --select current
+rules-evolve watch --snapshot --svg out.svg
+```
+
+`--snapshot` prints one frame as text (or as JSON with `--json`). `--svg` writes
+the same frame with colors as an SVG. `--select` takes `current`, `root` or a
+version hash prefix. The finished demo is committed as
+[`docs/screenshots/watch-demo.txt`](docs/screenshots/watch-demo.txt),
+[`.svg`](docs/screenshots/watch-demo.svg) and
+[`.png`](docs/screenshots/watch-demo.png), regenerated by
+`examples/demo/watch-snapshot.sh`. A test fails if the text or SVG goes stale.
+
+![watch on the finished demo](docs/screenshots/watch-demo.png)
+
+The crate is layered so rendering stays thin: `state` (events to tree, progress
+and feed, pure), `view` (selection, focus and keys), `ui` (drawing, tested with
+ratatui's `TestBackend` against golden text in `crates/watch/snapshots/`), and
+`app` (terminal loop, tailing, child process). Refresh goldens with
+`UPDATE_SNAPSHOTS=1 cargo test -p rules-evolve-watch`.
 
 ## Viewer
 
