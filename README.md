@@ -24,10 +24,10 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: Phase 1
+## Status: Phase 2
 
-Phase 1 builds the foundation and makes **no model calls**. It has no
-benchmark harness, no `mutate`, no viewer, and no TUI yet.
+No real model is ever called yet. Everything runs on a deterministic **mock
+model**, so nothing here costs money or touches the network.
 
 Done in Phase 1:
 
@@ -35,11 +35,24 @@ Done in Phase 1:
   `rules-evolve` binary).
 - Append-only, hash-chained log with tamper and truncation checks.
 - Tree rebuilt from the log. Rules file versions are stored by content hash.
-- Commands: `init`, `status`, `log`, `verify-log`. All support `--json`.
+- Commands: `init`, `status`, `log`, `verify-log`.
 
-Planned later (not built yet): `mutate`, `run` / `verify`, `digest`, replay
-mode, a static JSON lineage viewer, an optional `watch` terminal view, and a
-Claude Code plugin.
+Done in Phase 2 (the benchmark harness):
+
+- A `Model` trait (the provider abstraction) and a seedable `MockModel`.
+- `tasks.toml` parsing: id, prompt, shell check, optional timeout.
+- A sandboxed worktree per attempt that keeps benchmark files away from the
+  model (threat model and limits below).
+- `run`: runs a rules version `repeats` times over the task set, records every
+  run, and enforces the token cap.
+- `verify`: compares a child to its parent with the fixed public rule and
+  records a verdict.
+- `propose`: a temporary way to add a child version from a file, so `run` and
+  `verify` can be used before the real `mutate` exists.
+
+Planned later (not built yet): model driven `mutate` and replay mode (Phase 3),
+`digest`, real bring-your-own-key providers, a static JSON lineage viewer, an
+optional `watch` terminal view, and a Claude Code plugin.
 
 ## Not doing
 
@@ -100,6 +113,7 @@ as `defaults_confirmed = true`):
 | `accept_threshold_pp` | 10 | Child must beat parent by 10 percentage points of median pass rate |
 | `min_paired_wins` | 4 | And win at least 4 of the 5 paired runs, otherwise it is noise |
 | `max_tokens_per_run` | 200000 | Token cap for one run |
+| `max_change_bytes` | 1000 | Largest allowed change for `propose` (under `[mutation]`) |
 
 A task in `tasks.toml` looks like this. The check command exits with 0 to pass.
 
@@ -127,6 +141,51 @@ Lists events in order. `--limit N` shows the newest N. `--kind` is one of
 Checks the hash chain, the `HEAD` file, and that every stored rules file
 matches its hash.
 
+### `propose --file <PATH> --hypothesis <TEXT> [--parent <VERSION>]`
+
+Temporary. Adds a child rules version from a file holding the full new text.
+`--parent` is `root`, `current` (default), a full hash, or a hash prefix of at
+least 4 characters. The engine stores the text by hash and writes a
+`mutation_proposed` event. It is replaced by the model driven `mutate` in
+Phase 3.
+
+There is a size limit: the changed part (what is cut out or put in, after
+trimming the shared start and end) may not be larger than
+`[mutation] max_change_bytes` in `config.toml` (default 1000 bytes). Too big,
+identical to the parent, or already in the tree: nothing is added, a
+`mutation_refused` event is written, and the exit code is 3. The hypothesis
+must not be empty, and the file must be UTF-8 text.
+
+### `run [--version V] [--repeats N] [--seed S] [--provider mock] [--mock-config PATH]`
+
+Runs one rules version over the whole task set `repeats` times (default from
+`config.toml`, 5) and writes one `run_recorded` event per run, with the pass
+rate (`passed` and `total`), tokens used, and the seed. `--version` is `root`,
+`current` (default), or a hash or prefix, so you run the parent and the child
+the same way.
+
+- Run `i` uses the seed derived from `--seed` and `i`. Use the same `--seed`
+  for parent and child so that run `i` of each is paired. The default is 0.
+- Runs already in the log are skipped, so you can stop and start again, or ask
+  for more repeats. A different `--seed` for an already recorded run is an
+  error.
+- **Token cap.** Each run (one pass over all tasks) may use at most
+  `max_tokens_per_run`. Before each model call the harness asks the provider
+  for a token estimate and does not make the call if it would go over the cap.
+  The rest of the tasks in that run are marked `skipped_budget` and count as
+  failed, and the run is recorded with `budget_exhausted: true`. If a provider
+  ever reports more tokens than were left, its answer is thrown away
+  (`over_budget`) and the run stops with `tokens_used` set to the cap. The
+  recorded tokens for a run never go over the cap.
+- Only the `mock` provider exists. Any other name is an error.
+
+### `verify --child V`
+
+Compares the child to its parent with the fixed rule below and writes a
+`verdict` event. Both versions need runs `0..repeats` recorded with matching
+seeds and task counts, otherwise it tells you what to run first. A child gets
+one verdict.
+
 ### Exit codes
 
 | Code | Meaning |
@@ -134,7 +193,142 @@ matches its hash.
 | 0 | Success |
 | 1 | Error (not initialized, bad arguments, broken log for `log`, and so on) |
 | 2 | `status` or `verify-log` ran, but verification failed |
+| 3 | `propose` ran, but the change was refused and logged |
 
+## Tasks
+
+`.rules-evolve/tasks.toml` holds the benchmark tasks and the sandbox settings.
+
+```toml
+[sandbox]
+hidden = ["tests", "check.sh", "**/*_test.go"]   # benchmark files, see below
+exclude = ["target", "node_modules"]             # never copied (the default)
+env_passthrough = []                              # variables check commands may see
+default_timeout_secs = 60
+
+[[task]]
+id = "fix-parser-bug"          # letters, digits, _ - . only, unique
+prompt = "The date parser fails on leap days. Fix it."
+check = "sh tests/run.sh fix-parser-bug"   # exit 0 means pass
+timeout_secs = 120             # optional, overrides default_timeout_secs
+```
+
+Unknown keys are errors, so typos do not pass silently. Paths in `hidden` and
+`exclude` are relative to the repo root. A path covers everything under it. `*`
+matches inside one folder level, `**` matches any number of levels, `?` matches
+one character.
+
+## Mock model
+
+`run` reads `.rules-evolve/mock.toml` (or `--mock-config`). Everything is
+deterministic: the same settings and seed give the same answers on any machine.
+
+```toml
+seed = 7                      # mixed into every draw
+base_pass_probability = 0.3   # chance of a right answer with no marker
+independent_noise = 0.0       # 0 to 1, see below
+tokens_per_call = 1000        # plus (prompt + rules characters) / 4
+
+[[marker]]                    # if this text is in the rules, add delta
+text = "run the tests first"
+delta = 0.4
+
+[[answer]]                    # what a right and a wrong answer look like
+task = "fix-parser-bug"
+path = "answers/fix-parser-bug.txt"
+pass_content = "ok\n"
+fail_content = "no\n"
+```
+
+For each task attempt the pass probability is the base plus the delta of every
+marker found in the rules text (clamped to 0 to 1). The mock draws a number
+from the seed and answers right when the draw is under the probability. It
+returns the right or wrong content as an edit to `path`, and the harness
+applies it and runs the check. A better rules file wins because it has more
+markers that raise the probability.
+
+Parent and child share the same draw for the same run and task, so they are
+paired and a pure improvement never loses a pair. `independent_noise` is the
+chance that a sample ignores the shared draw and uses its own, which makes
+parent and child differ at random. The mock is a test tool for the harness. It
+says nothing about real models.
+
+## Sandbox and threat model
+
+For each task attempt the harness copies the repo into a fresh temp folder and:
+
+1. leaves out the `hidden` benchmark files, `.git`, `.rules-evolve/` (which
+   holds the check commands, config and log), `exclude` paths, and every
+   symlink;
+2. writes the rules version under test into the copy;
+3. gives the model the prompt, the rules text, and that folder. The model never
+   sees the check command;
+4. applies the model's edits, refusing the whole batch if any edit uses a path
+   that is absolute, has `..`, is hidden or excluded, or is the rules file
+   (the attempt is recorded as `violation` and counts as failed);
+5. copies the hidden files back from the real repo, overwriting anything at
+   those paths, so the model cannot change the tests;
+6. runs the check with `sh -c` in the copy, with a timeout, no stdin, output
+   discarded, and an environment cleared down to `PATH`, `HOME` (the copy), and
+   the names in `env_passthrough`. API keys in your shell do not reach it.
+
+This is the simplest design that reliably stops the harness from handing the
+tests to the model: the tests are not in the folder the model works in.
+
+**What it protects against:** a model reading the benchmark tests, the check
+command, the git history, or the lineage files through the folder it is given;
+a model rewriting the tests; secrets in your environment reaching check
+commands; symlinks pointing outside the repo.
+
+**What it does not protect against.** Be honest with yourself about these:
+
+- It is not an operating system sandbox. Check commands run as you, with your
+  files and your network. Code the model wrote (a build script, a test config,
+  a `conftest.py`) can run during the check, and at that moment the hidden
+  tests are in the folder. A hostile or confused model could read them then, or
+  write files outside the copy.
+- The folder is just a folder. A provider that lets a model run tools could
+  let it read the real repo by absolute path. When real providers arrive, they
+  must be run so the model sees only the copy (a container or a separate user
+  is the right tool). The mock reads nothing.
+- The `hidden` list is yours to keep complete. A test file you forget to list
+  is copied. The `prompt` is shown to the model by design. The `check` text is
+  not shown to the model, but it is in `tasks.toml`, so keep the real checking
+  logic in hidden files rather than in the command text.
+- A model can make a check pass without solving the task, for example by
+  editing a visible config that weakens the tests. Put such config in `hidden`.
+- On timeout only the `sh` process is killed. Child processes it started may
+  keep running.
+- Unix only for now, because checks run through `sh`.
+- Flaky checks look like noise. That is why several repeats and a median are
+  used.
+
+## The verdict rule
+
+This is the fixed public rule. It is a pure function (`verdict::decide`) with
+no model involved, and it is unit tested. Inputs are the pass rate of each run
+(`passed / total`) for the parent and the child. Run `i` of the parent is paired
+with run `i` of the child. Numbers come from `config.toml`: threshold 10
+percentage points, 4 paired wins, 5 repeats.
+
+- **median**: the middle pass rate (for an even count, the mean of the two
+  middle values).
+- **gain** = (child median minus parent median) times 100, in percentage
+  points.
+- **paired win**: the child's pass rate in a pair is strictly higher than the
+  parent's. A tie is not a win.
+
+Then, in this order:
+
+1. **accepted** if gain is at least `accept_threshold_pp` (10) AND paired wins
+   are at least `min_paired_wins` (4 of 5).
+2. otherwise **rejected** if the child median is at or below the parent median.
+3. otherwise **noise**: the child looks a bit better, but not clearly.
+
+Comparisons use a tolerance of 1e-9, so a gain of exactly 10 points counts even
+though `0.6 - 0.5` is slightly under 0.1 in floating point. `verify` refuses to
+run if `min_paired_wins` is larger than `repeats`, since nothing could be
+accepted. An accepted child becomes `current` in the tree.
 ## JSON output
 
 With `--json`, every command prints one JSON object to stdout.
@@ -176,6 +370,19 @@ without a bump. Object keys are sorted.
   edge has `parent`, `child`, `hypothesis`, `verdict` (null while pending),
   `parent_median`, `child_median`, `paired_wins`, `repeats`, `note`, `seq`.
 - `log`: `total`, `shown`, `events` (the raw log events).
+- `propose`: `outcome` (`proposed` or `refused`), `parent`, `child` (null when
+  refused), `hypothesis`, `change_bytes`, `max_change_bytes`, `reason`,
+  `event_seq`.
+- `run`: `version`, `provider`, `base_seed`, `repeats`, `max_tokens_per_run`,
+  `skipped_existing` (run indexes already recorded), `total_tokens`, and `runs`.
+  Each run has `run_index`, `seed`, `passed`, `total`, `pass_rate`,
+  `tokens_used`, `budget_exhausted`, `event_seq`, and `tasks` (a list of
+  `id`, `status`, `tokens_used`). Task `status` is one of `passed`, `failed`,
+  `timeout`, `violation`, `model_error`, `skipped_budget`, `over_budget`.
+- `verify`: `parent`, `child`, `accept_threshold_pp`, `min_paired_wins`,
+  `event_seq`, and `decision`: `verdict`, `parent_median`, `child_median`,
+  `gain_pp`, `paired_wins`, `repeats`, `reason`, and `pairs` (each with
+  `run_index`, `parent_rate`, `child_rate`, `win`).
 - `verify-log`: `valid`, `chain`, `blob_problems`. `chain` has `valid`,
   `events`, `head_seq`, `head_hash`, `problems`. A problem has `code`, `seq`,
   `line`, `message`. Codes: `invalid_line`, `bad_seq`, `bad_prev_hash`,
@@ -233,11 +440,12 @@ Event kinds (names are stable):
 | `init` | `rules_file`, `model`, `root_hash`, `tool_version` | Start of the lineage. Always `seq` 0. |
 | `mutation_proposed` | `parent`, `child`, `hypothesis` | A child version of a parent version |
 | `mutation_refused` | `parent`, `hypothesis` (optional), `reason` | A change that was not allowed, for example too large |
-| `run_recorded` | `node`, `run_index`, `passed`, `total`, `tokens_used` | One benchmark run of one version |
+| `run_recorded` | `node`, `run_index`, `passed`, `total`, `tokens_used`, `seed`, `provider`, `budget_exhausted`, `tasks` | One benchmark run of one version over all tasks. `tasks` is a list of `id`, `status`, `tokens_used`. The last four fields are optional when reading older logs. |
 | `verdict` | `parent`, `child`, `verdict`, `parent_median`, `child_median`, `paired_wins`, `repeats`, `note` | `verdict` is `accepted`, `rejected`, or `noise` |
 
-In Phase 1 only `init` is written by a command. The other kinds are defined,
-checked, and tested in the engine so later phases can use them.
+`init` is written by `init`, `mutation_proposed` and `mutation_refused` by
+`propose`, `run_recorded` by `run`, and `verdict` by `verify`. In the log, `seed`
+is below 2^48 so it is safe in any JSON reader.
 
 ### What the checks catch
 
@@ -269,6 +477,6 @@ Apache License 2.0. See the `LICENSE` file.
 
 ## Cost
 
-Phase 1 makes no network calls and costs nothing to run. Later phases will use
-your own API key, and a per run token cap (default 200000) is part
-of the config from the start.
+Phases 1 and 2 make no network calls and cost nothing to run. The only provider
+is the mock. Later phases will use your own API key, and the per run token cap
+(default 200000, enforced since Phase 2) is part of the config from the start.
