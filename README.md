@@ -24,7 +24,7 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: v1.2
+## Status: v1.2.1
 
 No real model is ever called yet. Everything runs on a deterministic **mock
 model**, so nothing here costs money or touches the network.
@@ -92,6 +92,14 @@ Done in v1.2 (isolation for the check command):
 - Real escape tests for every backend that works on the machine running them.
   See "Sandbox and threat model" for what ran where.
 
+Done in v1.2.1 (hidden tests are read only during the check):
+
+- Hidden files and folders are kept as pristine copies outside every worktree.
+  Under `bwrap`, `docker` and `podman` they are mounted read only over their own
+  paths for the check, so code the model wrote cannot edit, delete, rename or
+  replace them. Under `none` the pristine copy is put back before the check, and
+  nothing stops writes after that.
+
 Planned later (not built yet): real bring-your-own-key providers and a Claude
 Code plugin. See the roadmap below.
 
@@ -112,6 +120,9 @@ missing before a real provider that runs tools or code is switched on:
   machine that has them and read the output (see below).
 - No seccomp filter and no cgroup limits for `bwrap`. See the list of gaps in
   "Sandbox and threat model".
+- Files next to a hidden file, and non-hidden config the check reads, can still
+  be added or changed by model code (see "A new file next to a hidden file").
+  List folders, not files, in `hidden` where you can.
 
 Other planned work: a Claude Code plugin and the real bring-your-own-key
 providers. No network provider exists in the code, and none should be added
@@ -700,15 +711,43 @@ For each task attempt the harness copies the repo into a fresh temp folder and:
 4. applies the model's edits, refusing the whole batch if any edit uses a path
    that is absolute, has `..`, is hidden or excluded, or is the rules file
    (the attempt is recorded as `violation` and counts as failed);
-5. copies the hidden files back from the real repo, overwriting anything at
-   those paths, so the model cannot change the tests;
+5. puts the hidden files back from pristine copies that were taken once, when
+   the run started, and are kept outside every worktree. Whatever the model left
+   at those paths is removed first: a changed file, a deleted one, a symlink in
+   its place, a link or plain file where a parent folder should be (links are
+   removed, never followed). If a path cannot be put back, the run stops with an
+   error, so the check never runs against something else;
 6. runs the check command in the copy through the isolation backend (below),
-   with a timeout, no stdin, output discarded, and a cleared environment.
+   with a timeout, no stdin, output discarded, and a cleared environment. The
+   backend mounts the hidden paths read only from the pristine copies (below).
 
 Steps 1 to 5 keep the harness from handing the tests to the model. Step 6 is
 where code runs: the check command and anything the model wrote that the check
 pulls in (a build script, a test config, a `conftest.py`). That is what the
 isolation backends contain.
+
+### Hidden files are read only during the check
+
+After the worktree is bound in, the backend mounts every hidden path read only
+over itself, from the pristine copy:
+
+- a hidden folder (a `hidden` entry that names or globs a folder, such as
+  `tests`) is mounted as a whole, so nothing inside can be changed and no new
+  file can be added to it, which also stops a new `conftest.py` or extra test
+  file from appearing there;
+- a hidden file is mounted as a file;
+- every folder that holds a hidden path is bound onto itself. A mount point
+  cannot be renamed, moved or removed, so the model's code cannot swap a
+  parent folder for another one (or a symlink) that holds a fake copy. The
+  folders stay writable, so the check's own output still works.
+
+A write to a hidden path fails with a read only filesystem error, as do chmod,
+delete, rename over it, symlink replace and hard link replace. `bwrap` uses
+`--ro-bind` and `--bind`, `docker` and `podman` use `--volume ...:ro` and
+`:rw`, in an order that puts parents first. Container volumes cannot hold a path
+with `:` or `,`, so such a hidden path is an error with those two backends, not
+a guess. Under `none`, nothing is mounted: the pristine copy is put back before
+the check and writes are not prevented.
 
 ### Isolation backends
 
@@ -731,7 +770,7 @@ ro_binds = []           # extra host folders mounted read only, e.g. a toolchain
 | `bwrap` | Bubblewrap, Linux, no daemon. New user, pid, net, ipc and uts namespaces. `/usr`, `/bin`, `/lib*`, `/opt` and a few `/etc` entries mounted read only, and nothing else of your machine. The worktree is the only writable bind (at `/work`). `/tmp` is a 256 MiB tmpfs. Root is remounted read only. Cleared environment with a fixed `PATH` and `HOME=/work`. `--die-with-parent`, `--new-session`, all capabilities dropped. Limits (`prlimit`) on processes, address space and file size are set inside the new user namespace. |
 | `docker`, `podman` | `--network none`, `--read-only` root, tmpfs `/tmp`, a non-root user (your uid, or `nobody` if the worktree is owned by root), `--cap-drop ALL`, `--security-opt no-new-privileges`, `--ipc none`, `--pids-limit`, `--memory` (swap off), `--cpus`, `--ulimit` for open files, file size and core dumps, `--pull never`. Only the worktree is mounted (plus any `ro_binds`, read only). Podman also uses `--userns keep-id` so the worktree is writable. On a timeout the container is removed with `rm -f`. |
 | `none` | The old behavior: `sh -c` in the worktree with a cleared environment. **Unsafe.** No namespaces, no mounts, no limits. Kept for development and for the mock and replay providers. It is always printed as `none (UNSAFE: no operating system isolation)`. |
-| `auto` | The first of `bwrap`, `podman`, `docker` that really starts here (it runs `true` in each). If none starts: `none` for mock and replay, an error for a real provider. |
+| `auto` | The first of `bwrap`, `podman`, `docker` that really starts here (it runs `true` in each). If none starts: `none` for mock and replay, an error for a real provider. This is the decided policy. |
 
 `auto` tries `bwrap` first on purpose: it uses your host toolchain read only, so
 checks that work today keep working with no image to build. The container
@@ -752,11 +791,17 @@ errors for it, and `auto` with no working backend is an error. The check lives i
 `isolation::Runner::resolve`, which `run_version` always calls, and in
 `mutate`, and a test with a fake `Real` provider keeps it there.
 
+**Decided policy for `auto`:** when no backend works, `auto` falls back to `none`
+for the mock and replay providers, and says so (`none (UNSAFE: ...)` in the
+output and `"isolation": "none"` in the log). It never falls back for a `Real`
+provider, which is refused. Nobody should change that without asking.
+
 ### What each backend protects against
 
 | | `none` | `bwrap` | `docker` / `podman` |
 | --- | --- | --- | --- |
 | Check code reads your real repo, hidden tests there, home, keys, git history | no | yes (not mounted) | yes (not mounted) |
+| Check code edits, deletes, renames or replaces a hidden test inside the worktree | no (pristine copy restored first, writes not prevented) | no: read only mounts, original content | no: read only mounts, original content |
 | Check code writes outside its worktree | no | yes (read only system, private `/tmp`) | yes (read only root, private `/tmp`) |
 | Check code uses the network or your loopback services | no | yes (own empty network namespace) | yes (`--network none`) |
 | Secrets in your environment reach the check | blocked (cleared env) | blocked | blocked |
@@ -771,12 +816,23 @@ What ran here: see "What was tested" below.
 
 Be honest with yourself about these:
 
-- **The hidden tests are in the worktree while the check runs.** The check
-  needs them. Code the model wrote that runs during the check can read them, and
-  can overwrite them inside the worktree before they run. Isolation keeps that
-  code away from your real repo and the network, but it cannot hide files the
-  check itself uses. Putting the hidden files in read only mounts is a possible
-  next step and is not done.
+- **The hidden tests are readable while the check runs.** The check needs them,
+  so code the model wrote that runs during the check can read them. It can no
+  longer change them under `bwrap`, `docker` or `podman` (see "Hidden files are
+  read only during the check"), but reading is not prevented.
+- **A new file next to a hidden file can still shadow it.** A hidden *file* in a
+  folder that is not itself hidden leaves that folder writable, so code can add a
+  sibling the test runner picks up first: a `conftest.py`, a `pytest.ini`, a
+  `__init__.py`, a module that shadows an import. The same goes for any
+  non-hidden file the check reads: `Makefile`, `package.json`, build config, a
+  module in the source tree. There is a test that shows this gap is real. The
+  fix is on your side: list the folder, not just its files, in `hidden`
+  (a folder is mounted whole, so nothing can be added to it), and list the
+  config files the check depends on.
+- **Hidden folders must not need to write inside themselves.** A hidden folder is
+  read only, so a test runner that writes caches or reports into it (for
+  example `__pycache__` next to the tests) will fail there. Point such output
+  elsewhere, with an environment setting or a check command flag.
 - **A model can still make a check pass without solving the task**, for example
   by editing a visible config that weakens the tests. Put such config in
   `hidden`.
@@ -833,8 +889,24 @@ variable, a fork bomb, a long sleep, a background child that outlives its shell,
 a process cap, a memory hog, and a file bigger than the cap. They also check
 that no process is left over after each timeout.
 
-Where this was built, `bwrap` ran all of them and passed. `docker` and `podman`
-were skipped because the programs are not installed there, and they could not
+The hidden file tests (`crates/core/tests/hidden_protection.rs`) run the whole
+harness path: scan, prepare a worktree, let a pretend model delete a hidden file
+and swap a hidden folder and a parent folder for symlinks to a folder it
+controls, restore, then run a hostile check that tries to overwrite, append to,
+chmod, delete, rename, rename over, symlink over and hard link over hidden
+files, add files to hidden folders, delete or rename or swap a hidden folder, and
+rename, swap or turn into a file the parent of a hidden file. Under `bwrap` every
+one is refused, the check sees the original content after each phase, the real
+check script runs its original, a write fails with a read only or permission
+error, and nothing reaches the folder the links point at. A control under `none`
+shows the same attacks succeed there. They are skipped per backend exactly like
+the escape tests. Unit tests always run for the restore logic (links, files and
+folders in the way, the pristine copy surviving a changed repo) and for the
+mount arguments of every backend. Removing either the read only mounts or the
+folder pins from the code makes the `bwrap` test fail.
+
+Where this was built, `bwrap` ran all of them and passed, for both test files.
+`docker` and `podman` were skipped because the programs are not installed there, and they could not
 be installed: the package repository was unreachable from that machine.
 
 ## The verdict rule
