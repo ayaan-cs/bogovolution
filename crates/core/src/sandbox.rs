@@ -155,6 +155,16 @@ impl Sandbox {
         Ok(())
     }
 
+    /// Is `rel` a hidden folder or inside one?
+    pub fn is_under_hidden_dir(&self, rel: &str) -> bool {
+        self.under_hidden_dir(rel)
+    }
+
+    /// Where the pristine copy of a hidden file lives.
+    pub fn pristine_path(&self, rel: &str) -> PathBuf {
+        self.pristine.path().join(rel)
+    }
+
     fn under_hidden_dir(&self, rel: &str) -> bool {
         self.hidden_dirs
             .iter()

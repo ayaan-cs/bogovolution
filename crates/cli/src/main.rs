@@ -13,6 +13,7 @@ use rules_evolve_core::isolation::Isolation;
 use rules_evolve_core::model::{build_provider, Model, ProviderSpec};
 use rules_evolve_core::mutate::{evolve, mutate, EvolveOptions, MutateOptions};
 use rules_evolve_core::repo::{FullVerify, Repo, StatusReport};
+use rules_evolve_core::shadow::{self, ShadowWarning};
 use rules_evolve_core::tree::Tree;
 use serde_json::{json, Value};
 use std::path::PathBuf;
@@ -308,12 +309,24 @@ fn run(cli: &Cli) -> Result<Output> {
                 "\ngit: {}\nCommit .rules-evolve/ so the lineage has git history.\n",
                 report.gitignore.detail
             ));
+            // The tasks.toml that init just wrote is the template, so this is
+            // empty in practice. It is here so the shape matches the other
+            // commands, and so a template with hidden entries would be flagged.
+            let (_, warnings) = shadow::scan_repo(&Repo::open(&cli.dir)?)?;
+            if !warnings.is_empty() {
+                text.push('\n');
+                text.push_str(&warnings_text(&warnings));
+            }
             text.push_str(
                 "\nReview .rules-evolve/config.toml and edit .rules-evolve/tasks.toml.\n",
             );
+            let mut data = serde_json::to_value(&report)?;
+            if let Value::Object(map) = &mut data {
+                map.insert("warnings".into(), serde_json::to_value(&warnings)?);
+            }
             Ok(Output {
                 command: "init",
-                data: serde_json::to_value(&report)?,
+                data,
                 text,
                 exit: 0,
             })
@@ -323,6 +336,7 @@ fn run(cli: &Cli) -> Result<Output> {
             let settings = repo.sandbox_settings()?;
             settings.validate()?;
             let (backends, auto) = rules_evolve_core::isolation::survey(&settings);
+            let (shadow_mode, warnings) = shadow::scan_repo(&repo)?;
             let mut text = format!("Configured isolation: {}\n", settings.isolation.as_str());
             for b in &backends {
                 match &b.problem {
@@ -341,6 +355,13 @@ fn run(cli: &Cli) -> Result<Output> {
                     rules_evolve_core::isolation::UNSAFE_LABEL
                 ),
             });
+            text.push_str(&format!("Shadow warnings: {}\n", shadow_mode.as_str()));
+            if warnings.is_empty() {
+                text.push_str("  none found\n");
+            } else {
+                text.push('\n');
+                text.push_str(&warnings_text(&warnings));
+            }
             Ok(Output {
                 command: "isolation",
                 data: json!({
@@ -348,6 +369,8 @@ fn run(cli: &Cli) -> Result<Output> {
                     "image": settings.image,
                     "backends": backends,
                     "auto": auto.map(|b| b.as_str()).unwrap_or("none"),
+                    "shadow_warnings": shadow_mode.as_str(),
+                    "warnings": warnings,
                 }),
                 text,
                 exit: 0,
@@ -451,6 +474,7 @@ fn run(cli: &Cli) -> Result<Output> {
                 report.base_seed,
                 report.max_tokens_per_run
             );
+            text.push_str(&warnings_text(&report.warnings));
             for r in &report.runs {
                 text.push_str(&format!(
                     "  run {}: {}/{} passed ({:.0}%), {} tokens{}\n",
@@ -552,6 +576,7 @@ fn run(cli: &Cli) -> Result<Output> {
                 report.provider,
                 report.base_seed
             );
+            text = format!("{}{}", warnings_text(&report.warnings), text);
             for g in &report.generations {
                 let what = match &g.verdict {
                     Some(v) => format!(
@@ -779,6 +804,20 @@ fn counters_text(model: &dyn Model, args: &ProviderArgs) -> String {
     } else {
         String::new()
     }
+}
+
+/// Shadow warnings as lines for people, one blank line after the block.
+fn warnings_text(warnings: &[ShadowWarning]) -> String {
+    if warnings.is_empty() {
+        return String::new();
+    }
+    let mut t = String::new();
+    for w in warnings {
+        t.push_str(&w.text());
+        t.push('\n');
+    }
+    t.push('\n');
+    t
 }
 
 /// Backend name for people. `none` always says it is unsafe.

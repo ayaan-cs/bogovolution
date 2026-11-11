@@ -22,6 +22,7 @@
 //! both go through it, so a new provider cannot skip it.
 
 use crate::error::{Error, Result};
+use crate::shadow::ShadowMode;
 use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -154,6 +155,9 @@ pub struct SandboxSettings {
     pub max_file_mb: u64,
     /// Extra host folders mounted read only, for example a toolchain.
     pub ro_binds: Vec<String>,
+    /// What to do about layouts where model-written files could shadow hidden
+    /// tests: `warn` (default), `error` or `off`.
+    pub shadow_warnings: ShadowMode,
 }
 
 impl Default for SandboxSettings {
@@ -166,6 +170,7 @@ impl Default for SandboxSettings {
             max_processes: 256,
             max_file_mb: 256,
             ro_binds: Vec::new(),
+            shadow_warnings: ShadowMode::Warn,
         }
     }
 }

@@ -245,12 +245,16 @@ pub struct EvolveReport {
     /// Isolation backend the checks ran with. `None` when no check ran (every
     /// attempt was refused).
     pub isolation: Option<String>,
+    /// Layouts where model-written files could shadow hidden tests.
+    pub warnings: Vec<crate::shadow::ShadowWarning>,
     pub generations: Vec<Generation>,
 }
 
 /// Loop `generations` times: mutate from `current`, run parent and child, and
 /// verify. `current` moves only when a child is accepted.
 pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<EvolveReport> {
+    // Look before anything is recorded, so `error` mode stops the whole loop.
+    let warnings = crate::shadow::check_repo(repo)?;
     let first = Tree::from_events(&repo.events()?)?;
     let mut report = EvolveReport {
         provider: model.name(),
@@ -264,6 +268,7 @@ pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<Ev
         refused: 0,
         total_tokens: 0,
         isolation: None,
+        warnings,
         generations: Vec::new(),
     };
 

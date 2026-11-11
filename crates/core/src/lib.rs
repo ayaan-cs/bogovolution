@@ -19,6 +19,7 @@ pub mod mutate;
 pub mod replay;
 pub mod repo;
 pub mod sandbox;
+pub mod shadow;
 pub mod store;
 pub mod tasks;
 #[cfg(test)]

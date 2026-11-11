@@ -129,6 +129,9 @@ impl Config {
              max_file_mb = {file_mb}\n\
              # Extra host folders mounted read only, for example a toolchain.\n\
              ro_binds = {ro_binds}\n\
+             # Layouts where model-written files could shadow hidden tests: warn, error or off.\n\
+             # error refuses to run while there is any warning.\n\
+             shadow_warnings = {shadow}\n\
              \n\
              [meta]\n\
              defaults_confirmed = {confirmed}\n",
@@ -143,6 +146,7 @@ impl Config {
             image = toml_string(&self.sandbox.image),
             memory = self.sandbox.memory_mb,
             cpus = self.sandbox.cpus,
+            shadow = toml_string(self.sandbox.shadow_warnings.as_str()),
             procs = self.sandbox.max_processes,
             file_mb = self.sandbox.max_file_mb,
             ro_binds = toml::Value::Array(

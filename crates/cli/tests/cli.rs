@@ -1437,3 +1437,180 @@ fn the_demo_replay_still_gives_the_same_lineage_under_isolation() {
         assert_eq!(e["payload"]["isolation"], want.as_str());
     }
 }
+
+// ---------------------------------------------------------------------
+// v1.2.2: shadow warnings
+// ---------------------------------------------------------------------
+
+/// The demo project plus a hidden spec that sits beside a visible readme.
+fn risky_demo() -> tempfile::TempDir {
+    let dir = demo_project();
+    let root = dir.path();
+    std::fs::create_dir_all(root.join("docs")).unwrap();
+    std::fs::write(root.join("docs/spec.txt"), "spec\n").unwrap();
+    std::fs::write(root.join("docs/readme.txt"), "readme\n").unwrap();
+    let tasks = root.join(".rules-evolve/tasks.toml");
+    let t = std::fs::read_to_string(&tasks).unwrap();
+    std::fs::write(
+        &tasks,
+        t.replace(
+            "hidden = [\"check.sh\"]",
+            "hidden = [\"check.sh\", \"docs/spec.txt\"]",
+        ),
+    )
+    .unwrap();
+    dir
+}
+
+fn set_shadow_mode(dir: &Path, mode: &str) {
+    let cfg = dir.join(".rules-evolve/config.toml");
+    let t = std::fs::read_to_string(&cfg).unwrap();
+    assert!(t.contains("shadow_warnings = \"warn\""));
+    std::fs::write(
+        &cfg,
+        t.replace(
+            "shadow_warnings = \"warn\"",
+            &format!("shadow_warnings = \"{mode}\""),
+        ),
+    )
+    .unwrap();
+}
+
+#[test]
+fn the_demo_has_no_shadow_warnings_anywhere() {
+    let dir = demo_project();
+    let run_json = ok_json(dir.path(), &["run", "--repeats", "1"]);
+    assert_eq!(run_json["data"]["warnings"], serde_json::json!([]));
+    let iso = ok_json(dir.path(), &["isolation"]);
+    assert_eq!(iso["data"]["warnings"], serde_json::json!([]));
+    assert_eq!(iso["data"]["shadow_warnings"], "warn");
+    let text = String::from_utf8(run(dir.path(), &["run", "--repeats", "1"]).stdout).unwrap();
+    assert!(!text.contains("warning:"), "{text}");
+    // evolve on the demo replay: no warnings in the report either.
+    let replay = demo_replay_path();
+    let fresh = demo_project();
+    let v = ok_json(
+        fresh.path(),
+        &[
+            "evolve",
+            "--generations",
+            "1",
+            "--seed",
+            "7",
+            "--provider",
+            "replay",
+            "--replay-file",
+            replay.to_str().unwrap(),
+        ],
+    );
+    assert_eq!(v["data"]["warnings"], serde_json::json!([]));
+}
+
+#[test]
+fn init_reports_an_empty_warnings_array() {
+    let dir = project();
+    let out = run(dir.path(), &["init", "--model", "m", "--json"]);
+    // `project()` already initialized this folder, so use a fresh one.
+    assert!(!out.status.success());
+    let fresh = tempfile::tempdir().unwrap();
+    std::fs::write(fresh.path().join("AGENTS.md"), "rules\n").unwrap();
+    let v = ok_json(fresh.path(), &["init", "--model", "m"]);
+    assert_eq!(v["data"]["warnings"], serde_json::json!([]));
+}
+
+#[test]
+fn a_risky_layout_is_shown_as_text_and_json_and_does_not_block() {
+    let dir = risky_demo();
+    let out = run(dir.path(), &["run", "--repeats", "1"]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let text = String::from_utf8(out.stdout).unwrap();
+    assert!(text.contains("warning: docs/ holds the hidden file(s) docs/spec.txt next to visible files (docs/readme.txt)"), "{text}");
+    assert!(
+        text.contains("  fix: Add \"docs\" to hidden in tasks.toml"),
+        "{text}"
+    );
+    // The warning comes before the results.
+    assert!(text.find("warning:").unwrap() < text.find("run 0:").unwrap());
+
+    let v = ok_json(dir.path(), &["run", "--repeats", "2"]);
+    let w = &v["data"]["warnings"];
+    assert_eq!(w.as_array().unwrap().len(), 1);
+    assert_eq!(w[0]["kind"], "hidden_file_beside_visible_files");
+    assert_eq!(w[0]["paths"], serde_json::json!(["docs", "docs/spec.txt"]));
+    assert!(w[0]["message"].as_str().unwrap().contains("docs/"));
+    assert!(w[0]["fix"].as_str().unwrap().contains("hidden"));
+}
+
+#[test]
+fn evolve_and_isolation_show_the_warnings_too() {
+    let dir = risky_demo();
+    let iso = ok_json(dir.path(), &["isolation"]);
+    assert_eq!(iso["data"]["warnings"].as_array().unwrap().len(), 1);
+    let text = String::from_utf8(run(dir.path(), &["isolation"]).stdout).unwrap();
+    assert!(text.contains("Shadow warnings: warn"));
+    assert!(text.contains("warning: docs/"));
+
+    // evolve with the mock model: the warning leads the report.
+    let out = run(dir.path(), &["evolve", "--generations", "1", "--seed", "1"]);
+    let text = String::from_utf8_lossy(&out.stdout).to_string();
+    assert!(
+        text.starts_with("warning: docs/"),
+        "{text}{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let other = risky_demo();
+    let v = ok_json(
+        other.path(),
+        &["evolve", "--generations", "1", "--seed", "1"],
+    );
+    assert_eq!(v["data"]["warnings"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn error_mode_refuses_to_run_and_records_nothing() {
+    let dir = risky_demo();
+    set_shadow_mode(dir.path(), "error");
+    for args in [
+        vec!["run", "--repeats", "1", "--json"],
+        vec!["evolve", "--generations", "1", "--json"],
+    ] {
+        let out = run(dir.path(), &args);
+        assert_eq!(out.status.code(), Some(1), "{args:?}");
+        let msg = json_of(&out)["error"]["message"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(msg.contains("shadow_warnings = \"error\""), "{msg}");
+        assert!(msg.contains("docs/spec.txt"));
+    }
+    let log = ok_json(dir.path(), &["log"]);
+    assert_eq!(log["data"]["total"], 1);
+    // `isolation` still reports instead of failing.
+    let iso = ok_json(dir.path(), &["isolation"]);
+    assert_eq!(iso["data"]["shadow_warnings"], "error");
+    assert_eq!(iso["data"]["warnings"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn off_mode_hides_the_warnings() {
+    let dir = risky_demo();
+    set_shadow_mode(dir.path(), "off");
+    let v = ok_json(dir.path(), &["run", "--repeats", "1"]);
+    assert_eq!(v["data"]["warnings"], serde_json::json!([]));
+    let iso = ok_json(dir.path(), &["isolation"]);
+    assert_eq!(iso["data"]["warnings"], serde_json::json!([]));
+}
+
+#[test]
+fn hiding_the_whole_folder_clears_the_warning() {
+    let dir = risky_demo();
+    let tasks = dir.path().join(".rules-evolve/tasks.toml");
+    let t = std::fs::read_to_string(&tasks).unwrap();
+    std::fs::write(&tasks, t.replace("\"docs/spec.txt\"", "\"docs\"")).unwrap();
+    let v = ok_json(dir.path(), &["run", "--repeats", "1"]);
+    assert_eq!(v["data"]["warnings"], serde_json::json!([]));
+}

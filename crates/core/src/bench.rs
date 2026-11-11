@@ -14,6 +14,7 @@ use crate::isolation::Runner;
 use crate::model::{Model, ModelRequest};
 use crate::repo::Repo;
 use crate::sandbox::{CheckStatus, Sandbox};
+use crate::shadow::{self, ShadowWarning};
 use crate::tasks::TasksFile;
 use crate::tree::Tree;
 use crate::verdict::{decide, Decision, Rule};
@@ -63,6 +64,9 @@ pub struct RunReport {
     /// Isolation backend the checks ran with: `bwrap`, `docker`, `podman` or
     /// `none` (unsafe).
     pub isolation: String,
+    /// Layouts where model-written files could shadow hidden tests. Empty when
+    /// there are none or `shadow_warnings = "off"`.
+    pub warnings: Vec<ShadowWarning>,
     /// Run indexes that were already recorded and so were not run again.
     pub skipped_existing: Vec<u32>,
     pub runs: Vec<RunDetail>,
@@ -102,6 +106,13 @@ pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<
     let runner = Runner::resolve(&repo.sandbox_settings()?, model.kind())?;
     let isolation = runner.backend().as_str().to_string();
     let sandbox = Sandbox::scan(repo.dir(), &tree.rules_file, &tasks.sandbox)?.with_runner(runner);
+    // Warn about shadow risks, or stop before anything is recorded.
+    let settings = repo.sandbox_settings()?;
+    let warnings = if settings.shadow_warnings == shadow::ShadowMode::Off {
+        Vec::new()
+    } else {
+        shadow::apply_mode(settings.shadow_warnings, shadow::analyze(&sandbox, &tasks))?
+    };
 
     let existing: HashMap<u32, Option<u64>> = tree
         .node(&version)
@@ -115,6 +126,7 @@ pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<
         repeats,
         max_tokens_per_run: cap,
         isolation: isolation.clone(),
+        warnings,
         skipped_existing: Vec::new(),
         runs: Vec::new(),
         total_tokens: 0,
@@ -1103,5 +1115,107 @@ mod tests {
         let open = run_version(&repo2, &mock(&repo), &o2).unwrap();
         assert_eq!(open.isolation, "none");
         assert_eq!(open.runs[0].tasks[0].status, TaskStatus::Failed);
+    }
+
+    // ---- shadow warnings ----
+
+    /// The fixture plus a risky layout: a hidden spec beside a visible readme.
+    fn risky(repo: &Repo) {
+        let root = repo.dir();
+        std::fs::create_dir_all(root.join("docs")).unwrap();
+        std::fs::write(root.join("docs/spec.txt"), "spec\n").unwrap();
+        std::fs::write(root.join("docs/readme.txt"), "readme\n").unwrap();
+        let p = repo.store().tasks_path();
+        let t = std::fs::read_to_string(&p).unwrap();
+        std::fs::write(
+            &p,
+            t.replace(
+                "hidden = [\"check.sh\"]",
+                "hidden = [\"check.sh\", \"docs/spec.txt\"]",
+            ),
+        )
+        .unwrap();
+    }
+
+    fn set_shadow(repo: &Repo, mode: &str) {
+        let p = repo.store().config_path();
+        let t = std::fs::read_to_string(&p).unwrap();
+        let out: Vec<String> = t
+            .lines()
+            .map(|l| {
+                if l.starts_with("shadow_warnings = ") {
+                    format!("shadow_warnings = \"{mode}\"")
+                } else {
+                    l.to_string()
+                }
+            })
+            .collect();
+        std::fs::write(&p, out.join("\n") + "\n").unwrap();
+    }
+
+    #[test]
+    fn a_clean_layout_has_no_warnings() {
+        let (_d, repo) = fixture(&mock_toml(1.0, ""));
+        let mut o = opts("root");
+        o.repeats = Some(1);
+        let report = run_version(&repo, &mock(&repo), &o).unwrap();
+        assert!(report.warnings.is_empty());
+    }
+
+    #[test]
+    fn a_risky_layout_warns_by_default_and_the_run_still_happens() {
+        let (_d, repo) = fixture(&mock_toml(1.0, ""));
+        risky(&repo);
+        let mut o = opts("root");
+        o.repeats = Some(1);
+        let report = run_version(&repo, &mock(&repo), &o).unwrap();
+        assert_eq!(report.warnings.len(), 1);
+        assert_eq!(
+            report.warnings[0].kind,
+            crate::shadow::ShadowKind::HiddenFileBesideVisibleFiles
+        );
+        assert_eq!(report.runs.len(), 1);
+    }
+
+    #[test]
+    fn error_mode_stops_before_anything_is_recorded() {
+        let (_d, repo) = fixture(&mock_toml(1.0, ""));
+        risky(&repo);
+        set_shadow(&repo, "error");
+        let before = repo.events().unwrap().len();
+        let err = run_version(&repo, &mock(&repo), &opts("root"))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("shadow_warnings = \"error\""), "{err}");
+        assert!(err.contains("docs/spec.txt"));
+        assert_eq!(repo.events().unwrap().len(), before);
+        // evolve refuses at the start too, before it records a mutation.
+        let e = crate::mutate::evolve(
+            &repo,
+            &mock(&repo),
+            &crate::mutate::EvolveOptions {
+                generations: 1,
+                base_seed: 0,
+            },
+        );
+        assert!(e.unwrap_err().to_string().contains("shadow_warnings"));
+        assert_eq!(repo.events().unwrap().len(), before);
+        // A clean layout is fine in error mode.
+        let (_d2, clean) = fixture(&mock_toml(1.0, ""));
+        set_shadow(&clean, "error");
+        let mut o = opts("root");
+        o.repeats = Some(1);
+        assert!(run_version(&clean, &mock(&clean), &o).is_ok());
+    }
+
+    #[test]
+    fn off_mode_says_nothing() {
+        let (_d, repo) = fixture(&mock_toml(1.0, ""));
+        risky(&repo);
+        set_shadow(&repo, "off");
+        let mut o = opts("root");
+        o.repeats = Some(1);
+        let report = run_version(&repo, &mock(&repo), &o).unwrap();
+        assert!(report.warnings.is_empty());
     }
 }
