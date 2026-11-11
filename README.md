@@ -24,7 +24,7 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: Phase 3
+## Status: Phase 4
 
 No real model is ever called yet. Everything runs on a deterministic **mock
 model**, so nothing here costs money or touches the network.
@@ -61,9 +61,20 @@ Done in Phase 3 (model driven mutation and replay):
   fails clearly when it has no answer.
 - A committed demo in `examples/demo/` that runs a full lineage with no key.
 
-Planned later (not built yet): `digest`, a static JSON lineage viewer, real
-bring-your-own-key providers, an optional `watch` terminal view, and a Claude
-Code plugin. See the roadmap below.
+Done in Phase 4 (digest, export and the static viewer):
+
+- `digest`: a plain English brief of the lineage: what worked, what failed
+  (rejected and refused, with reasons), what is noise, what is pending, and
+  directions not tried yet. Markdown or `--json`. No model is called.
+- `export --out tree.json`: the whole lineage as one JSON file, described by
+  the versioned schema in `schema/export.v1.json` and validated against it in
+  tests.
+- A static viewer in `viewer/` (Vite, TypeScript, Svelte, Cytoscape.js, Observable
+  Plot, diff2html) that opens that file. The build is one `index.html` that works
+  from disk with no server, no key and no network.
+
+Planned later (not built yet): real bring-your-own-key providers, an optional
+`watch` terminal view, and a Claude Code plugin. See the roadmap below.
 
 ## Roadmap and required TODO
 
@@ -77,8 +88,7 @@ until checks and model tools run inside a container, a separate user, or an
 equivalent boundary. No network provider exists in the code yet, and none should
 be added before this is done.
 
-Other planned work: `digest` (turn the tree into a brief), a static JSON viewer
-for the lineage, an optional `watch` terminal view, a Claude Code plugin, and
+Other planned work: an optional `watch` terminal view, a Claude Code plugin, and
 the real bring-your-own-key providers.
 
 ## Not doing
@@ -96,7 +106,8 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-The binary is `target/debug/rules-evolve`.
+The binary is `target/debug/rules-evolve`. The viewer has its own checks, see
+"Viewer" below.
 
 ## Commands
 
@@ -261,6 +272,71 @@ Compares the child to its parent with the fixed rule below and writes a
 seeds and task counts, otherwise it tells you what to run first. A child gets
 one verdict.
 
+### `digest`
+
+Prints a brief of the lineage as Markdown, or as JSON with `--json` (the digest
+is the `data` field). It reads the log, so it refuses to run when the hash chain
+fails verification. Sections:
+
+- **What worked**: accepted changes, with the hypothesis, the gain in points, the
+  paired wins, and the median pass rate before and after.
+- **What failed**: rejected changes with the verdict reason, and refused
+  mutations with the reason they were refused.
+- **Noise**: changes that gained a little but not clearly.
+- **Pending**: versions that have no verdict yet.
+- **Directions not tried yet**: suggestions.
+
+The suggestions are deterministic and come from fixed rules, not a model: run
+the pending changes, retest noisy gains with more repeats, retry a smaller
+version of a change refused for size, build on the latest win, explore or avoid
+the words that only show up in accepted or only in rejected hypotheses, widen
+the proposals when several were refused as repeats, and finally name common
+rules file topics (testing, reading before editing, small changes, checking its
+own work, edge cases, asking when unsure, style, commits, docs, tools, planning)
+that no hypothesis has mentioned yet. The word themes are a simple keyword
+heuristic and are only a hint. The same lineage always gives the same digest.
+
+A sample from the demo (the full file is `examples/demo/digest.md`):
+
+```
+# Rules lineage digest
+
+Rules file: `AGENTS.md`. Model: `demo-model`.
+
+9 versions and 8 mutations tried: 2 accepted, 5 rejected, 1 noise, 0 pending. 2 refused before they became versions.
+
+Current version: `cd28eb296938` (root `8e28956afd69`). Median pass rate moved from 25% to 92% (+66.7 points).
+
+## What worked
+
+- **Telling the agent to run the test suite before it finishes will catch more mistakes** (`de7a8ac7ef75`, +33.3 points, 5 of 5 paired wins). Median pass rate 25% to 58%.
+- **Reading the failing test before editing will point the agent at the real problem** (`cd28eb296938`, +33.3 points, 5 of 5 paired wins). Median pass rate 58% to 92%.
+
+## What failed
+
+### Rejected
+
+- Skipping tests will make the agent faster (`ec12bc56d472`, -41.7 points). child median 0.500 is not above parent median 0.917
+...
+```
+
+### `export --out <PATH>`
+
+Writes the lineage as one JSON file for the viewer. `--out -` prints it to
+standard output instead (with `--json` it becomes the `data` field). The export
+is only written when the log verifies. It holds every version with its full text
+and its diff from the parent, every edge with its hypothesis, verdict, reason,
+medians, gain and run pairs, every refused mutation, per attempt series for the
+charts, the thresholds from the config, and the hash chain head at export time.
+It has no timestamps and no file paths, so the same log always exports to the
+same bytes.
+
+The format is described by [`schema/export.v1.json`](schema/export.v1.json)
+(JSON Schema draft 2020-12). Tests validate real exports against it, and the
+viewer validates every file it opens against the same schema. Version 1 never
+removes or renames a field. A change to the shape means a new version number
+and a new schema file.
+
 ### Exit codes
 
 | Code | Meaning |
@@ -370,6 +446,71 @@ rules-evolve -C <copy of the same folder before that step> mutate --seed 1 \
 To record the demo again from the mock model, for example after changing
 `mock.toml`, run `examples/demo/demo.sh --record` and commit the new
 `replay.jsonl`. A test checks that the committed file matches a fresh recording.
+
+## Viewer
+
+`viewer/` is a static, local web page for exported lineages. It draws the tree
+top down, colored by verdict (green accepted, red rejected, amber noise, grey
+pending, dashed grey refused), with edge labels such as "pass rate +33 pts".
+Click a version to see its hypothesis, the verdict reason, the run pairs, and
+the diff from its parent. Charts show the pass rate attempt by attempt, the gain
+of each attempt against the accept threshold, and the spread of every run so you
+can see how noisy the benchmark is. It has a light and a dark theme.
+
+![Viewer, light theme](docs/screenshots/viewer-light.png)
+
+![Viewer, dark theme, a rejected change selected](docs/screenshots/viewer-dark-rejected.png)
+
+It runs entirely in the browser. It has no analytics, loads nothing from a CDN,
+and makes no network request: the build is one `index.html` with the scripts and
+styles inlined, so it opens straight from disk. The demo lineage is bundled in.
+
+Open it locally (needs Node 20 or newer, one time install):
+
+```
+cd viewer
+npm install
+npm run build
+```
+
+Then open `viewer/dist/index.html` in a browser. To see your own lineage:
+
+```
+rules-evolve export --out tree.json
+```
+
+and either click **Open tree.json**, drag the file onto the page, or serve
+`dist/` over http and add `?tree=tree.json` to the address (fetching by URL does
+not work from `file://`, that is a browser rule). A file that is not an export,
+is cut off, is from a newer format, or does not match the schema shows a plain
+explanation and leaves the lineage that was already open in place. The address
+`#v=<hash prefix>` selects a version.
+
+Regenerate the bundled demo export from `examples/demo` (replays the committed
+answers, no key, no cost), then rebuild:
+
+```
+examples/demo/export.sh        # or: cd viewer && npm run demo
+cd viewer && npm run build
+```
+
+`export.sh` rewrites `examples/demo/tree.json`, `examples/demo/digest.md`, and
+the copy at `viewer/src/demo/tree.json`. A Rust test fails if those drift from a
+fresh replay.
+
+Viewer checks (from `viewer/`):
+
+```
+npm test            # vitest: parsing, validation, formatting, graph model
+npm run check       # svelte-check and TypeScript
+npm run build       # dist/index.html
+npm run smoke       # Chrome: loads, bad file, drag and drop, no network
+npm run screenshots # rewrites docs/screenshots (needs an installed Chrome)
+```
+
+The smoke test and the screenshots use `playwright-core` with a Chrome or
+Chromium that is already installed (set `CHROME_PATH` if it is not in a usual
+place). Nothing is downloaded.
 
 ## Mock model
 
@@ -656,6 +797,6 @@ Apache License 2.0. See the `LICENSE` file.
 
 ## Cost
 
-Phases 1 to 3 make no network calls and cost nothing to run. The providers are
+Phases 1 to 4 make no network calls and cost nothing to run. The providers are
 the mock and replay. Later phases will use your own API key, and the per run token cap
 (default 200000, enforced since Phase 2) is part of the config from the start.
