@@ -11,7 +11,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Clear, Gauge, List, ListItem, Paragraph, Sparkline, Wrap};
+use ratatui::widgets::{Block, Borders, Clear, Gauge, List, ListItem, Paragraph, Widget, Wrap};
 use ratatui::{Frame, Terminal};
 use rules_evolve_core::event::VerdictKind;
 
@@ -348,20 +348,92 @@ fn draw_progress(frame: &mut Frame, area: Rect, state: &WatchState, view: &ViewS
         .label(format!("runs {} of {}", p.runs_done, p.repeats))
         .gauge_style(Style::default().fg(Color::Green).bg(Color::DarkGray));
     frame.render_widget(gauge, rows[1]);
-    let data: Vec<u64> = p.rates.iter().map(|r| (r * 100.0).round() as u64).collect();
-    frame.render_widget(
-        Sparkline::default()
-            .data(data)
-            .max(100)
-            .style(Style::default().fg(Color::Cyan)),
-        rows[2],
-    );
+    frame.render_widget(RunBars::new(&p.rates, p.repeats), rows[2]);
     let rates: Vec<String> = p.rates.iter().map(|r| pct(*r)).collect();
     if !rates.is_empty() {
         frame.render_widget(
             Paragraph::new(format!("pass rate per run: {}", rates.join(" "))),
             rows[3],
         );
+    }
+}
+
+/// Width of one bar and the gap after it, in columns.
+const BAR_W: u16 = 3;
+const BAR_GAP: u16 = 1;
+/// Fill characters, from one eighth to a full cell.
+const EIGHTHS: [&str; 8] = [
+    "\u{2581}", "\u{2582}", "\u{2583}", "\u{2584}", "\u{2585}", "\u{2586}", "\u{2587}", "\u{2588}",
+];
+
+/// One bar per run on a fixed scale of 0 to 100 percent, two rows tall (sixteen
+/// levels). Equal rates give equal bars, and 100% is two full rows. A run that
+/// scored 0% shows a thin red line, a run still to come shows a dim dot, so the
+/// row always says how many runs are expected and how many are in.
+pub struct RunBars<'a> {
+    rates: &'a [f64],
+    slots: usize,
+}
+
+impl<'a> RunBars<'a> {
+    pub fn new(rates: &'a [f64], repeats: u32) -> Self {
+        RunBars {
+            rates,
+            slots: (repeats as usize).max(rates.len()),
+        }
+    }
+
+    /// Sixteen levels for a rate from 0 to 1, rounded to the nearest.
+    fn level(rate: f64) -> u16 {
+        (rate.clamp(0.0, 1.0) * 16.0).round() as u16
+    }
+}
+
+impl Widget for RunBars<'_> {
+    fn render(self, area: Rect, buf: &mut Buffer) {
+        if area.width == 0 || area.height == 0 {
+            return;
+        }
+        let bottom = area.y + area.height - 1;
+        let has_top = area.height >= 2;
+        for slot in 0..self.slots {
+            let x0 = area.x + slot as u16 * (BAR_W + BAR_GAP);
+            if x0 + BAR_W > area.x + area.width {
+                break;
+            }
+            let Some(rate) = self.rates.get(slot) else {
+                // Not run yet: one dim dot in the middle of the slot.
+                buf[(x0 + BAR_W / 2, bottom)]
+                    .set_symbol("\u{b7}")
+                    .set_style(Style::default().fg(Color::DarkGray));
+                continue;
+            };
+            let level = Self::level(*rate);
+            let (low, high) = if has_top {
+                (level.min(8), level.saturating_sub(8))
+            } else {
+                (level.div_ceil(2), 0)
+            };
+            let style = Style::default().fg(Color::Cyan);
+            for dx in 0..BAR_W {
+                if level == 0 {
+                    buf[(x0 + dx, bottom)]
+                        .set_symbol(EIGHTHS[0])
+                        .set_style(Style::default().fg(Color::Red));
+                    continue;
+                }
+                if low > 0 {
+                    buf[(x0 + dx, bottom)]
+                        .set_symbol(EIGHTHS[low as usize - 1])
+                        .set_style(style);
+                }
+                if has_top && high > 0 {
+                    buf[(x0 + dx, bottom - 1)]
+                        .set_symbol(EIGHTHS[high as usize - 1])
+                        .set_style(style);
+                }
+            }
+        }
     }
 }
 
@@ -839,5 +911,100 @@ mod tests {
             feed_color(FeedKind::Verdict(VerdictKind::Accepted)),
             Color::Green
         );
+    }
+
+    // ---- run bars ----
+
+    fn bars(rates: &[f64], repeats: u32, w: u16) -> Vec<String> {
+        let area = Rect::new(0, 0, w, 2);
+        let mut buf = Buffer::empty(area);
+        RunBars::new(rates, repeats).render(area, &mut buf);
+        (0..2)
+            .map(|y| {
+                (0..w)
+                    .map(|x| buf[(x, y)].symbol().to_string())
+                    .collect::<String>()
+            })
+            .collect()
+    }
+
+    #[test]
+    fn equal_rates_give_equal_full_height_bars() {
+        let rows = bars(&[1.0; 5], 5, 20);
+        assert_eq!(rows[0], "\u{2588}\u{2588}\u{2588} \u{2588}\u{2588}\u{2588} \u{2588}\u{2588}\u{2588} \u{2588}\u{2588}\u{2588} \u{2588}\u{2588}\u{2588} ");
+        assert_eq!(rows[0], rows[1], "100% fills both rows");
+        // Equal middling rates are equal too, never a mix of heights.
+        let half = bars(&[0.5; 3], 3, 12);
+        assert_eq!(half[0].trim(), "");
+        assert_eq!(
+            half[1],
+            "\u{2588}\u{2588}\u{2588} \u{2588}\u{2588}\u{2588} \u{2588}\u{2588}\u{2588} "
+        );
+        let a = bars(&[0.4; 4], 4, 16);
+        let cells: Vec<&str> = a[1].split(' ').filter(|s| !s.is_empty()).collect();
+        assert!(cells.windows(2).all(|w| w[0] == w[1]));
+    }
+
+    #[test]
+    fn bars_use_a_fixed_zero_to_one_hundred_scale() {
+        // 25% is a quarter of two rows: half of the bottom row.
+        let q = bars(&[0.25], 1, 4);
+        assert_eq!(q[0].trim(), "");
+        assert_eq!(q[1], "\u{2584}\u{2584}\u{2584} ");
+        // 75% fills the bottom row and half of the top one.
+        let t = bars(&[0.75], 1, 4);
+        assert_eq!(t[0], "\u{2584}\u{2584}\u{2584} ");
+        assert_eq!(t[1], "\u{2588}\u{2588}\u{2588} ");
+        // A lone bar does not stretch to fill: 40% stays low even when it is the only data.
+        let l = bars(&[0.4], 1, 4);
+        assert_eq!(l[0].trim(), "");
+        // Out of range values are clamped, not drawn outside.
+        assert_eq!(bars(&[3.0], 1, 4), bars(&[1.0], 1, 4));
+        assert_eq!(bars(&[-1.0], 1, 4), bars(&[0.0], 1, 4));
+    }
+
+    #[test]
+    fn zero_percent_is_a_thin_line_and_unrun_slots_are_dots() {
+        let rows = bars(&[0.0, 1.0], 4, 16);
+        assert_eq!(
+            rows[1].chars().take(3).collect::<String>(),
+            "\u{2581}\u{2581}\u{2581}"
+        );
+        assert_eq!(
+            rows[1].chars().nth(9).unwrap(),
+            '\u{b7}',
+            "run 3 has not happened"
+        );
+        assert_eq!(rows[1].chars().nth(13).unwrap(), '\u{b7}');
+        // The zero run and the not yet run slot look different.
+        assert_ne!(rows[1].chars().nth(1), rows[1].chars().nth(9));
+    }
+
+    #[test]
+    fn empty_state_is_a_row_of_dots() {
+        let rows = bars(&[], 5, 20);
+        assert_eq!(rows[0].trim(), "");
+        assert_eq!(rows[1].matches('\u{b7}').count(), 5);
+        assert!(!rows[1].contains('\u{2581}'));
+        // Nothing at all is fine too, and a tiny area does not panic.
+        assert_eq!(bars(&[], 0, 4)[1].trim(), "");
+        let mut buf = Buffer::empty(Rect::new(0, 0, 2, 1));
+        RunBars::new(&[1.0, 1.0], 2).render(Rect::new(0, 0, 2, 1), &mut buf);
+        RunBars::new(&[1.0], 1).render(Rect::new(0, 0, 0, 0), &mut buf);
+    }
+
+    #[test]
+    fn all_runs_scoring_the_same_render_cleanly_in_the_whole_screen() {
+        let mut payloads = vec![init()];
+        payloads.push(proposed('a', 'b', "Run the test suite before finishing."));
+        for i in 0..5 {
+            payloads.push(run('b', i, 10));
+        }
+        let (text, _) = render(&payloads, &Extra::default());
+        assert!(text.contains("pass rate per run: 100% 100% 100% 100% 100%"));
+        let full = "\u{2588}\u{2588}\u{2588} ".repeat(5);
+        // Five equal bars, two rows tall, and nothing else drawn in that area.
+        assert_eq!(text.matches(full.trim_end()).count(), 2, "{text}");
+        check("all_runs_equal", &text);
     }
 }

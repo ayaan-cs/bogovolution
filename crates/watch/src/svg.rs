@@ -59,6 +59,49 @@ fn look(fg: Color, bg: Color, m: Modifier) -> Look {
     }
 }
 
+/// The parts of a cell, as fractions of its width and height (x, y, w, h), that a block
+/// element character fills. Fonts draw these glyphs unevenly (gaps between rows,
+/// thin or missing bars), so the picture draws them as rectangles instead.
+/// Shades (light, medium, dark) are not covered and stay as text.
+fn block_parts(c: char) -> Option<Vec<(f64, f64, f64, f64)>> {
+    let code = c as u32;
+    let parts = match code {
+        0x2580 => vec![(0.0, 0.0, 1.0, 0.5)],
+        0x2581..=0x2588 => {
+            let h = f64::from(code - 0x2580) / 8.0;
+            vec![(0.0, 1.0 - h, 1.0, h)]
+        }
+        0x2589..=0x258F => vec![(0.0, 0.0, f64::from(0x2590 - code) / 8.0, 1.0)],
+        0x2590 => vec![(0.5, 0.0, 0.5, 1.0)],
+        0x2594 => vec![(0.0, 0.0, 1.0, 0.125)],
+        0x2595 => vec![(0.875, 0.0, 0.125, 1.0)],
+        0x2596..=0x259F => {
+            // Bits: upper left, upper right, lower left, lower right.
+            let bits: u8 = match code {
+                0x2596 => 0b0010,
+                0x2597 => 0b0001,
+                0x2598 => 0b1000,
+                0x2599 => 0b1011,
+                0x259A => 0b1001,
+                0x259B => 0b1110,
+                0x259C => 0b1101,
+                0x259D => 0b0100,
+                0x259E => 0b0110,
+                _ => 0b0111,
+            };
+            let mut v = Vec::new();
+            for (bit, x, y) in [(8u8, 0.0, 0.0), (4, 0.5, 0.0), (2, 0.0, 0.5), (1, 0.5, 0.5)] {
+                if bits & bit != 0 {
+                    v.push((x, y, 0.5, 0.5));
+                }
+            }
+            v
+        }
+        _ => return None,
+    };
+    Some(parts)
+}
+
 /// Draw the buffer as an SVG document.
 pub fn buffer_to_svg(buf: &Buffer) -> String {
     let cols = buf.area.width as usize;
@@ -99,7 +142,25 @@ pub fn buffer_to_svg(buf: &Buffer) -> String {
             }
         }
         for (x, text, l) in &runs {
-            if text.trim().is_empty() {
+            let opacity = if l.dim { " fill-opacity=\"0.6\"" } else { "" };
+            for (i, c) in text.chars().enumerate() {
+                if let Some(parts) = block_parts(c) {
+                    let cx = 12.0 + (*x + i) as f64 * CELL_W;
+                    for (fx, fy, fw, fh) in parts {
+                        out.push_str(&format!(
+                            "<rect x=\"{:.2}\" y=\"{:.2}\" width=\"{:.2}\" height=\"{:.2}\" fill=\"{}\"{opacity} shape-rendering=\"crispEdges\"/>\n",
+                            cx + fx * CELL_W,
+                            top + fy * CELL_H,
+                            fw * CELL_W,
+                            fh * CELL_H,
+                            l.fg
+                        ));
+                    }
+                }
+            }
+        }
+        for (x, text, l) in &runs {
+            if text.chars().all(|c| c == ' ' || block_parts(c).is_some()) {
                 continue;
             }
             let px = 12.0 + *x as f64 * CELL_W;
@@ -110,7 +171,7 @@ pub fn buffer_to_svg(buf: &Buffer) -> String {
             let (xs, glyphs): (Vec<String>, String) = text
                 .chars()
                 .enumerate()
-                .filter(|(_, c)| *c != ' ')
+                .filter(|(_, c)| *c != ' ' && block_parts(*c).is_none())
                 .map(|(i, c)| (format!("{:.1}", px + i as f64 * CELL_W), c))
                 .unzip();
             let weight = if l.bold { " font-weight=\"700\"" } else { "" };
@@ -160,5 +221,46 @@ mod tests {
         buf.set_string(0, 0, "hello", Style::default().add_modifier(Modifier::BOLD));
         assert_eq!(buffer_to_svg(&buf), buffer_to_svg(&buf));
         assert!(buffer_to_svg(&buf).contains("font-weight=\"700\""));
+    }
+
+    #[test]
+    fn block_elements_are_rectangles_not_font_glyphs() {
+        let mut buf = Buffer::empty(Rect::new(0, 0, 8, 1));
+        buf.set_string(
+            0,
+            0,
+            "\u{2588}\u{2584}\u{258c}\u{2598}ab",
+            Style::default().fg(Color::Cyan),
+        );
+        let svg = buffer_to_svg(&buf);
+        for c in ['\u{2588}', '\u{2584}', '\u{258c}', '\u{2598}'] {
+            assert!(!svg.contains(c), "{c:?} should be drawn as a rectangle");
+        }
+        // Full block: a whole cell. Lower half: the bottom 9 of 18 pixels.
+        assert!(svg.contains(
+            "<rect x=\"12.00\" y=\"12.00\" width=\"8.40\" height=\"18.00\" fill=\"#94e2d5\""
+        ));
+        assert!(svg.contains("<rect x=\"20.40\" y=\"21.00\" width=\"8.40\" height=\"9.00\""));
+        // Left half and one quadrant.
+        assert!(svg.contains("<rect x=\"28.80\" y=\"12.00\" width=\"4.20\" height=\"18.00\""));
+        assert!(svg.contains("width=\"4.20\" height=\"9.00\""));
+        // Letters stay text, and the rectangles leave no blanks in the text.
+        assert!(svg.contains(">ab</text>"));
+    }
+
+    #[test]
+    fn every_eighth_block_gets_its_own_height() {
+        for n in 1..=8u32 {
+            let c = char::from_u32(0x2580 + n).unwrap();
+            let parts = block_parts(c).unwrap();
+            assert_eq!(parts.len(), 1);
+            assert!((parts[0].3 - f64::from(n) / 8.0).abs() < 1e-9);
+            assert!(
+                (parts[0].1 + parts[0].3 - 1.0).abs() < 1e-9,
+                "sits on the bottom"
+            );
+        }
+        assert!(block_parts('a').is_none());
+        assert!(block_parts('\u{2591}').is_none(), "shades stay text");
     }
 }
