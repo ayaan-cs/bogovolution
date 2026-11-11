@@ -5,11 +5,14 @@
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
 use rules_evolve_core::bench::{propose, run_version, verify_child, RunOptions};
+use rules_evolve_core::digest::{build_digest, render_markdown};
 use rules_evolve_core::event::{Event, EventKind, Payload};
+use rules_evolve_core::export::{build_export, to_json as export_json};
 use rules_evolve_core::init::{init, InitOptions};
 use rules_evolve_core::model::{build_provider, Model, ProviderSpec};
 use rules_evolve_core::mutate::{evolve, mutate, EvolveOptions, MutateOptions};
 use rules_evolve_core::repo::{FullVerify, Repo, StatusReport};
+use rules_evolve_core::tree::Tree;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -109,6 +112,16 @@ enum Command {
     },
     /// Check the hash chain and stored files for tampering or cut off data
     VerifyLog,
+    /// Plain English brief of the lineage: what worked, what failed, what is
+    /// noise, what is pending, and directions not tried yet. No model is called
+    Digest,
+    /// Write the whole lineage as one JSON file (schema/export.v1.json) for the
+    /// static viewer in viewer/
+    Export {
+        /// Where to write the JSON file. Use - for standard output
+        #[arg(long)]
+        out: PathBuf,
+    },
     /// Add a child rules version from a file. Temporary stand in for the
     /// model driven `mutate` that comes in a later phase
     Propose {
@@ -522,6 +535,67 @@ fn run(cli: &Cli) -> Result<Output> {
             Ok(Output {
                 command: "verify",
                 data: serde_json::to_value(&out)?,
+                text,
+                exit: 0,
+            })
+        }
+        Command::Digest => {
+            let repo = Repo::open(&cli.dir)?;
+            let v = repo.verify()?;
+            if !v.valid {
+                anyhow::bail!(
+                    "the log fails verification, so a digest would not be trustworthy. Run `verify-log` for details"
+                );
+            }
+            let tree = Tree::from_events(&repo.events()?)?;
+            let digest = build_digest(&tree);
+            Ok(Output {
+                command: "digest",
+                text: render_markdown(&digest),
+                data: serde_json::to_value(&digest)?,
+                exit: 0,
+            })
+        }
+        Command::Export { out } => {
+            let repo = Repo::open(&cli.dir)?;
+            let export = build_export(&repo)?;
+            let json = export_json(&export);
+            let to_stdout = out.as_os_str() == "-";
+            if to_stdout {
+                // Text mode prints the bare export. With --json it is the data field.
+                return Ok(Output {
+                    command: "export",
+                    data: serde_json::to_value(&export)?,
+                    text: json,
+                    exit: 0,
+                });
+            }
+            if let Some(parent) = out.parent() {
+                if !parent.as_os_str().is_empty() {
+                    std::fs::create_dir_all(parent)?;
+                }
+            }
+            std::fs::write(out, &json)?;
+            let text = format!(
+                "Wrote {} ({} bytes): {} versions, {} edges, {} refused, chain head {}.\nOpen it in the viewer (see README, section Viewer).\n",
+                out.display(),
+                json.len(),
+                export.summary.nodes,
+                export.summary.edges,
+                export.summary.refused,
+                short(&export.chain.head_hash),
+            );
+            Ok(Output {
+                command: "export",
+                data: json!({
+                    "out": out.display().to_string(),
+                    "bytes": json.len(),
+                    "format_version": export.version,
+                    "nodes": export.summary.nodes,
+                    "edges": export.summary.edges,
+                    "refused": export.summary.refused,
+                    "head_hash": export.chain.head_hash,
+                }),
                 text,
                 exit: 0,
             })

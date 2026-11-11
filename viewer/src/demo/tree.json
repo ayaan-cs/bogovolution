@@ -1,0 +1,1111 @@
+{
+  "format": "rules-evolve-export",
+  "version": 1,
+  "generator": {
+    "tool": "rules-evolve",
+    "version": "0.1.0"
+  },
+  "project": {
+    "rules_file": "AGENTS.md",
+    "model": "demo-model"
+  },
+  "chain": {
+    "valid": true,
+    "events": 64,
+    "head_seq": 63,
+    "head_hash": "504ab3771e0b2a5dadee0b0f589a49e81c791cb1ed69bc162fc483e0eaaf96b4"
+  },
+  "config": {
+    "repeats": 5,
+    "accept_threshold_pp": 10.0,
+    "min_paired_wins": 4,
+    "max_tokens_per_run": 200000,
+    "max_change_bytes": 1000
+  },
+  "root": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+  "current": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+  "summary": {
+    "nodes": 9,
+    "edges": 8,
+    "accepted": 2,
+    "rejected": 5,
+    "noise": 1,
+    "pending": 0,
+    "refused": 2,
+    "runs": 45,
+    "tokens_used": 568395,
+    "max_generation": 3
+  },
+  "nodes": [
+    {
+      "hash": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "short": "8e28956afd69",
+      "parent": null,
+      "generation": 0,
+      "created_seq": 0,
+      "hypothesis": null,
+      "verdict": null,
+      "status": "root",
+      "is_current": false,
+      "size_bytes": 58,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n",
+      "diff": null,
+      "median_pass_rate": 0.25,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 6,
+          "total": 12,
+          "pass_rate": 0.5,
+          "tokens_used": 12336,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 2,
+          "total": 12,
+          "pass_rate": 0.16666666666666666,
+          "tokens_used": 12336,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 3,
+          "total": 12,
+          "pass_rate": 0.25,
+          "tokens_used": 12336,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 3,
+          "seed": 190695322923903,
+          "passed": 2,
+          "total": 12,
+          "pass_rate": 0.16666666666666666,
+          "tokens_used": 12336,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 4,
+          "seed": 62697870915622,
+          "passed": 5,
+          "total": 12,
+          "pass_rate": 0.4166666666666667,
+          "tokens_used": 12336,
+          "budget_exhausted": false
+        }
+      ]
+    },
+    {
+      "hash": "114c80936c0cff25882dd9d490a21c29ee141d02dc2cd1908a24524a48a1bf8b",
+      "short": "114c80936c0c",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 1,
+      "hypothesis": "A short summary at the end will make results easier to check.",
+      "verdict": "rejected",
+      "status": "rejected",
+      "is_current": false,
+      "size_bytes": 98,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\nEnd every task with a two line summary.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,4 @@\n # Project rules\n \n Write clear code and keep changes small.\n+End every task with a two line summary.\n",
+      "median_pass_rate": 0.25,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 6,
+          "total": 12,
+          "pass_rate": 0.5,
+          "tokens_used": 12456,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 2,
+          "total": 12,
+          "pass_rate": 0.16666666666666666,
+          "tokens_used": 12456,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 3,
+          "total": 12,
+          "pass_rate": 0.25,
+          "tokens_used": 12456,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 3,
+          "seed": 190695322923903,
+          "passed": 2,
+          "total": 12,
+          "pass_rate": 0.16666666666666666,
+          "tokens_used": 12456,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 4,
+          "seed": 62697870915622,
+          "passed": 5,
+          "total": 12,
+          "pass_rate": 0.4166666666666667,
+          "tokens_used": 12456,
+          "budget_exhausted": false
+        }
+      ]
+    },
+    {
+      "hash": "de7a8ac7ef75d5f98c0606c815397b27c4b224bb44f9dbbd12ea9aa7a58682aa",
+      "short": "de7a8ac7ef75",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 13,
+      "hypothesis": "Telling the agent to run the test suite before it finishes will catch more mistakes.",
+      "verdict": "accepted",
+      "status": "accepted",
+      "is_current": false,
+      "size_bytes": 110,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\nAlways run the test suite before you finish a task.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,4 @@\n # Project rules\n \n Write clear code and keep changes small.\n+Always run the test suite before you finish a task.\n",
+      "median_pass_rate": 0.5833333333333334,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 7,
+          "total": 12,
+          "pass_rate": 0.5833333333333334,
+          "tokens_used": 12492,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 4,
+          "total": 12,
+          "pass_rate": 0.3333333333333333,
+          "tokens_used": 12492,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 6,
+          "total": 12,
+          "pass_rate": 0.5,
+          "tokens_used": 12492,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 3,
+          "seed": 190695322923903,
+          "passed": 8,
+          "total": 12,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 12492,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 4,
+          "seed": 62697870915622,
+          "passed": 9,
+          "total": 12,
+          "pass_rate": 0.75,
+          "tokens_used": 12492,
+          "budget_exhausted": false
+        }
+      ]
+    },
+    {
+      "hash": "e29bea8e8b9b9b84d547e0757c40ff223615f79f425b96de3c99080fee53712f",
+      "short": "e29bea8e8b9b",
+      "parent": "de7a8ac7ef75d5f98c0606c815397b27c4b224bb44f9dbbd12ea9aa7a58682aa",
+      "generation": 2,
+      "created_seq": 20,
+      "hypothesis": "Telling the agent to run the test suite before it finishes will catch more mistakes.",
+      "verdict": "rejected",
+      "status": "rejected",
+      "is_current": false,
+      "size_bytes": 162,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\nAlways run the test suite before you finish a task.\nAlways run the test suite before you finish a task.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -2,3 +2,4 @@\n \n Write clear code and keep changes small.\n Always run the test suite before you finish a task.\n+Always run the test suite before you finish a task.\n",
+      "median_pass_rate": 0.5833333333333334,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 7,
+          "total": 12,
+          "pass_rate": 0.5833333333333334,
+          "tokens_used": 12648,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 4,
+          "total": 12,
+          "pass_rate": 0.3333333333333333,
+          "tokens_used": 12648,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 6,
+          "total": 12,
+          "pass_rate": 0.5,
+          "tokens_used": 12648,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 3,
+          "seed": 190695322923903,
+          "passed": 8,
+          "total": 12,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 12648,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 4,
+          "seed": 62697870915622,
+          "passed": 9,
+          "total": 12,
+          "pass_rate": 0.75,
+          "tokens_used": 12648,
+          "budget_exhausted": false
+        }
+      ]
+    },
+    {
+      "hash": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "short": "cd28eb296938",
+      "parent": "de7a8ac7ef75d5f98c0606c815397b27c4b224bb44f9dbbd12ea9aa7a58682aa",
+      "generation": 2,
+      "created_seq": 27,
+      "hypothesis": "Reading the failing test before editing will point the agent at the real problem.",
+      "verdict": "accepted",
+      "status": "accepted",
+      "is_current": true,
+      "size_bytes": 161,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\nAlways run the test suite before you finish a task.\nRead the failing test first, then change the code.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -2,3 +2,4 @@\n \n Write clear code and keep changes small.\n Always run the test suite before you finish a task.\n+Read the failing test first, then change the code.\n",
+      "median_pass_rate": 0.9166666666666666,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 12648,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 10,
+          "total": 12,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 12648,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 12648,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 3,
+          "seed": 190695322923903,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 12648,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 4,
+          "seed": 62697870915622,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 12648,
+          "budget_exhausted": false
+        }
+      ]
+    },
+    {
+      "hash": "ec12bc56d472c81df96086bf6f174bb6ff58ccba2f23228af68e9db7645f8176",
+      "short": "ec12bc56d472",
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "generation": 3,
+      "created_seq": 34,
+      "hypothesis": "Skipping tests will make the agent faster.",
+      "verdict": "rejected",
+      "status": "rejected",
+      "is_current": false,
+      "size_bytes": 209,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\nAlways run the test suite before you finish a task.\nRead the failing test first, then change the code.\nYou may skip the tests when you are in a hurry.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -3,3 +3,4 @@\n Write clear code and keep changes small.\n Always run the test suite before you finish a task.\n Read the failing test first, then change the code.\n+You may skip the tests when you are in a hurry.\n",
+      "median_pass_rate": 0.5,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 7,
+          "total": 12,
+          "pass_rate": 0.5833333333333334,
+          "tokens_used": 12792,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 3,
+          "total": 12,
+          "pass_rate": 0.25,
+          "tokens_used": 12792,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 4,
+          "total": 12,
+          "pass_rate": 0.3333333333333333,
+          "tokens_used": 12792,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 3,
+          "seed": 190695322923903,
+          "passed": 6,
+          "total": 12,
+          "pass_rate": 0.5,
+          "tokens_used": 12792,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 4,
+          "seed": 62697870915622,
+          "passed": 8,
+          "total": 12,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 12792,
+          "budget_exhausted": false
+        }
+      ]
+    },
+    {
+      "hash": "f04533a9c71cf89ad68b1a212c3d0a8cc11c702853fe757cb7627fe37fae93ce",
+      "short": "f04533a9c71c",
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "generation": 3,
+      "created_seq": 42,
+      "hypothesis": "Reading the failing test before editing will point the agent at the real problem.",
+      "verdict": "rejected",
+      "status": "rejected",
+      "is_current": false,
+      "size_bytes": 212,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\nAlways run the test suite before you finish a task.\nRead the failing test first, then change the code.\nRead the failing test first, then change the code.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -3,3 +3,4 @@\n Write clear code and keep changes small.\n Always run the test suite before you finish a task.\n Read the failing test first, then change the code.\n+Read the failing test first, then change the code.\n",
+      "median_pass_rate": 0.9166666666666666,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 12795,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 10,
+          "total": 12,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 12795,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 12795,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 3,
+          "seed": 190695322923903,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 12795,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 4,
+          "seed": 62697870915622,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 12795,
+          "budget_exhausted": false
+        }
+      ]
+    },
+    {
+      "hash": "a7d10bbfd330dfe76140830b7e719551a3a8695718d1cd2c522e35be7c35df0a",
+      "short": "a7d10bbfd330",
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "generation": 3,
+      "created_seq": 49,
+      "hypothesis": "Telling the agent to run the test suite before it finishes will catch more mistakes.",
+      "verdict": "rejected",
+      "status": "rejected",
+      "is_current": false,
+      "size_bytes": 213,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\nAlways run the test suite before you finish a task.\nRead the failing test first, then change the code.\nAlways run the test suite before you finish a task.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -3,3 +3,4 @@\n Write clear code and keep changes small.\n Always run the test suite before you finish a task.\n Read the failing test first, then change the code.\n+Always run the test suite before you finish a task.\n",
+      "median_pass_rate": 0.9166666666666666,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 12804,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 10,
+          "total": 12,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 12804,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 12804,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 3,
+          "seed": 190695322923903,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 12804,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 4,
+          "seed": 62697870915622,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 12804,
+          "budget_exhausted": false
+        }
+      ]
+    },
+    {
+      "hash": "cc79f0cf48b753a1240371f08c2df452011768f42151799ca49ea3c4b0726542",
+      "short": "cc79f0cf48b7",
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "generation": 3,
+      "created_seq": 57,
+      "hypothesis": "Asking for small commits might help a little.",
+      "verdict": "noise",
+      "status": "noise",
+      "is_current": false,
+      "size_bytes": 183,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\nAlways run the test suite before you finish a task.\nRead the failing test first, then change the code.\nPrefer small commits.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -3,3 +3,4 @@\n Write clear code and keep changes small.\n Always run the test suite before you finish a task.\n Read the failing test first, then change the code.\n+Prefer small commits.\n",
+      "median_pass_rate": 1.0,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 12708,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 12708,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 12708,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 3,
+          "seed": 190695322923903,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 12708,
+          "budget_exhausted": false
+        },
+        {
+          "run_index": 4,
+          "seed": 62697870915622,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 12708,
+          "budget_exhausted": false
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "114c80936c0cff25882dd9d490a21c29ee141d02dc2cd1908a24524a48a1bf8b",
+      "seq": 1,
+      "hypothesis": "A short summary at the end will make results easier to check.",
+      "verdict": "rejected",
+      "reason": "child median 0.250 is not above parent median 0.250",
+      "parent_median": 0.25,
+      "child_median": 0.25,
+      "gain_pp": 0.0,
+      "paired_wins": 0,
+      "repeats": 5,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.5,
+          "child_rate": 0.5,
+          "win": false
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.16666666666666666,
+          "child_rate": 0.16666666666666666,
+          "win": false
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.25,
+          "child_rate": 0.25,
+          "win": false
+        },
+        {
+          "run_index": 3,
+          "parent_rate": 0.16666666666666666,
+          "child_rate": 0.16666666666666666,
+          "win": false
+        },
+        {
+          "run_index": 4,
+          "parent_rate": 0.4166666666666667,
+          "child_rate": 0.4166666666666667,
+          "win": false
+        }
+      ]
+    },
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "de7a8ac7ef75d5f98c0606c815397b27c4b224bb44f9dbbd12ea9aa7a58682aa",
+      "seq": 13,
+      "hypothesis": "Telling the agent to run the test suite before it finishes will catch more mistakes.",
+      "verdict": "accepted",
+      "reason": "median gain 33.3 points is at least 10 and the child won 5 of 5 pairs (needs 4)",
+      "parent_median": 0.25,
+      "child_median": 0.5833333333333334,
+      "gain_pp": 33.333333333333336,
+      "paired_wins": 5,
+      "repeats": 5,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.5,
+          "child_rate": 0.5833333333333334,
+          "win": true
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.16666666666666666,
+          "child_rate": 0.3333333333333333,
+          "win": true
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.25,
+          "child_rate": 0.5,
+          "win": true
+        },
+        {
+          "run_index": 3,
+          "parent_rate": 0.16666666666666666,
+          "child_rate": 0.6666666666666666,
+          "win": true
+        },
+        {
+          "run_index": 4,
+          "parent_rate": 0.4166666666666667,
+          "child_rate": 0.75,
+          "win": true
+        }
+      ]
+    },
+    {
+      "parent": "de7a8ac7ef75d5f98c0606c815397b27c4b224bb44f9dbbd12ea9aa7a58682aa",
+      "child": "e29bea8e8b9b9b84d547e0757c40ff223615f79f425b96de3c99080fee53712f",
+      "seq": 20,
+      "hypothesis": "Telling the agent to run the test suite before it finishes will catch more mistakes.",
+      "verdict": "rejected",
+      "reason": "child median 0.583 is not above parent median 0.583",
+      "parent_median": 0.5833333333333334,
+      "child_median": 0.5833333333333334,
+      "gain_pp": 0.0,
+      "paired_wins": 0,
+      "repeats": 5,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.5833333333333334,
+          "child_rate": 0.5833333333333334,
+          "win": false
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.3333333333333333,
+          "child_rate": 0.3333333333333333,
+          "win": false
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.5,
+          "child_rate": 0.5,
+          "win": false
+        },
+        {
+          "run_index": 3,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.6666666666666666,
+          "win": false
+        },
+        {
+          "run_index": 4,
+          "parent_rate": 0.75,
+          "child_rate": 0.75,
+          "win": false
+        }
+      ]
+    },
+    {
+      "parent": "de7a8ac7ef75d5f98c0606c815397b27c4b224bb44f9dbbd12ea9aa7a58682aa",
+      "child": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "seq": 27,
+      "hypothesis": "Reading the failing test before editing will point the agent at the real problem.",
+      "verdict": "accepted",
+      "reason": "median gain 33.3 points is at least 10 and the child won 5 of 5 pairs (needs 4)",
+      "parent_median": 0.5833333333333334,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 33.33333333333333,
+      "paired_wins": 5,
+      "repeats": 5,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.5833333333333334,
+          "child_rate": 1.0,
+          "win": true
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.3333333333333333,
+          "child_rate": 0.8333333333333334,
+          "win": true
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.5,
+          "child_rate": 0.9166666666666666,
+          "win": true
+        },
+        {
+          "run_index": 3,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.9166666666666666,
+          "win": true
+        },
+        {
+          "run_index": 4,
+          "parent_rate": 0.75,
+          "child_rate": 1.0,
+          "win": true
+        }
+      ]
+    },
+    {
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "child": "ec12bc56d472c81df96086bf6f174bb6ff58ccba2f23228af68e9db7645f8176",
+      "seq": 34,
+      "hypothesis": "Skipping tests will make the agent faster.",
+      "verdict": "rejected",
+      "reason": "child median 0.500 is not above parent median 0.917",
+      "parent_median": 0.9166666666666666,
+      "child_median": 0.5,
+      "gain_pp": -41.666666666666664,
+      "paired_wins": 0,
+      "repeats": 5,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 1.0,
+          "child_rate": 0.5833333333333334,
+          "win": false
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.8333333333333334,
+          "child_rate": 0.25,
+          "win": false
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.3333333333333333,
+          "win": false
+        },
+        {
+          "run_index": 3,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.5,
+          "win": false
+        },
+        {
+          "run_index": 4,
+          "parent_rate": 1.0,
+          "child_rate": 0.6666666666666666,
+          "win": false
+        }
+      ]
+    },
+    {
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "child": "f04533a9c71cf89ad68b1a212c3d0a8cc11c702853fe757cb7627fe37fae93ce",
+      "seq": 42,
+      "hypothesis": "Reading the failing test before editing will point the agent at the real problem.",
+      "verdict": "rejected",
+      "reason": "child median 0.917 is not above parent median 0.917",
+      "parent_median": 0.9166666666666666,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 0.0,
+      "paired_wins": 0,
+      "repeats": 5,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 1.0,
+          "child_rate": 1.0,
+          "win": false
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.8333333333333334,
+          "child_rate": 0.8333333333333334,
+          "win": false
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.9166666666666666,
+          "win": false
+        },
+        {
+          "run_index": 3,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.9166666666666666,
+          "win": false
+        },
+        {
+          "run_index": 4,
+          "parent_rate": 1.0,
+          "child_rate": 1.0,
+          "win": false
+        }
+      ]
+    },
+    {
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "child": "a7d10bbfd330dfe76140830b7e719551a3a8695718d1cd2c522e35be7c35df0a",
+      "seq": 49,
+      "hypothesis": "Telling the agent to run the test suite before it finishes will catch more mistakes.",
+      "verdict": "rejected",
+      "reason": "child median 0.917 is not above parent median 0.917",
+      "parent_median": 0.9166666666666666,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 0.0,
+      "paired_wins": 0,
+      "repeats": 5,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 1.0,
+          "child_rate": 1.0,
+          "win": false
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.8333333333333334,
+          "child_rate": 0.8333333333333334,
+          "win": false
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.9166666666666666,
+          "win": false
+        },
+        {
+          "run_index": 3,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.9166666666666666,
+          "win": false
+        },
+        {
+          "run_index": 4,
+          "parent_rate": 1.0,
+          "child_rate": 1.0,
+          "win": false
+        }
+      ]
+    },
+    {
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "child": "cc79f0cf48b753a1240371f08c2df452011768f42151799ca49ea3c4b0726542",
+      "seq": 57,
+      "hypothesis": "Asking for small commits might help a little.",
+      "verdict": "noise",
+      "reason": "median gain 8.3 points is below 10 and the child won 3 of 5 pairs (needs 4)",
+      "parent_median": 0.9166666666666666,
+      "child_median": 1.0,
+      "gain_pp": 8.333333333333337,
+      "paired_wins": 3,
+      "repeats": 5,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 1.0,
+          "child_rate": 1.0,
+          "win": false
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.8333333333333334,
+          "child_rate": 1.0,
+          "win": true
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 1.0,
+          "win": true
+        },
+        {
+          "run_index": 3,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 1.0,
+          "win": true
+        },
+        {
+          "run_index": 4,
+          "parent_rate": 1.0,
+          "child_rate": 1.0,
+          "win": false
+        }
+      ]
+    }
+  ],
+  "refused": [
+    {
+      "seq": 41,
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "hypothesis": "Skipping tests will make the agent faster.",
+      "reason": "this content already exists in the tree as ec12bc56d472",
+      "seed": 280337712828631,
+      "provider": "replay"
+    },
+    {
+      "seq": 56,
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "hypothesis": "Reading the failing test before editing will point the agent at the real problem.",
+      "reason": "this content already exists in the tree as f04533a9c71c",
+      "seed": 226557849798599,
+      "provider": "replay"
+    }
+  ],
+  "series": [
+    {
+      "attempt": 1,
+      "seq": 1,
+      "outcome": "rejected",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "114c80936c0cff25882dd9d490a21c29ee141d02dc2cd1908a24524a48a1bf8b",
+      "hypothesis": "A short summary at the end will make results easier to check.",
+      "parent_median": 0.25,
+      "child_median": 0.25,
+      "gain_pp": 0.0,
+      "current_after": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "current_median_after": 0.25
+    },
+    {
+      "attempt": 2,
+      "seq": 13,
+      "outcome": "accepted",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "de7a8ac7ef75d5f98c0606c815397b27c4b224bb44f9dbbd12ea9aa7a58682aa",
+      "hypothesis": "Telling the agent to run the test suite before it finishes will catch more mistakes.",
+      "parent_median": 0.25,
+      "child_median": 0.5833333333333334,
+      "gain_pp": 33.333333333333336,
+      "current_after": "de7a8ac7ef75d5f98c0606c815397b27c4b224bb44f9dbbd12ea9aa7a58682aa",
+      "current_median_after": 0.5833333333333334
+    },
+    {
+      "attempt": 3,
+      "seq": 20,
+      "outcome": "rejected",
+      "parent": "de7a8ac7ef75d5f98c0606c815397b27c4b224bb44f9dbbd12ea9aa7a58682aa",
+      "child": "e29bea8e8b9b9b84d547e0757c40ff223615f79f425b96de3c99080fee53712f",
+      "hypothesis": "Telling the agent to run the test suite before it finishes will catch more mistakes.",
+      "parent_median": 0.5833333333333334,
+      "child_median": 0.5833333333333334,
+      "gain_pp": 0.0,
+      "current_after": "de7a8ac7ef75d5f98c0606c815397b27c4b224bb44f9dbbd12ea9aa7a58682aa",
+      "current_median_after": 0.5833333333333334
+    },
+    {
+      "attempt": 4,
+      "seq": 27,
+      "outcome": "accepted",
+      "parent": "de7a8ac7ef75d5f98c0606c815397b27c4b224bb44f9dbbd12ea9aa7a58682aa",
+      "child": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "hypothesis": "Reading the failing test before editing will point the agent at the real problem.",
+      "parent_median": 0.5833333333333334,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 33.33333333333333,
+      "current_after": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "current_median_after": 0.9166666666666666
+    },
+    {
+      "attempt": 5,
+      "seq": 34,
+      "outcome": "rejected",
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "child": "ec12bc56d472c81df96086bf6f174bb6ff58ccba2f23228af68e9db7645f8176",
+      "hypothesis": "Skipping tests will make the agent faster.",
+      "parent_median": 0.9166666666666666,
+      "child_median": 0.5,
+      "gain_pp": -41.666666666666664,
+      "current_after": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "current_median_after": 0.9166666666666666
+    },
+    {
+      "attempt": 6,
+      "seq": 41,
+      "outcome": "refused",
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "child": null,
+      "hypothesis": "Skipping tests will make the agent faster.",
+      "parent_median": null,
+      "child_median": null,
+      "gain_pp": null,
+      "current_after": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "current_median_after": 0.9166666666666666
+    },
+    {
+      "attempt": 7,
+      "seq": 42,
+      "outcome": "rejected",
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "child": "f04533a9c71cf89ad68b1a212c3d0a8cc11c702853fe757cb7627fe37fae93ce",
+      "hypothesis": "Reading the failing test before editing will point the agent at the real problem.",
+      "parent_median": 0.9166666666666666,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 0.0,
+      "current_after": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "current_median_after": 0.9166666666666666
+    },
+    {
+      "attempt": 8,
+      "seq": 49,
+      "outcome": "rejected",
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "child": "a7d10bbfd330dfe76140830b7e719551a3a8695718d1cd2c522e35be7c35df0a",
+      "hypothesis": "Telling the agent to run the test suite before it finishes will catch more mistakes.",
+      "parent_median": 0.9166666666666666,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 0.0,
+      "current_after": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "current_median_after": 0.9166666666666666
+    },
+    {
+      "attempt": 9,
+      "seq": 56,
+      "outcome": "refused",
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "child": null,
+      "hypothesis": "Reading the failing test before editing will point the agent at the real problem.",
+      "parent_median": null,
+      "child_median": null,
+      "gain_pp": null,
+      "current_after": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "current_median_after": 0.9166666666666666
+    },
+    {
+      "attempt": 10,
+      "seq": 57,
+      "outcome": "noise",
+      "parent": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "child": "cc79f0cf48b753a1240371f08c2df452011768f42151799ca49ea3c4b0726542",
+      "hypothesis": "Asking for small commits might help a little.",
+      "parent_median": 0.9166666666666666,
+      "child_median": 1.0,
+      "gain_pp": 8.333333333333337,
+      "current_after": "cd28eb296938e3960fe33d121bb59b9099fa0ba56d0544225ff7e6c40898e212",
+      "current_median_after": 0.9166666666666666
+    }
+  ]
+}

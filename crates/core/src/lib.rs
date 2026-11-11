@@ -5,8 +5,10 @@
 
 pub mod bench;
 pub mod config;
+pub mod digest;
 pub mod error;
 pub mod event;
+pub mod export;
 pub mod git;
 pub mod hash;
 pub mod init;
@@ -18,6 +20,8 @@ pub mod repo;
 pub mod sandbox;
 pub mod store;
 pub mod tasks;
+#[cfg(test)]
+mod testutil;
 pub mod tree;
 pub mod verdict;
 

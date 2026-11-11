@@ -1,0 +1,630 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rules-evolve.invalid/schema/export.v1.json",
+  "title": "rules-evolve lineage export, version 1",
+  "description": "Everything the static viewer needs to draw a lineage. Written by `rules-evolve export`. Fields are never removed or renamed within version 1. Adding or changing fields means a new version number.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "version",
+    "generator",
+    "project",
+    "chain",
+    "config",
+    "root",
+    "current",
+    "summary",
+    "nodes",
+    "edges",
+    "refused",
+    "series"
+  ],
+  "properties": {
+    "format": {
+      "const": "rules-evolve-export"
+    },
+    "version": {
+      "const": 1
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "version"
+      ],
+      "properties": {
+        "tool": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rules_file",
+        "model"
+      ],
+      "properties": {
+        "rules_file": {
+          "type": "string"
+        },
+        "model": {
+          "type": "string"
+        }
+      }
+    },
+    "chain": {
+      "description": "State of the hash chain when the export was made. Exports are only written for a valid chain.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "valid",
+        "events",
+        "head_seq",
+        "head_hash"
+      ],
+      "properties": {
+        "valid": {
+          "type": "boolean"
+        },
+        "events": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "head_seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "head_hash": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "config": {
+      "description": "Thresholds the verdict rule used.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repeats",
+        "accept_threshold_pp",
+        "min_paired_wins",
+        "max_tokens_per_run",
+        "max_change_bytes"
+      ],
+      "properties": {
+        "repeats": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "accept_threshold_pp": {
+          "type": "number"
+        },
+        "min_paired_wins": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_tokens_per_run": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_change_bytes": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "root": {
+      "$ref": "#/$defs/sha256"
+    },
+    "current": {
+      "description": "Newest accepted version, or the root.",
+      "$ref": "#/$defs/sha256"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "nodes",
+        "edges",
+        "accepted",
+        "rejected",
+        "noise",
+        "pending",
+        "refused",
+        "runs",
+        "tokens_used",
+        "max_generation"
+      ],
+      "properties": {
+        "nodes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "edges": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "accepted": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rejected": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "noise": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "refused": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "runs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tokens_used": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max_generation": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "nodes": {
+      "description": "Rules file versions, in the order they were created. The first is the root.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "edges": {
+      "description": "Parent to child links, in the order they were proposed.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/edge"
+      }
+    },
+    "refused": {
+      "description": "Mutations that were refused before they became versions.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/refusal"
+      }
+    },
+    "series": {
+      "description": "One point per attempt (a proposed or refused mutation), in log order.",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/point"
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "verdict": {
+      "enum": [
+        "accepted",
+        "rejected",
+        "noise"
+      ]
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_index",
+        "seed",
+        "passed",
+        "total",
+        "pass_rate",
+        "tokens_used",
+        "budget_exhausted"
+      ],
+      "properties": {
+        "run_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "seed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pass_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "tokens_used": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "budget_exhausted": {
+          "type": "boolean"
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hash",
+        "short",
+        "parent",
+        "generation",
+        "created_seq",
+        "hypothesis",
+        "verdict",
+        "status",
+        "is_current",
+        "size_bytes",
+        "content",
+        "diff",
+        "median_pass_rate",
+        "runs"
+      ],
+      "properties": {
+        "hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "short": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 12
+        },
+        "parent": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "generation": {
+          "description": "Depth in the tree. 0 for the root.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "created_seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hypothesis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "verdict": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/verdict"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "status": {
+          "description": "root, pending (no verdict yet), or the verdict.",
+          "enum": [
+            "root",
+            "pending",
+            "accepted",
+            "rejected",
+            "noise"
+          ]
+        },
+        "is_current": {
+          "type": "boolean"
+        },
+        "size_bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "content": {
+          "description": "Full rules file text of this version.",
+          "type": "string"
+        },
+        "diff": {
+          "description": "Unified diff from the parent, git style with a diff --git header. Null for the root.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "median_pass_rate": {
+          "description": "Median pass rate over recorded runs, or null if none.",
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "runs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/run"
+          }
+        }
+      }
+    },
+    "pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run_index",
+        "parent_rate",
+        "child_rate",
+        "win"
+      ],
+      "properties": {
+        "run_index": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "parent_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "child_rate": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "win": {
+          "type": "boolean"
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "parent",
+        "child",
+        "seq",
+        "hypothesis",
+        "verdict",
+        "reason",
+        "parent_median",
+        "child_median",
+        "gain_pp",
+        "paired_wins",
+        "repeats",
+        "pairs"
+      ],
+      "properties": {
+        "parent": {
+          "$ref": "#/$defs/sha256"
+        },
+        "child": {
+          "$ref": "#/$defs/sha256"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "hypothesis": {
+          "type": "string"
+        },
+        "verdict": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/verdict"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "description": "Plain English reason for the verdict.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parent_median": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "child_median": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "gain_pp": {
+          "description": "Change in median pass rate, in percentage points.",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "paired_wins": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "repeats": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "pairs": {
+          "description": "Run pairs (same run index and seed) recorded for both versions.",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/pair"
+          }
+        }
+      }
+    },
+    "refusal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seq",
+        "parent",
+        "hypothesis",
+        "reason",
+        "seed",
+        "provider"
+      ],
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "parent": {
+          "$ref": "#/$defs/sha256"
+        },
+        "hypothesis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "seed": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "provider": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "point": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt",
+        "seq",
+        "outcome",
+        "parent",
+        "child",
+        "hypothesis",
+        "parent_median",
+        "child_median",
+        "gain_pp",
+        "current_after",
+        "current_median_after"
+      ],
+      "properties": {
+        "attempt": {
+          "description": "1 for the first attempt, counting up.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "outcome": {
+          "enum": [
+            "accepted",
+            "rejected",
+            "noise",
+            "pending",
+            "refused"
+          ]
+        },
+        "parent": {
+          "$ref": "#/$defs/sha256"
+        },
+        "child": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/sha256"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hypothesis": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "parent_median": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "child_median": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "gain_pp": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "current_after": {
+          "description": "The current version once this attempt is settled.",
+          "$ref": "#/$defs/sha256"
+        },
+        "current_median_after": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -58,6 +58,8 @@ pub struct Edge {
     pub note: Option<String>,
     /// Sequence number of the proposal event.
     pub seq: u64,
+    /// Sequence number of the verdict event, if there is one.
+    pub verdict_seq: Option<u64>,
 }
 
 /// A mutation that was refused before it became a node.
@@ -67,6 +69,8 @@ pub struct Refusal {
     pub parent: String,
     pub hypothesis: Option<String>,
     pub reason: String,
+    pub seed: Option<u64>,
+    pub provider: Option<String>,
 }
 
 /// Counts for the status command.
@@ -173,7 +177,7 @@ impl Tree {
             Payload::MutationProposed(p) => self.apply_proposed(seq, p),
             Payload::MutationRefused(p) => self.apply_refused(seq, p),
             Payload::RunRecorded(p) => self.apply_run(seq, p),
-            Payload::Verdict(p) => self.apply_verdict(p),
+            Payload::Verdict(p) => self.apply_verdict(seq, p),
         }
     }
 
@@ -214,6 +218,7 @@ impl Tree {
             repeats: None,
             note: None,
             seq,
+            verdict_seq: None,
         });
         self.edge_index
             .insert(p.child.clone(), self.edges.len() - 1);
@@ -229,6 +234,8 @@ impl Tree {
             parent: p.parent.clone(),
             hypothesis: p.hypothesis.clone(),
             reason: p.reason.clone(),
+            seed: p.seed,
+            provider: p.provider.clone(),
         });
         Ok(())
     }
@@ -265,7 +272,7 @@ impl Tree {
         Ok(())
     }
 
-    fn apply_verdict(&mut self, p: &VerdictPayload) -> Result<()> {
+    fn apply_verdict(&mut self, seq: u64, p: &VerdictPayload) -> Result<()> {
         let edge_idx = *self
             .edge_index
             .get(&p.child)
@@ -286,6 +293,7 @@ impl Tree {
             )));
         }
         edge.verdict = Some(p.verdict);
+        edge.verdict_seq = Some(seq);
         edge.parent_median = p.parent_median;
         edge.child_median = p.child_median;
         edge.paired_wins = p.paired_wins;

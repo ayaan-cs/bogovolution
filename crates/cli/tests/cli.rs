@@ -785,3 +785,292 @@ fn committed_demo_replay_matches_a_fresh_mock_recording() {
     assert_eq!(outcome_log(dir.path()), outcome_log(other.path()));
     assert_eq!(rec["data"]["accepted"], 2);
 }
+
+// ---------------------------------------------------------------------
+// Phase 4: digest and export
+// ---------------------------------------------------------------------
+
+fn demo_replay_path() -> std::path::PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/demo/replay.jsonl")
+}
+
+/// The demo project with the committed replay already played.
+fn evolved_demo() -> tempfile::TempDir {
+    let dir = demo_project();
+    let replay = demo_replay_path();
+    ok_json(
+        dir.path(),
+        &[
+            "evolve",
+            "--generations",
+            "10",
+            "--seed",
+            "7",
+            "--provider",
+            "replay",
+            "--replay-file",
+            replay.to_str().unwrap(),
+        ],
+    );
+    dir
+}
+
+fn schema_validator() -> jsonschema::Validator {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../schema/export.v1.json");
+    let schema: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    jsonschema::validator_for(&schema).expect("schema compiles")
+}
+
+fn assert_valid(v: &jsonschema::Validator, doc: &Value) {
+    let errors: Vec<String> = v
+        .iter_errors(doc)
+        .map(|e| format!("{} at {}", e, e.instance_path))
+        .collect();
+    assert!(errors.is_empty(), "schema errors: {errors:#?}");
+}
+
+fn read_json(path: &Path) -> Value {
+    serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+}
+
+#[test]
+fn export_of_the_demo_validates_against_the_published_schema() {
+    let dir = evolved_demo();
+    let out = dir.path().join("out").join("tree.json");
+    let v = ok_json(dir.path(), &["export", "--out", out.to_str().unwrap()]);
+    assert_eq!(v["command"], "export");
+    assert_eq!(v["data"]["nodes"], 9);
+    assert_eq!(v["data"]["edges"], 8);
+    assert_eq!(v["data"]["refused"], 2);
+
+    let doc = read_json(&out);
+    assert_valid(&schema_validator(), &doc);
+    assert_eq!(doc["format"], "rules-evolve-export");
+    assert_eq!(doc["version"], 1);
+    assert_eq!(doc["nodes"].as_array().unwrap().len(), 9);
+    assert_eq!(doc["edges"].as_array().unwrap().len(), 8);
+    assert_eq!(doc["refused"].as_array().unwrap().len(), 2);
+    assert_eq!(doc["series"].as_array().unwrap().len(), 10);
+    assert_eq!(doc["config"]["accept_threshold_pp"], 10.0);
+    assert_eq!(doc["config"]["min_paired_wins"], 4);
+    assert_eq!(doc["config"]["max_change_bytes"], 1000);
+    assert_eq!(doc["summary"]["accepted"], 2);
+
+    // The chain head in the export is the last event in the log.
+    let log = ok_json(dir.path(), &["log", "--limit", "1"]);
+    let last = &log["data"]["events"][0];
+    assert_eq!(doc["chain"]["head_hash"], last["hash"]);
+    assert_eq!(doc["chain"]["head_seq"], last["seq"]);
+    assert_eq!(doc["chain"]["events"], log["data"]["total"]);
+
+    // Root has no diff, every other version has a git style one.
+    let nodes = doc["nodes"].as_array().unwrap();
+    assert_eq!(nodes[0]["status"], "root");
+    assert!(nodes[0]["diff"].is_null());
+    for n in &nodes[1..] {
+        assert!(n["diff"]
+            .as_str()
+            .unwrap()
+            .starts_with("diff --git a/AGENTS.md"));
+    }
+    let current: Vec<&Value> = nodes.iter().filter(|n| n["is_current"] == true).collect();
+    assert_eq!(current.len(), 1);
+    assert_eq!(current[0]["hash"], doc["current"]);
+
+    // Every edge carries its run pairs, and a rejected edge carries a reason.
+    let edges = doc["edges"].as_array().unwrap();
+    assert!(edges
+        .iter()
+        .all(|e| e["pairs"].as_array().unwrap().len() == 5));
+    assert!(
+        edges
+            .iter()
+            .any(|e| e["verdict"] == "rejected"
+                && e["reason"].as_str().unwrap().contains("not above"))
+    );
+}
+
+#[test]
+fn export_is_deterministic_for_one_log() {
+    let dir = evolved_demo();
+    let a = dir.path().join("a.json");
+    let b = dir.path().join("b.json");
+    ok_json(dir.path(), &["export", "--out", a.to_str().unwrap()]);
+    ok_json(dir.path(), &["export", "--out", b.to_str().unwrap()]);
+    assert_eq!(
+        std::fs::read_to_string(a).unwrap(),
+        std::fs::read_to_string(b).unwrap()
+    );
+}
+
+#[test]
+fn export_to_stdout_prints_the_bare_document() {
+    let dir = evolved_demo();
+    let out = run(dir.path(), &["export", "--out", "-"]);
+    assert!(out.status.success());
+    let doc = json_of(&out);
+    assert_valid(&schema_validator(), &doc);
+    let wrapped = ok_json(dir.path(), &["export", "--out", "-"]);
+    assert_eq!(wrapped["data"], doc);
+}
+
+#[test]
+fn export_of_a_fresh_or_pending_project_validates() {
+    let v = schema_validator();
+    let dir = project();
+    let out = dir.path().join("fresh.json");
+    ok_json(dir.path(), &["export", "--out", out.to_str().unwrap()]);
+    let doc = read_json(&out);
+    assert_valid(&v, &doc);
+    assert_eq!(doc["nodes"].as_array().unwrap().len(), 1);
+    assert_eq!(doc["series"].as_array().unwrap().len(), 0);
+    assert_eq!(doc["root"], doc["current"]);
+
+    // A proposed but never judged change is pending, with no pairs.
+    let new_file = dir.path().join("new.md");
+    std::fs::write(&new_file, "# Rules\nBe careful.\nRead first.\n").unwrap();
+    ok_json(
+        dir.path(),
+        &[
+            "propose",
+            "--file",
+            new_file.to_str().unwrap(),
+            "--hypothesis",
+            "Reading first helps.",
+        ],
+    );
+    ok_json(dir.path(), &["export", "--out", out.to_str().unwrap()]);
+    let doc = read_json(&out);
+    assert_valid(&v, &doc);
+    assert_eq!(doc["nodes"][1]["status"], "pending");
+    assert_eq!(doc["series"][0]["outcome"], "pending");
+    assert!(doc["edges"][0]["gain_pp"].is_null());
+    assert_eq!(doc["edges"][0]["pairs"].as_array().unwrap().len(), 0);
+}
+
+#[test]
+fn the_schema_rejects_documents_that_drift_from_it() {
+    let dir = evolved_demo();
+    let out = dir.path().join("t.json");
+    ok_json(dir.path(), &["export", "--out", out.to_str().unwrap()]);
+    let good = read_json(&out);
+    let v = schema_validator();
+    assert_valid(&v, &good);
+
+    let mut wrong_version = good.clone();
+    wrong_version["version"] = serde_json::json!(2);
+    assert!(!v.is_valid(&wrong_version));
+
+    let mut missing = good.clone();
+    missing.as_object_mut().unwrap().remove("nodes");
+    assert!(!v.is_valid(&missing));
+
+    let mut extra = good.clone();
+    extra["surprise"] = serde_json::json!(true);
+    assert!(!v.is_valid(&extra));
+
+    let mut bad_hash = good.clone();
+    bad_hash["root"] = serde_json::json!("not-a-hash");
+    assert!(!v.is_valid(&bad_hash));
+
+    let mut bad_verdict = good.clone();
+    bad_verdict["edges"][0]["verdict"] = serde_json::json!("great");
+    assert!(!v.is_valid(&bad_verdict));
+}
+
+#[test]
+fn committed_demo_export_validates_and_matches_a_fresh_one() {
+    let committed =
+        read_json(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/demo/tree.json"));
+    assert_valid(&schema_validator(), &committed);
+    let bundled =
+        read_json(&Path::new(env!("CARGO_MANIFEST_DIR")).join("../../viewer/src/demo/tree.json"));
+    assert_eq!(committed, bundled, "run examples/demo/export.sh");
+
+    // Same lineage as a fresh replay. Only the chain hashes depend on the
+    // log's timestamps, so they are not compared.
+    let dir = evolved_demo();
+    let out = dir.path().join("fresh.json");
+    ok_json(dir.path(), &["export", "--out", out.to_str().unwrap()]);
+    let mut fresh = read_json(&out);
+    let mut old = committed;
+    for doc in [&mut fresh, &mut old] {
+        doc.as_object_mut().unwrap().remove("chain");
+    }
+    // Hashes of versions come from content only, so everything else matches.
+    assert_eq!(
+        fresh, old,
+        "run examples/demo/export.sh and commit the result"
+    );
+}
+
+#[test]
+fn export_and_digest_refuse_a_tampered_log() {
+    let dir = evolved_demo();
+    let log = dir.path().join(".rules-evolve").join("log.jsonl");
+    let text = std::fs::read_to_string(&log).unwrap();
+    assert!(text.contains("\"demo-model\""));
+    std::fs::write(&log, text.replacen("\"demo-model\"", "\"evil-model\"", 1)).unwrap();
+
+    let out = dir.path().join("t.json");
+    let r = run(
+        dir.path(),
+        &["export", "--out", out.to_str().unwrap(), "--json"],
+    );
+    assert_eq!(r.status.code(), Some(1));
+    assert!(!out.exists(), "nothing is written for a bad chain");
+    assert!(json_of(&r)["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("verification"));
+
+    let r = run(dir.path(), &["digest"]);
+    assert_eq!(r.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&r.stderr).contains("verification"));
+}
+
+#[test]
+fn digest_text_and_json_describe_the_demo() {
+    let dir = evolved_demo();
+    let text = run(dir.path(), &["digest"]);
+    assert!(text.status.success());
+    let md = String::from_utf8(text.stdout).unwrap();
+    assert!(md.starts_with("# Rules lineage digest"));
+    assert!(md.contains("2 accepted, 5 rejected, 1 noise, 0 pending. 2 refused"));
+    assert!(md.contains("+33.3 points, 5 of 5 paired wins"));
+    assert!(md.contains("Skipping tests will make the agent faster"));
+    assert!(md.contains("this content already exists in the tree"));
+    assert!(md.contains("3 of 5 paired wins"));
+    assert!(md.contains("## Directions not tried yet"));
+    assert!(!md.contains('\u{2014}') && !md.contains('\u{2013}'));
+
+    // Same text on every run.
+    let again = run(dir.path(), &["digest"]);
+    assert_eq!(md.as_bytes(), again.stdout.as_slice());
+
+    let v = ok_json(dir.path(), &["digest"]);
+    assert_eq!(v["command"], "digest");
+    let d = &v["data"];
+    assert_eq!(d["worked"].as_array().unwrap().len(), 2);
+    assert_eq!(d["rejected"].as_array().unwrap().len(), 5);
+    assert_eq!(d["noise"].as_array().unwrap().len(), 1);
+    assert_eq!(d["pending"].as_array().unwrap().len(), 0);
+    assert_eq!(d["refused"].as_array().unwrap().len(), 2);
+    assert!(!d["suggestions"].as_array().unwrap().is_empty());
+    assert_eq!(d["progress"]["root_pass_rate"], 0.25);
+
+    // The committed sample is what the demo produces.
+    let sample = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../examples/demo/digest.md"),
+    )
+    .unwrap();
+    assert_eq!(sample, md, "run examples/demo/export.sh");
+}
+
+#[test]
+fn digest_of_a_fresh_project_suggests_starting() {
+    let dir = project();
+    let v = ok_json(dir.path(), &["digest"]);
+    assert_eq!(v["data"]["suggestions"][0]["kind"], "start");
+    assert_eq!(v["data"]["worked"].as_array().unwrap().len(), 0);
+}

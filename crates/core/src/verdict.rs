@@ -33,6 +33,12 @@ pub struct Rule {
     pub min_paired_wins: u32,
 }
 
+/// Is a child's pass rate a strict win over its parent's? Same test as the
+/// rule uses for paired wins.
+pub fn pair_win(parent_rate: f64, child_rate: f64) -> bool {
+    child_rate > parent_rate + EPS
+}
+
 /// One paired comparison.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Pair {
@@ -109,7 +115,7 @@ pub fn decide(
             run_index: i as u32,
             parent_rate: p,
             child_rate: c,
-            win: c > p + EPS,
+            win: pair_win(p, c),
         })
         .collect();
     let paired_wins = pairs.iter().filter(|p| p.win).count() as u32;
