@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import demo from '../demo/tree.json';
-import { buildElements, nodeLabel } from './graph';
+import { buildElements, nodeLabel, refusedShownOnLoad } from './graph';
 import type { LineageExport } from './types';
 
 const d = demo as unknown as LineageExport;
@@ -63,5 +63,15 @@ describe('buildElements', () => {
     expect(nodeLabel('accepted', 'abc1234', 0.92)).toBe('abc1234\naccepted \u00b7 92%');
     expect(nodeLabel('pending', 'abc1234', null)).toBe('abc1234\npending \u00b7 no runs');
     expect(nodeLabel('rejected', 'abc1234', 0.5, -41.7, 3)).toBe('abc1234\nrejected \u00b7 50%\n-42 pts\n3 refused');
+  });
+});
+
+describe('refusedShownOnLoad', () => {
+  it('hides refused nodes after loading a file', () => {
+    expect(refusedShownOnLoad(null)).toBe(false);
+    expect(refusedShownOnLoad({ kind: 'node', hash: 'abc' })).toBe(false);
+  });
+  it('shows them when the file opens on a refused item', () => {
+    expect(refusedShownOnLoad({ kind: 'refused', seq: 41 })).toBe(true);
   });
 });

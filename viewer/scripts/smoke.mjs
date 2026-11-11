@@ -110,6 +110,19 @@ const graphStats = () =>
   await page.waitForSelector('canvas');
 }
 
+// "Show refused" resets when a different file is loaded.
+{
+  await page.click('text=/Show refused/');
+  assert.equal((await graphStats()).nodes, 11);
+  await page.setInputFiles('input[type=file]', join(root, 'test-fixtures', 'wide-tree.json'));
+  await page.waitForFunction(() => document.querySelector('.sub')?.textContent?.includes('wide-fixture'));
+  await page.waitForTimeout(400);
+  assert.equal((await graphStats()).nodes, 34, 'refused nodes are hidden again for the new file');
+  assert.equal(await page.locator('text=/Show refused/').count(), 1);
+  await page.goto(pathToFileURL(dist).href);
+  await page.waitForSelector('canvas');
+}
+
 // Bad file: friendly error, old lineage stays.
 await page.setInputFiles('input[type=file]', bad);
 await page.waitForSelector('[role=alert]');

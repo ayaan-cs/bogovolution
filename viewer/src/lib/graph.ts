@@ -1,7 +1,7 @@
 import type { ElementDefinition } from 'cytoscape';
 import { points, pct, shortHash, statusLabel } from './format';
 import { nodeHeight } from './layout';
-import type { LineageExport } from './types';
+import type { LineageExport, Selection } from './types';
 
 /// Lines in a node: the short id, the status and median, then optionally the gain
 /// over the parent ("+33 pts") and the number of refused attempts made from this version.
@@ -67,4 +67,10 @@ export function buildElements(d: LineageExport, opts: BuildOptions = {}): Elemen
     }
   }
   return els;
+}
+
+/// Whether refused nodes are drawn right after a file is loaded: hidden, unless the new
+/// selection is itself a refused item, which has to be drawn to be shown.
+export function refusedShownOnLoad(selection: Selection | null): boolean {
+  return selection?.kind === 'refused';
 }

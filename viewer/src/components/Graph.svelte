@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import cytoscape from 'cytoscape';
   import dagre from 'cytoscape-dagre';
-  import { buildElements } from '../lib/graph';
+  import { buildElements, refusedShownOnLoad } from '../lib/graph';
   import { initialView, MIN_READABLE_ZOOM, NODE_FONT, pickOrientation, type Box, type Orientation } from '../lib/layout';
   import { cssVar, type Theme } from '../lib/theme';
   import type { LineageExport, Selection } from '../lib/types';
@@ -279,6 +279,14 @@
       container.removeEventListener('pointerdown', moved);
       cy?.destroy();
     };
+  });
+
+  // A different file starts with refused nodes hidden, unless it opens on a refused item.
+  let resetFor: LineageExport | undefined;
+  $effect(() => {
+    const d = data;
+    if (resetFor !== undefined && d !== resetFor) showRefused = untrack(() => refusedShownOnLoad(selection));
+    resetFor = d;
   });
 
   // Rebuild when a different file is loaded or refused nodes are shown or hidden, restyle when the theme changes.
