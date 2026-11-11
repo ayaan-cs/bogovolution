@@ -136,6 +136,10 @@ fn run(cli: &Cli) -> Result<Output> {
             for f in &report.files_created {
                 text.push_str(&format!("  {f}\n"));
             }
+            text.push_str(&format!(
+                "\ngit: {}\nCommit .rules-evolve/ so the lineage has git history.\n",
+                report.gitignore.detail
+            ));
             text.push_str(
                 "\nReview .rules-evolve/config.toml and edit .rules-evolve/tasks.toml.\n",
             );

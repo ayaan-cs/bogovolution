@@ -77,9 +77,19 @@ It writes:
 | --- | --- |
 | `.rules-evolve/config.toml` | Settings (see below) |
 | `.rules-evolve/tasks.toml` | Task template: each task is a prompt plus a shell check |
+| `.rules-evolve/.gitignore` | Ignores only `scratch/` and `sandbox/` folders, nothing else |
 | `.rules-evolve/log.jsonl` | The lineage log, starting with an `init` event |
 | `.rules-evolve/HEAD` | Newest `seq` and `hash`, used to spot cut off logs |
 | `.rules-evolve/blobs/<sha256>` | Rules file versions, named by content hash |
+
+**Commit `.rules-evolve/` in your repo.** The log, `HEAD`, blobs, config and
+tasks are all meant to live in git, so the lineage has history that the tool
+itself cannot rewrite. `init` checks with `git check-ignore` that git does not
+ignore the folder. If one of your ignore rules does, `init` appends
+`!.rules-evolve/` to the repo's `.gitignore` and checks again. The result is in
+the `gitignore` field of the JSON output (`status` is `ok`, `fixed`,
+`still_ignored`, `not_a_git_repo`, or `git_unavailable`). The only ignore file
+the tool writes inside the folder covers `scratch/` and `sandbox/`.
 
 Default settings (confirmed by the project owner, and recorded in `config.toml`
 as `defaults_confirmed = true`):
@@ -157,7 +167,7 @@ without a bump. Object keys are sorted.
 
 - `init`: `repo_root`, `rules_file`, `detected` (bool), `other_candidates`,
   `notes`, `model`, `root_hash`, `defaults_confirmed` (true),
-  `files_created`.
+  `files_created`, `gitignore` (`status`, `rule`, `detail`).
 - `status`: `repo_root`, `valid` (chain and blobs both fine), `chain` (see
   below), `blob_problems`, `tree` (or null if the log is invalid), `config`.
   `tree` has `rules_file`, `model`, `root`, `current` (newest accepted

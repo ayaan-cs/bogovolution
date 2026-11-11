@@ -3,6 +3,7 @@
 use crate::config::{Config, TASKS_TEMPLATE};
 use crate::error::{io_err, Error, Result};
 use crate::event::{InitPayload, Payload};
+use crate::git::{ensure_not_ignored, GitignoreReport};
 use crate::log::Log;
 use crate::store::{Store, DIR_NAME};
 use serde::Serialize;
@@ -91,6 +92,8 @@ pub struct InitReport {
     pub root_hash: String,
     pub defaults_confirmed: bool,
     pub files_created: Vec<String>,
+    /// Result of checking that git does not ignore `.rules-evolve/`.
+    pub gitignore: GitignoreReport,
 }
 
 fn to_forward_slashes(p: &Path) -> String {
@@ -158,6 +161,13 @@ pub fn init(opts: &InitOptions) -> Result<InitReport> {
     let config = Config::with_defaults(&rules_rel, &opts.model);
     let config_path = store.config_path();
     std::fs::write(&config_path, config.to_toml_template()).map_err(io_err(&config_path))?;
+    // Only scratch and sandbox folders are ignored. Everything else is committed.
+    let inner_ignore = store.root().join(".gitignore");
+    std::fs::write(
+        &inner_ignore,
+        "# Scratch and sandbox folders only. Everything else here should be committed.\nscratch/\nsandbox/\n",
+    )
+    .map_err(io_err(&inner_ignore))?;
     let tasks_path = store.tasks_path();
     std::fs::write(&tasks_path, TASKS_TEMPLATE).map_err(io_err(&tasks_path))?;
 
@@ -168,6 +178,8 @@ pub fn init(opts: &InitOptions) -> Result<InitReport> {
         root_hash: root_hash.clone(),
         tool_version: env!("CARGO_PKG_VERSION").to_string(),
     }))?;
+
+    let gitignore = ensure_not_ignored(&opts.dir)?;
 
     let rel = |name: &str| format!("{DIR_NAME}/{name}");
     Ok(InitReport {
@@ -182,10 +194,12 @@ pub fn init(opts: &InitOptions) -> Result<InitReport> {
         files_created: vec![
             rel("config.toml"),
             rel("tasks.toml"),
+            rel(".gitignore"),
             rel("log.jsonl"),
             rel("HEAD"),
             rel(&format!("blobs/{root_hash}")),
         ],
+        gitignore,
     })
 }
 
@@ -230,6 +244,32 @@ mod tests {
         assert_eq!(tree.nodes.len(), 1);
         assert_eq!(tree.root, report.root_hash);
         assert_eq!(tree.model, "test-model");
+    }
+
+    #[test]
+    fn init_keeps_lineage_out_of_gitignore() {
+        let dir = tempdir().unwrap();
+        if std::process::Command::new("git")
+            .arg("-C")
+            .arg(dir.path())
+            .args(["init", "-q"])
+            .status()
+            .map(|s| !s.success())
+            .unwrap_or(true)
+        {
+            return;
+        }
+        std::fs::write(dir.path().join("AGENTS.md"), "x").unwrap();
+        std::fs::write(dir.path().join(".gitignore"), ".rules-evolve/\n").unwrap();
+        let report = init(&opts(dir.path(), None)).unwrap();
+        assert_eq!(report.gitignore.status, "fixed");
+        // The inner ignore file only names scratch and sandbox folders.
+        let inner = std::fs::read_to_string(dir.path().join(".rules-evolve/.gitignore")).unwrap();
+        let rules: Vec<&str> = inner
+            .lines()
+            .filter(|l| !l.starts_with('#') && !l.is_empty())
+            .collect();
+        assert_eq!(rules, vec!["scratch/", "sandbox/"]);
     }
 
     #[test]
