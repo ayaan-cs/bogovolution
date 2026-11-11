@@ -32,6 +32,7 @@
       width: Math.max(280, width),
       height,
       style: { background: 'transparent', color: cssVar('--fg'), fontSize: '12px', fontFamily: cssVar('--sans') },
+      marginTop: 30,
       marginLeft: 44,
       marginBottom: 36,
     };
