@@ -24,7 +24,7 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: v1.1
+## Status: v1.2
 
 No real model is ever called yet. Everything runs on a deterministic **mock
 model**, so nothing here costs money or touches the network.
@@ -81,23 +81,41 @@ Done in v1.1 (the optional `watch` terminal view):
 - `--pace MS` for the replay provider, so a replayed demo plays at a watchable
   speed.
 
+Done in v1.2 (isolation for the check command):
+
+- A pluggable isolation backend for the check command and the code it pulls in:
+  `bwrap`, `docker`, `podman`, `none` (unsafe, labeled), and `auto`. Set in the
+  `[sandbox]` table of `config.toml`, with a `--isolation` override.
+- Each `run_recorded` event records the backend that was used.
+- A policy in code: a provider declared `Real` cannot run unless the isolation is
+  `bwrap`, `docker` or `podman`. No such provider exists yet.
+- Real escape tests for every backend that works on the machine running them.
+  See "Sandbox and threat model" for what ran where.
+
 Planned later (not built yet): real bring-your-own-key providers and a Claude
 Code plugin. See the roadmap below.
 
-## Roadmap and required TODO
+## Roadmap and remaining gaps
 
-**TODO, required before any real provider is enabled: run the sandbox in a
-container or with other operating system isolation.** The current sandbox only
-keeps the model from reading the benchmark files through the folder it is
-given. It is not an operating system sandbox (see "Sandbox and threat model"
-below for the exact limits). Mock and replay providers read nothing, so they are
-safe today. A real provider that can run code or tools must not be switched on
-until checks and model tools run inside a container, a separate user, or an
-equivalent boundary. No network provider exists in the code yet, and none should
-be added before this is done.
+**Isolation: built in v1.2, with gaps that matter.** The check command now runs
+through an operating system isolation backend (`bwrap`, `docker` or `podman`),
+and a provider marked `Real` is refused unless one is in use. What is still
+missing before a real provider that runs tools or code is switched on:
+
+- A real provider's own tool execution is not wired through the isolation layer
+  yet, because no provider has tools. Only the check command is isolated today.
+  The policy gate is in place so a new provider has to declare itself, but the
+  provider's tools must also be run through the same `Runner`.
+- The container backends (`docker`, `podman`) have unit tests for their
+  arguments but could not be run in the environment this was built in. Run
+  `cargo test -p rules-evolve-core --test isolation_escape -- --nocapture` on a
+  machine that has them and read the output (see below).
+- No seccomp filter and no cgroup limits for `bwrap`. See the list of gaps in
+  "Sandbox and threat model".
 
 Other planned work: a Claude Code plugin and the real bring-your-own-key
-providers.
+providers. No network provider exists in the code, and none should be added
+before the first bullet above is done.
 
 ## Not doing
 
@@ -116,6 +134,13 @@ cargo fmt --check
 
 The binary is `target/debug/rules-evolve`. The viewer has its own checks, see
 "Viewer" below.
+
+The isolation escape tests (`crates/core/tests/isolation_escape.rs`) run real
+attacks against each backend that works on the machine. A backend that cannot
+start (not installed, no user namespaces, no daemon, image missing) is skipped
+with a `SKIPPED: ...` line on stderr (run with `-- --nocapture` to see it), and
+a skipped backend ran nothing. Set `RULES_EVOLVE_REQUIRE_BACKENDS=bwrap,docker,podman`
+(any subset) to make a skip a failure.
 
 The `watch` command is behind the cargo feature `watch`, which is on by default.
 To build a binary without any terminal code, run
@@ -164,6 +189,7 @@ as `defaults_confirmed = true`):
 | `min_paired_wins` | 4 | And win at least 4 of the 5 paired runs, otherwise it is noise |
 | `max_tokens_per_run` | 200000 | Token cap for one run |
 | `max_change_bytes` | 1000 | Largest allowed change for `propose` (under `[mutation]`) |
+| `isolation` | `auto` | How check commands are isolated (under `[sandbox]`, see "Sandbox and threat model") |
 
 A task in `tasks.toml` looks like this. The check command exits with 0 to pass.
 
@@ -231,6 +257,11 @@ the same way.
 - Provider options are shared with `mutate` and `evolve` (see "Providers,
   recording and replay"). Only `mock` and `replay` exist. Any other name is an
   error.
+- `--isolation auto|bwrap|docker|podman|none` overrides `[sandbox] isolation`
+  from `config.toml` for this command (also on `mutate` and `evolve`). The
+  output ends with an `Isolation:` line, and `none` is printed as
+  `none (UNSAFE: no operating system isolation)`. A backend you asked for by
+  name that cannot start is an error, never a quiet fallback.
 
 ### `mutate [--parent V] [--seed S] [provider options]`
 
@@ -276,6 +307,13 @@ generations leave it where it was, so later generations keep building on the
 best version so far. The same `--seed`, settings and provider give the same
 lineage, so you can also continue a lineage by running `evolve` again. The
 report lists each generation with its mutation, verdict, and `current`.
+
+### `isolation`
+
+Shows which isolation backends start on this machine (`bwrap`, `podman`,
+`docker`, each with the reason when it does not) and which one `auto` would use.
+`--json` gives `configured`, `image`, `backends` and `auto`. It runs a trivial
+command in each backend, so a container backend needs its image present.
 
 ### `verify --child V`
 
@@ -657,46 +695,147 @@ For each task attempt the harness copies the repo into a fresh temp folder and:
    symlink;
 2. writes the rules version under test into the copy;
 3. gives the model the prompt, the rules text, and that folder. The model never
-   sees the check command;
+   sees the check command, and the hidden files are not in the folder while the
+   model works (a test spies on the folder to prove it);
 4. applies the model's edits, refusing the whole batch if any edit uses a path
    that is absolute, has `..`, is hidden or excluded, or is the rules file
    (the attempt is recorded as `violation` and counts as failed);
 5. copies the hidden files back from the real repo, overwriting anything at
    those paths, so the model cannot change the tests;
-6. runs the check with `sh -c` in the copy, with a timeout, no stdin, output
-   discarded, and an environment cleared down to `PATH`, `HOME` (the copy), and
-   the names in `env_passthrough`. API keys in your shell do not reach it.
+6. runs the check command in the copy through the isolation backend (below),
+   with a timeout, no stdin, output discarded, and a cleared environment.
 
-This is the simplest design that reliably stops the harness from handing the
-tests to the model: the tests are not in the folder the model works in.
+Steps 1 to 5 keep the harness from handing the tests to the model. Step 6 is
+where code runs: the check command and anything the model wrote that the check
+pulls in (a build script, a test config, a `conftest.py`). That is what the
+isolation backends contain.
 
-**What it protects against:** a model reading the benchmark tests, the check
-command, the git history, or the lineage files through the folder it is given;
-a model rewriting the tests; secrets in your environment reaching check
-commands; symlinks pointing outside the repo.
+### Isolation backends
 
-**What it does not protect against.** Be honest with yourself about these:
+Set `[sandbox] isolation` in `config.toml`, or pass `--isolation` to `run`,
+`mutate` or `evolve`.
 
-- It is not an operating system sandbox. Check commands run as you, with your
-  files and your network. Code the model wrote (a build script, a test config,
-  a `conftest.py`) can run during the check, and at that moment the hidden
-  tests are in the folder. A hostile or confused model could read them then, or
-  write files outside the copy.
-- The folder is just a folder. A provider that lets a model run tools could
-  let it read the real repo by absolute path. When real providers arrive, they
-  must be run so the model sees only the copy (a container or a separate user
-  is the right tool). The mock reads nothing.
+```toml
+[sandbox]
+isolation = "auto"      # auto | bwrap | docker | podman | none
+image = "docker.io/library/alpine:3.20"   # docker and podman; must exist locally
+memory_mb = 2048        # one check
+cpus = 2.0              # docker and podman only
+max_processes = 256
+max_file_mb = 256       # largest single file a check may write
+ro_binds = []           # extra host folders mounted read only, e.g. a toolchain
+```
+
+| Backend | What it is |
+| --- | --- |
+| `bwrap` | Bubblewrap, Linux, no daemon. New user, pid, net, ipc and uts namespaces. `/usr`, `/bin`, `/lib*`, `/opt` and a few `/etc` entries mounted read only, and nothing else of your machine. The worktree is the only writable bind (at `/work`). `/tmp` is a 256 MiB tmpfs. Root is remounted read only. Cleared environment with a fixed `PATH` and `HOME=/work`. `--die-with-parent`, `--new-session`, all capabilities dropped. Limits (`prlimit`) on processes, address space and file size are set inside the new user namespace. |
+| `docker`, `podman` | `--network none`, `--read-only` root, tmpfs `/tmp`, a non-root user (your uid, or `nobody` if the worktree is owned by root), `--cap-drop ALL`, `--security-opt no-new-privileges`, `--ipc none`, `--pids-limit`, `--memory` (swap off), `--cpus`, `--ulimit` for open files, file size and core dumps, `--pull never`. Only the worktree is mounted (plus any `ro_binds`, read only). Podman also uses `--userns keep-id` so the worktree is writable. On a timeout the container is removed with `rm -f`. |
+| `none` | The old behavior: `sh -c` in the worktree with a cleared environment. **Unsafe.** No namespaces, no mounts, no limits. Kept for development and for the mock and replay providers. It is always printed as `none (UNSAFE: no operating system isolation)`. |
+| `auto` | The first of `bwrap`, `podman`, `docker` that really starts here (it runs `true` in each). If none starts: `none` for mock and replay, an error for a real provider. |
+
+`auto` tries `bwrap` first on purpose: it uses your host toolchain read only, so
+checks that work today keep working with no image to build. The container
+backends need an image that holds your toolchain (the default is a bare Alpine),
+so `auto` only reaches them when `bwrap` cannot start. Pick a container backend
+and an image yourself when you want the stronger boundary of a container.
+
+A backend you name that cannot start is an error that says why, not a fallback.
+`rules-evolve isolation` shows what works on this machine. Each `run_recorded`
+event stores the backend that ran it in an optional `isolation` field (old logs
+without it still read).
+
+**Policy.** Every provider declares a kind. Mock and replay are `Local`. A
+provider marked `Real` (a real or network provider, none exist yet) is refused by
+`run`, `mutate` and `evolve` unless the isolation resolves to `bwrap`, `docker`
+or `podman`: `isolation = "none"`, and the `--isolation none` override, are
+errors for it, and `auto` with no working backend is an error. The check lives in
+`isolation::Runner::resolve`, which `run_version` always calls, and in
+`mutate`, and a test with a fake `Real` provider keeps it there.
+
+### What each backend protects against
+
+| | `none` | `bwrap` | `docker` / `podman` |
+| --- | --- | --- | --- |
+| Check code reads your real repo, hidden tests there, home, keys, git history | no | yes (not mounted) | yes (not mounted) |
+| Check code writes outside its worktree | no | yes (read only system, private `/tmp`) | yes (read only root, private `/tmp`) |
+| Check code uses the network or your loopback services | no | yes (own empty network namespace) | yes (`--network none`) |
+| Secrets in your environment reach the check | blocked (cleared env) | blocked | blocked |
+| Fork bomb or runaway process | only the timeout | process cap, timeout, whole sandbox killed with it | pids cap, timeout, container removed |
+| Memory hog | no | address space cap (`RLIMIT_AS`) | cgroup memory cap |
+| Huge single file | no | file size cap | file size cap |
+| Leftover processes after a timeout | process group killed | whole pid namespace dies | container removed |
+
+What ran here: see "What was tested" below.
+
+### What it does not protect against
+
+Be honest with yourself about these:
+
+- **The hidden tests are in the worktree while the check runs.** The check
+  needs them. Code the model wrote that runs during the check can read them, and
+  can overwrite them inside the worktree before they run. Isolation keeps that
+  code away from your real repo and the network, but it cannot hide files the
+  check itself uses. Putting the hidden files in read only mounts is a possible
+  next step and is not done.
+- **A model can still make a check pass without solving the task**, for example
+  by editing a visible config that weakens the tests. Put such config in
+  `hidden`.
+- **`bwrap` has no seccomp filter and no cgroups.** Every syscall the kernel
+  allows an unprivileged process is open, so a kernel bug could still be used
+  to escape. Memory is capped by address space, not real memory use, there is
+  no CPU limit, and the total disk a check can fill in the worktree (on your
+  disk) is not capped, only each file. `bwrap` also needs unprivileged user
+  namespaces, which some systems turn off, and then it just does not start.
+- **Containers share your kernel.** `docker` runs through a daemon that is
+  usually root, and being in the `docker` group is root on the machine. Rootless
+  `podman` is the safer choice. A container is only as good as its image, and
+  `run` never pulls: build or pull the image first.
+- **`docker` and `podman` were not run in the environment this was built in.**
+  Their arguments are unit tested, and the escape test file runs the same
+  attacks against them when they are installed, but that has not happened here.
+  Treat them as untested until you have run it.
+- **Only the check command is isolated.** A future real provider that runs
+  tools or code of its own will need those tools run through the same
+  `Runner`. Nothing does that yet because no provider has tools.
+- **`/usr`, `/bin`, `/lib*` and `/opt` are readable** inside `bwrap`, so check
+  code can read anything installed system wide. `ro_binds` adds more, so do not
+  list your home folder.
+- **Passthrough variables reach the check.** Names in `env_passthrough` in
+  `tasks.toml` are passed in on purpose. Do not list a secret you would not give
+  the model.
+- **A backend that fails after the start check** (for example the machine runs
+  out of processes mid run) makes a check look like it failed. The backend is
+  tested once at the start of each `run`.
+- **`none` is `none`.** Choosing it, or `auto` finding nothing, means no
+  isolation for the mock and replay providers. It is labeled unsafe in the
+  output and recorded in the log so you can see it afterwards.
+- The `check` text is not shown to the model, but it is in `tasks.toml`, so keep
+  the real checking logic in hidden files rather than in the command text.
 - The `hidden` list is yours to keep complete. A test file you forget to list
-  is copied. The `prompt` is shown to the model by design. The `check` text is
-  not shown to the model, but it is in `tasks.toml`, so keep the real checking
-  logic in hidden files rather than in the command text.
-- A model can make a check pass without solving the task, for example by
-  editing a visible config that weakens the tests. Put such config in `hidden`.
-- On timeout only the `sh` process is killed. Child processes it started may
-  keep running.
-- Unix only for now, because checks run through `sh`.
+  is copied. The `prompt` is shown to the model by design.
+- Linux only for `bwrap`. On macOS only `docker` and `podman` are possible, and
+  checks run through `sh`, so there is no Windows support.
 - Flaky checks look like noise. That is why several repeats and a median are
   used.
+
+### What was tested
+
+Argument construction for each backend, the policy refusal (with a fake `Real`
+provider), backend choice for `auto`, config round trips and old logs always
+run as normal unit tests. The real escape tests
+(`crates/core/tests/isolation_escape.rs`) run only for a backend that starts
+where the tests run, and print `SKIPPED` for the others. They try: connecting to
+a listener on the host's loopback (and check that the same check connects with
+no isolation, so the test can fail), writing to `/usr`, `/etc`, `/`, `/bin` and a
+real host folder, reading a hidden file and listing the real repo by absolute
+path (and the same read with no isolation as a control), leaking an environment
+variable, a fork bomb, a long sleep, a background child that outlives its shell,
+a process cap, a memory hog, and a file bigger than the cap. They also check
+that no process is left over after each timeout.
+
+Where this was built, `bwrap` ran all of them and passed. `docker` and `podman`
+were skipped because the programs are not installed there, and they could not
+be installed: the package repository was unreachable from that machine.
 
 ## The verdict rule
 
@@ -769,7 +908,7 @@ without a bump. Object keys are sorted.
   refused), `hypothesis`, `change_bytes`, `max_change_bytes`, `reason`,
   `event_seq`.
 - `run`: `version`, `provider`, `base_seed`, `repeats`, `max_tokens_per_run`,
-  `skipped_existing` (run indexes already recorded), `total_tokens`, and `runs`.
+  `isolation` (`bwrap`, `docker`, `podman` or `none`), `skipped_existing` (run indexes already recorded), `total_tokens`, and `runs`.
   Each run has `run_index`, `seed`, `passed`, `total`, `pass_rate`,
   `tokens_used`, `budget_exhausted`, `event_seq`, and `tasks` (a list of
   `id`, `status`, `tokens_used`). Task `status` is one of `passed`, `failed`,
@@ -847,7 +986,7 @@ Event kinds (names are stable):
 | `init` | `rules_file`, `model`, `root_hash`, `tool_version` | Start of the lineage. Always `seq` 0. |
 | `mutation_proposed` | `parent`, `child`, `hypothesis`, and optional `seed`, `provider`, `tokens_used` | A child version of a parent version. The optional fields are set when a model wrote it. |
 | `mutation_refused` | `parent`, `hypothesis` (optional), `reason`, and optional `seed`, `provider`, `tokens_used` | A change that was not allowed, for example too large |
-| `run_recorded` | `node`, `run_index`, `passed`, `total`, `tokens_used`, `seed`, `provider`, `budget_exhausted`, `tasks` | One benchmark run of one version over all tasks. `tasks` is a list of `id`, `status`, `tokens_used`. The last four fields are optional when reading older logs. |
+| `run_recorded` | `node`, `run_index`, `passed`, `total`, `tokens_used`, `seed`, `provider`, `budget_exhausted`, `tasks`, `isolation` | One benchmark run of one version over all tasks. `tasks` is a list of `id`, `status`, `tokens_used`. `isolation` is the backend the checks ran with. The last five fields are optional when reading older logs, and `isolation` is left out of the line when absent, so old lines keep their bytes. |
 | `verdict` | `parent`, `child`, `verdict`, `parent_median`, `child_median`, `paired_wins`, `repeats`, `note` | `verdict` is `accepted`, `rejected`, or `noise` |
 
 `init` is written by `init`, `mutation_proposed` and `mutation_refused` by
