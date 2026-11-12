@@ -13,7 +13,7 @@ machine: the `local` provider refuses any URL that is not `localhost`,
 | `make-oss-fixture.py` | Builds a small task set derived from [more-itertools](https://github.com/more-itertools/more-itertools) (MIT): one stub per function (upstream signature and docstring) and the upstream unit tests as hidden checks. It is derived from a real project, not the whole project. The more-itertools code is not copied into this repo |
 | `oracle-rules.md` | A hand written rules change used as a control (see results) |
 | `replay.sh` | Replays a recorded run, with no model server |
-| `replays/qwen2.5-coder-7b/` | The recorded answers of the Qwen2.5 Coder 7B Instruct run below (Apache 2.0 model). `oss-replay.jsonl` is the 3 generation `evolve`, `oss-oracle-replay.jsonl` the hand written control |
+| `replays/qwen2.5-coder-7b/` | The recorded answers of the Qwen2.5 Coder 7B Instruct runs below (Apache 2.0 model). `oss-replay.jsonl` is the 3 generation `evolve`, `oss-oracle-replay.jsonl` the hand written control, `held-out-eval-replay.jsonl` the held out check (v2.3.0), with the two model written rules it used as `rules-*.md` |
 
 ## 1. Get a model server (free)
 
@@ -55,7 +55,10 @@ OUT=/tmp/lm-out examples/local-model/run-local-test.sh oss /tmp/more-itertools
 ```
 
 Settings: `GENERATIONS` (default 3), `SEED` (default 7), `LOCAL_URL`, `OUT`,
-`WORK`. The run uses `--isolation bwrap`, because what the model writes is
+`WORK`, `OSS_FUNCS` (train functions) and `OSS_HELD_OUT` (held out functions,
+since v2.3.0; set it to an empty string for the train only set of v2.2.0).
+The default oss set is 8 train and 8 held out functions, so a run takes
+about twice as long as the v2.2.0 numbers below. The run uses `--isolation bwrap`, because what the model writes is
 executed by the checks. Keep `--record` and `--local-transcript` files outside
 the project (or under `.rules-evolve/`): the CLI refuses paths the model would
 read as project files.
@@ -78,6 +81,70 @@ test, because that model's weights use the Qwen Research license.
 No model server is needed. The checks still run, so the `oss` replay needs
 `python3` and `bwrap`. A replay gives the same pass rates, tokens, hypotheses
 and verdicts as the recorded run.
+
+## Held out check of the 7B result (v2.3.0)
+
+Nov 11, 2026, same machine, model, server and settings as the v2.2.0 run
+below. Question: does the rule the 7B model got accepted (`islice`) help on
+tasks it was not tuned on? The 8 held out functions are related to the train
+ones but not the same: 3 use `islice` like `take` and `nth` (`consume`,
+`roundrobin`, `iter_index`), 4 need other `itertools` or `collections`
+imports (`tabulate`, `ncycles`, `powerset`, `unique_everseen`), and 1 needs
+no import (`first_true`). Each was checked with `--reference` (the upstream
+code passes its tests) and without it (the stub fails).
+
+To keep it cheap, only the held out tasks were run: a project with just those
+8 tasks, the root plus the three earlier rule texts proposed from the root,
+5 runs each with `run --seed 7`. The train numbers are the recorded v2.2.0
+ones. 160 calls, 311639 tokens, 86 min 18 s (about 32 s per call; held out
+answers are longer, and the box was slower than in the earlier run).
+
+| Rules | Held out runs (passed of 8) | Median | vs root | Train (v2.2.0) | v2.3.0 verdict |
+| --- | --- | --- | --- | --- | --- |
+| root | 4, 5, 4, 4, 4 | 50% | | 50% | |
+| gen 1 "Import necessary modules at the beginning of each file." | 4, 4, 5, 5, 4 | 50% | +0.0 points, 2 of 5 wins | 50%, 0 of 5 | rejected (by train) |
+| gen 2 "Import the `islice` function ... where it is used." | 2, 5, 3, 4, 3 | 37.5% | **-12.5 points, 0 of 5 wins** | 75%, +25, 5 of 5 | **overfit** |
+| control `oracle-rules.md` | 5, 5, 5, 5, 5 | 62.5% | +12.5 points, 4 of 5 wins | 75%, +25, 5 of 5 | accepted |
+
+Per task, passes of 5 (root / generic / islice / control): `consume` 0/0/0/0,
+`roundrobin` 0/0/2/1, `iter_index` 0/0/0/2, `tabulate` 5/5/3/5, `ncycles`
+5/5/2/5, `powerset` 4/5/5/5, `unique_everseen` 2/3/1/2, `first_true` 5/4/4/5.
+
+What this shows:
+
+- The accepted `islice` rule does not generalize. It helped `roundrobin` a
+  little (0 to 2 of 5) but broke `tabulate` and `ncycles`, which the root
+  solved every time. Those failures were logic errors (for example
+  `range(start, None)` in `tabulate`, the wrong repeat count in `ncycles`),
+  not import errors: the narrow rule seems to push the model toward
+  `islice` where it does not fit. Under the v2.3.0 gate it is overfit and
+  `current` would stay at the root.
+- The hand written general rule passes the gate (+12.5, 4 of 5), mostly via
+  `iter_index` (0 to 2) and `roundrobin` (0 to 1) and no losses.
+- The generic model rule is flat on both sets, as on train.
+- Limits: the verdicts in the last column are put together by hand from two
+  projects, not by one `verify`, and in the held out only project the model
+  saw 8 stub files per task, not the 16 of a combined project. With 8 tasks a
+  single function moves the rate by 12.5 points, so the control's +12.5 is
+  one task's worth and just above the bar. `consume` failed for every rule
+  (its tests saw the wrong number of items left, for example `3 != 0`).
+
+**A new 7B `evolve` with both sets in one project did not finish.** It was
+started at 10:03 PM (America/Chicago) with the defaults (8 train plus 8 held
+out tasks, 3 generations, seed 7, bwrap). About 17 calls into the root's
+first runs the box restarted (around 10:22 PM) and took the model server and
+the run with it. After the restart about 12 of 16 GB of RAM were already in
+use by other things, which leaves too little for the 7B (about 5 GB), so it
+was not started again. Its partial output is kept outside the repo; nothing
+from it is committed. A run of the default set needs about 330 calls, so
+expect about 2 to 3 hours on an 8 vCPU box like this one.
+
+Replay the held out check (about 4 minutes, no model server):
+
+```sh
+examples/local-model/replay.sh held-out-eval /tmp/more-itertools \
+  examples/local-model/replays/qwen2.5-coder-7b/held-out-eval-replay.jsonl
+```
 
 ## Results with Qwen2.5 Coder 7B Instruct and failure notes (v2.2.0)
 
@@ -134,7 +201,8 @@ What this shows, and what it does not:
 - The accepted rule is narrow. It names `islice`, which is exactly what these
   8 tasks need, so it is close to fitting the benchmark. On a real repo, a
   rule this specific would need a held out task set to show it generalizes.
-  This test has no held out set.
+  This test had no held out set; the v2.3.0 check above shows it does not
+  generalize.
 - The verdict rule behaved well: equal medians were rejected, a 25 point drop
   was rejected, and both accepts won all 5 pairs.
 - Failure modes seen: repeated hypotheses (gen 1 and gen 3 near identical),

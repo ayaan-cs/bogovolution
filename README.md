@@ -683,8 +683,31 @@ used without an import). A generic "import necessary modules" rule changed
 nothing and was rejected; the accepted rule names `islice` from `itertools`,
 which fixed `take` and `nth` (0 to 5 of 5 each). A second, independent run
 gave the same accept (+25, 5 of 5). Caveats: the accepted rule is narrow and
-close to fitting these 8 tasks, there is no held out task set, and with only
-8 tasks one fixed function moves the pass rate by 12.5 points.
+close to fitting these 8 tasks, and with only 8 tasks one fixed function
+moves the pass rate by 12.5 points.
+
+**Held out check of that result (v2.3.0), Nov 11, 2026.** The three rules
+were run on 8 other more-itertools functions the mutating model never saw
+(`consume`, `roundrobin`, `iter_index`, `tabulate`, `ncycles`, `powerset`,
+`unique_everseen`, `first_true`), 5 runs each, seed 7:
+
+| Rules | Train (v2.2.0 run) | Held out | Under the v2.3.0 gate |
+| --- | --- | --- | --- |
+| root | 50% | 50% (4, 5, 4, 4, 4) | |
+| model: "Import necessary modules" | 50%, rejected | 50% (4, 4, 5, 5, 4), +0.0, 2 of 5 wins | rejected (train) |
+| model: "Import the `islice` function" | 75%, accepted, +25, 5 of 5 | 37.5% (2, 5, 3, 4, 3), **-12.5, 0 of 5 wins** | **overfit** |
+| hand written: import everything you use | 75%, +25, 5 of 5 | 62.5% (5 of 8 in all 5 runs), +12.5, 4 of 5 wins | accepted |
+
+So the rule the 7B model got accepted does not generalize: on new tasks it
+made things worse (`tabulate` 5 to 3 of 5, `ncycles` 5 to 2 of 5, with logic
+errors rather than import errors), and the new gate would have called it
+overfit. The general hand written rule passes the gate. This verdict is put
+together by hand from two projects (the train runs of v2.2.0 and a held out
+only project), so the model saw 8 stub files per task instead of 16. A new
+7B `evolve` with both sets in one project was started but did not finish
+(see `examples/local-model/README.md`). Replay the held out check for free
+with `examples/local-model/replay.sh held-out-eval /path/to/more-itertools
+examples/local-model/replays/qwen2.5-coder-7b/held-out-eval-replay.jsonl`.
 
 **Earlier result with Qwen2.5 Coder 3B, without failure notes (v2.1.0).**
 Nothing was accepted. That model's answers are not shipped here, because its
