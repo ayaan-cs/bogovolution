@@ -13,7 +13,7 @@
     "valid": true,
     "events": 64,
     "head_seq": 63,
-    "head_hash": "504ab3771e0b2a5dadee0b0f589a49e81c791cb1ed69bc162fc483e0eaaf96b4"
+    "head_hash": "8647e67bda54c0d37ac64d09764d409585570caaa32baf8d0d37d5b5270206ae"
   },
   "config": {
     "repeats": 5,
@@ -104,7 +104,7 @@
       "short": "114c80936c0c",
       "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
       "generation": 1,
-      "created_seq": 1,
+      "created_seq": 6,
       "hypothesis": "A short summary at the end will make results easier to check.",
       "verdict": "rejected",
       "status": "rejected",
@@ -600,7 +600,7 @@
     {
       "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
       "child": "114c80936c0cff25882dd9d490a21c29ee141d02dc2cd1908a24524a48a1bf8b",
-      "seq": 1,
+      "seq": 6,
       "hypothesis": "A short summary at the end will make results easier to check.",
       "verdict": "rejected",
       "reason": "child median 0.250 is not above parent median 0.250",
@@ -979,7 +979,7 @@
   "series": [
     {
       "attempt": 1,
-      "seq": 1,
+      "seq": 6,
       "outcome": "rejected",
       "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
       "child": "114c80936c0cff25882dd9d490a21c29ee141d02dc2cd1908a24524a48a1bf8b",

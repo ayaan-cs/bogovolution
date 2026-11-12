@@ -24,7 +24,7 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: v2.1.0
+## Status: v2.2.0
 
 The default is a deterministic **mock model**, so nothing costs money or touches
 the network. Since v2.1.0 there is one real provider, `local`: a model server
@@ -157,6 +157,25 @@ Done in v2.1.0 (free local model test):
   could not tell whether rules-evolve helps. Recorded answers from that
   3B run are not in this repo (its weights use the Qwen Research license).
   See "Local model test" below.
+
+Done in v2.2.0 (failure details in the mutation prompt):
+
+- Failed attempts keep a short failure note in the log (files written, and the
+  end of the check output with hidden file lines removed). The check's stdout
+  and stderr are now read (the last 8 KiB of each) instead of discarded.
+- The mutation prompt has a "Benchmark results" section: median pass rate,
+  per task pass counts, and the notes of the tasks that failed most, bounded
+  to 3000 bytes. See `mutate` below.
+- `evolve` runs the parent before it mutates, so even the first mutation sees
+  results.
+- Fix: on a timeout under `isolation = "none"`, processes started by the check
+  were not killed when `/bin/sh` is dash. They are now.
+- Why a minor version: the log gains an optional field (old logs still read),
+  and mutation prompts changed, so replay files recorded with v2.1.0 miss on
+  mutation calls. The committed demo replay was recorded again (mock model).
+- A real run with Qwen2.5 Coder 7B Instruct (Apache 2.0, local, free) accepted
+  one model written rule, +25 points, and its replay is committed in
+  `examples/local-model/replays/qwen2.5-coder-7b/`. See "Local model test".
 
 Planned later (not built yet): real bring-your-own-key providers. See the
 roadmap below.
@@ -345,11 +364,31 @@ the same way.
 Asks the model for one small change to a rules version (default `current`) and a
 plain English hypothesis, then validates and records the answer.
 
-The mutation prompt is built from three things: the rules text being changed,
-the history of the lineage (what was accepted, rejected, noise, pending and
-refused, with the hypothesis for each and the median change for judged ones,
-oldest first, at most the latest 40 lines), and the size limit. The same tree
-always gives the same prompt text.
+The mutation prompt is built from four things: the rules text being changed,
+the benchmark results of that version, the history of the lineage (what was
+accepted, rejected, noise, pending and refused, with the hypothesis for each
+and the median change for judged ones, oldest first, at most the latest 40
+lines), and the size limit. The same tree always gives the same prompt text.
+
+The benchmark results (since v2.2.0) come from the runs already recorded for
+the version: the number of runs and the median pass rate, how often each task
+passed, and for the tasks that failed most (at most 6), the task prompt and
+the failure note the harness kept. The section is at most 3000 bytes. A
+version with no runs yet gets "No benchmark runs of this version yet."
+
+**Failure notes.** When a task fails, the harness keeps a note of at most 600
+bytes in the `run_recorded` event (`tasks[].detail`): the files the model
+wrote (or "Wrote no files."), whether the check timed out, and the end of what
+the check printed (stdout, then stderr). Model errors and path violations get
+a one line note. Before anything is kept, every output line that matches a
+line of a hidden file (lines of 4 or more characters, and longer lines also
+inside an output line) is replaced with `[line from a hidden file]`, color
+codes are dropped, and worktree paths are shown as `.`. So a traceback that
+quotes a hidden test keeps the error and the values the check printed, but not
+the test source. The check's own message (for example `AssertionError: [0, 1]
+!= [0, 1, 2]`) does reach the mutating model: that is the point. If your check
+prints secrets or expected answers in its own words, that text is not a hidden
+file line and is kept.
 
 Checks on the answer, using the same rules as `propose`. Any failure writes a
 `mutation_refused` event, nothing is added to the tree, and the exit code is 3:
@@ -373,11 +412,15 @@ the same mutation.
 
 Runs `N` generations (1 to 100). Each generation:
 
-1. `mutate` from `current`, with a mutation seed derived from `--seed` and the
+1. `run` the parent (`current`) with `--seed` as the run seed, so the
+   mutation prompt can show how it did (runs already in the log are reused);
+2. `mutate` from `current`, with a mutation seed derived from `--seed` and the
    number of earlier attempts in the tree;
-2. if the mutation was recorded, `run` the parent and the child (runs already
-   in the log are reused) with `--seed` as the run seed;
-3. `verify` the child with the fixed rule.
+3. if the mutation was recorded, `run` the child with the same run seeds;
+4. `verify` the child with the fixed rule.
+
+Before v2.2.0 the parent ran after the mutation, so the first mutation never
+saw any results.
 
 `current` moves to the child only on `accepted`. Rejected, noise and refused
 generations leave it where it was, so later generations keep building on the
@@ -571,19 +614,36 @@ OUT=/tmp/lm-out examples/local-model/run-local-test.sh oss /path/to/more-itertoo
 examples/local-model/replay.sh demo /tmp/lm-out/demo-replay.jsonl
 ```
 
-Result on Nov 11, 2026, from a private run with Qwen2.5 Coder 3B Instruct
-(Q4_K_M, CPU only, default rule, 3 generations each): **nothing was accepted,
-and the run cannot tell whether rules-evolve improves a rules file.** That
-model's answers are not shipped here, because its weights use the Qwen
-Research license (non-commercial research only). On the demo every version
-scored 0%. On 8 tasks derived from more-itertools every version had a median
-of 37.5%, with runs from 0% to 50% depending mostly on the seed. The model's
-mutations were generic ("naming conventions"), and even a correct hand written
-rule (import what you use, the main failure) did not change what the 3B model
-wrote. The verdict rule did not accept anything from that noise. Full numbers,
-runtimes, tokens and failure modes are in `examples/local-model/README.md`.
-Prefer Qwen2.5 Coder 1.5B or 7B Instruct for a run whose answers you may
-commit: both are Apache 2.0.
+Replay the committed 7B run for free (no model server):
+
+```sh
+examples/local-model/replay.sh oss /path/to/more-itertools \
+  examples/local-model/replays/qwen2.5-coder-7b/oss-replay.jsonl \
+  examples/local-model/replays/qwen2.5-coder-7b/oss-oracle-replay.jsonl
+```
+
+**Result with Qwen2.5 Coder 7B Instruct (Apache 2.0) and failure notes
+(v2.2.0), Nov 11, 2026.** 8 tasks derived from more-itertools, CPU only,
+default rule, 3 generations: **one mutation was accepted, +25 points (median
+50% to 75%), 5 of 5 paired wins**, in 27 min and 143576 tokens. With failure
+notes in the prompt, every model hypothesis named the real failure (`islice`
+used without an import). A generic "import necessary modules" rule changed
+nothing and was rejected; the accepted rule names `islice` from `itertools`,
+which fixed `take` and `nth` (0 to 5 of 5 each). A second, independent run
+gave the same accept (+25, 5 of 5). Caveats: the accepted rule is narrow and
+close to fitting these 8 tasks, there is no held out task set, and with only
+8 tasks one fixed function moves the pass rate by 12.5 points.
+
+**Earlier result with Qwen2.5 Coder 3B, without failure notes (v2.1.0).**
+Nothing was accepted. That model's answers are not shipped here, because its
+weights use the Qwen Research license (non-commercial research only). Every
+version had a median of 37.5% on the same tasks, the model's mutations were
+generic ("naming conventions"), and even a correct hand written import rule
+did not change what the 3B model wrote. The same hand written rule gave the
+7B +25 points.
+
+Full numbers, runtimes, tokens and failure modes are in
+`examples/local-model/README.md`.
 
 ## Demo (no key, no cost)
 
@@ -1378,7 +1438,7 @@ Event kinds (names are stable):
 | `init` | `rules_file`, `model`, `root_hash`, `tool_version` | Start of the lineage. Always `seq` 0. |
 | `mutation_proposed` | `parent`, `child`, `hypothesis`, and optional `seed`, `provider`, `tokens_used` | A child version of a parent version. The optional fields are set when a model wrote it. |
 | `mutation_refused` | `parent`, `hypothesis` (optional), `reason`, and optional `seed`, `provider`, `tokens_used` | A change that was not allowed, for example too large |
-| `run_recorded` | `node`, `run_index`, `passed`, `total`, `tokens_used`, `seed`, `provider`, `budget_exhausted`, `tasks`, `isolation` | One benchmark run of one version over all tasks. `tasks` is a list of `id`, `status`, `tokens_used`. `isolation` is the backend the checks ran with. The last five fields are optional when reading older logs, and `isolation` is left out of the line when absent, so old lines keep their bytes. |
+| `run_recorded` | `node`, `run_index`, `passed`, `total`, `tokens_used`, `seed`, `provider`, `budget_exhausted`, `tasks`, `isolation` | One benchmark run of one version over all tasks. `tasks` is a list of `id`, `status`, `tokens_used`, and, for failed attempts since v2.2.0, `detail` (a failure note of at most 600 bytes, see `mutate`). `isolation` is the backend the checks ran with. The last five fields are optional when reading older logs, and `isolation` is left out of the line when absent, so old lines keep their bytes. |
 | `verdict` | `parent`, `child`, `verdict`, `parent_median`, `child_median`, `paired_wins`, `repeats`, `note` | `verdict` is `accepted`, `rejected`, or `noise` |
 
 `init` is written by `init`, `mutation_proposed` and `mutation_refused` by

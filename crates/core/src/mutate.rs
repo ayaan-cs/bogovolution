@@ -58,13 +58,134 @@ pub fn history_text(tree: &Tree) -> String {
     out
 }
 
-/// The prompt sent for a mutation: the current rules, the history, and the
-/// size limit.
+/// Most bytes of the benchmark results section in a mutation prompt.
+pub const MAX_RESULTS_BYTES: usize = 3000;
+/// Most failing tasks described in detail in a mutation prompt.
+pub const MAX_DETAILED_TASKS: usize = 6;
+/// Most bytes of one task prompt quoted in a mutation prompt.
+const MAX_TASK_PROMPT_BYTES: usize = 200;
+
+/// How `version` did on its recorded runs: the median pass rate, how often
+/// each task passed, and for the tasks that failed most, the task prompt and
+/// the failure note kept by the harness (files written and the end of the
+/// check output, with hidden file lines already removed). Bounded by
+/// [`MAX_RESULTS_BYTES`]. Same tree, same text.
+pub fn results_text(tree: &Tree, version: &str, tasks: Option<&crate::tasks::TasksFile>) -> String {
+    let Some(node) = tree.node(version) else {
+        return "No benchmark runs of this version yet.".to_string();
+    };
+    let mut runs: Vec<&crate::tree::RunSummary> = node.runs.iter().collect();
+    if runs.is_empty() {
+        return "No benchmark runs of this version yet.".to_string();
+    }
+    runs.sort_by_key(|r| r.run_index);
+    let rates: Vec<f64> = runs
+        .iter()
+        .map(|r| crate::bench::pass_rate(r.passed, r.total))
+        .collect();
+    let median = crate::verdict::median(&rates);
+    let mut out = format!(
+        "{} runs of this version, median pass rate {:.0}%.\n",
+        runs.len(),
+        median * 100.0
+    );
+    // task id -> (runs, passes, first note), in task order of the first run
+    let mut order: Vec<String> = Vec::new();
+    let mut stats: std::collections::HashMap<String, (u32, u32, Option<String>)> =
+        std::collections::HashMap::new();
+    for r in &runs {
+        for t in &r.tasks {
+            let e = stats.entry(t.id.clone()).or_insert_with(|| {
+                order.push(t.id.clone());
+                (0, 0, None)
+            });
+            e.0 += 1;
+            if t.status == crate::event::TaskStatus::Passed {
+                e.1 += 1;
+            } else if e.2.is_none() {
+                e.2 = t.detail.clone();
+            }
+        }
+    }
+    if order.is_empty() {
+        out.push_str("No per task results were recorded.\n");
+        return out;
+    }
+    let always: Vec<&String> = order
+        .iter()
+        .filter(|id| stats[*id].0 == stats[*id].1)
+        .collect();
+    let mut failing: Vec<&String> = order
+        .iter()
+        .filter(|id| stats[*id].0 != stats[*id].1)
+        .collect();
+    // most failures first, then task order
+    failing.sort_by_key(|id| std::cmp::Reverse(stats[*id].0 - stats[*id].1));
+    if failing.is_empty() {
+        out.push_str("Every task passed in every run.\n");
+        return crate::failure::head(&out, MAX_RESULTS_BYTES);
+    }
+    let summary: Vec<String> = failing
+        .iter()
+        .map(|id| format!("{id} {} of {}", stats[*id].1, stats[*id].0))
+        .collect();
+    out.push_str(&crate::failure::head(
+        &format!(
+            "Tasks that did not always pass (passed of runs): {}.\n",
+            summary.join(", ")
+        ),
+        800,
+    ));
+    out.push_str(&format!("{} tasks passed in every run.\n", always.len()));
+    let prompts: std::collections::HashMap<&str, &str> = tasks
+        .map(|t| {
+            t.task
+                .iter()
+                .map(|t| (t.id.as_str(), t.prompt.as_str()))
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut shown = 0usize;
+    for id in &failing {
+        if shown == MAX_DETAILED_TASKS {
+            break;
+        }
+        let (n, ok, note) = &stats[*id];
+        let mut block = format!("\n### {id} (failed {} of {n} runs)\n", n - ok);
+        if let Some(p) = prompts.get(id.as_str()) {
+            block.push_str(&format!(
+                "Task: {}\n",
+                crate::failure::head(p.trim(), MAX_TASK_PROMPT_BYTES)
+            ));
+        }
+        match note {
+            Some(n) => block.push_str(&format!("{}\n", n.trim_end())),
+            None => block.push_str("No failure note was recorded.\n"),
+        }
+        // keep room for the closing "more tasks" line
+        if out.len() + block.len() + 80 > MAX_RESULTS_BYTES {
+            break;
+        }
+        out.push_str(&block);
+        shown += 1;
+    }
+    if shown < failing.len() {
+        out.push_str(&format!(
+            "\n({} more failing tasks not described)\n",
+            failing.len() - shown
+        ));
+    }
+    out
+}
+
+/// The prompt sent for a mutation: the current rules, how they did on the
+/// benchmark (with failure notes), the history, and the size limit.
 pub fn build_mutation_prompt(
     parent_rules: &str,
     parent_hash: &str,
     tree: &Tree,
     max_change_bytes: usize,
+    results: &str,
 ) -> String {
     format!(
         "You are improving the agent rules file of a software project. The AI model that follows \
@@ -73,6 +194,10 @@ these rules stays the same. Only the rules text changes.\n\
 Propose ONE small change to the rules below, and say in one or two plain sentences why it should \
 help (your hypothesis).\n\
 \n\
+Read the benchmark results first. They show which tasks failed and what went wrong. Aim your \
+change at the most common cause of failure. Write it as a general rule for this project, not as \
+an answer to one task.\n\
+\n\
 Constraints:\n\
 - Change at most {max_change_bytes} bytes in total (text removed plus text added counts as the larger of the two).\n\
 - Do not repeat a change that appears in the history below.\n\
@@ -80,6 +205,8 @@ Constraints:\n\
 \n\
 ## Current rules (version {})\n\
 {parent_rules}\n\
+## Benchmark results of the current rules\n\
+{results}\n\
 ## History of this lineage\n\
 {}\n",
         short(parent_hash),
@@ -126,7 +253,9 @@ pub fn mutate(repo: &Repo, model: &dyn Model, opts: &MutateOptions) -> Result<Mu
         .map_err(|_| Error::Input("the parent rules file must be UTF-8 text".into()))?;
     let limit = config.mutation.max_change_bytes;
     let cap = config.budget.max_tokens_per_run;
-    let prompt = build_mutation_prompt(&parent_text, &parent, &tree, limit);
+    let tasks = repo.tasks().ok();
+    let results = results_text(&tree, &parent, tasks.as_ref());
+    let prompt = build_mutation_prompt(&parent_text, &parent, &tree, limit, &results);
     let request = MutationRequest {
         model: &tree.model,
         prompt: &prompt,
@@ -280,10 +409,18 @@ pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<Ev
         generations: Vec::new(),
     };
 
+    let run_opts = |version: &str| RunOptions {
+        version: version.to_string(),
+        repeats: None,
+        base_seed: opts.base_seed,
+    };
     for g in 0..opts.generations {
         let tree = Tree::from_events(&repo.events()?)?;
         let parent = tree.current.clone();
         let attempt = tree.edges.len() + tree.refused.len();
+        // Run the parent first, so the mutation prompt can show how it did.
+        // Runs that already exist are not run again.
+        let parent_runs = run_version(repo, model, &run_opts(&parent))?;
         let mutation = mutate(
             repo,
             model,
@@ -292,11 +429,14 @@ pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<Ev
                 seed: mutation_seed(opts.base_seed, attempt),
             },
         )?;
-        let mut tokens = mutation.tokens_used;
+        let mut tokens = mutation.tokens_used + parent_runs.total_tokens;
+        report
+            .isolation
+            .get_or_insert(parent_runs.isolation.clone());
         let mut gen = Generation {
             generation: g + 1,
             parent: parent.clone(),
-            parent_runs_recorded: 0,
+            parent_runs_recorded: parent_runs.runs.len(),
             child_runs_recorded: 0,
             verdict: None,
             current: parent.clone(),
@@ -306,17 +446,9 @@ pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<Ev
         match gen.mutation.result.child.clone() {
             None => report.refused += 1,
             Some(child) => {
-                let run_opts = |version: &str| RunOptions {
-                    version: version.to_string(),
-                    repeats: None,
-                    base_seed: opts.base_seed,
-                };
-                let parent_runs = run_version(repo, model, &run_opts(&parent))?;
                 let child_runs = run_version(repo, model, &run_opts(&child))?;
-                report.isolation.get_or_insert(child_runs.isolation.clone());
-                gen.parent_runs_recorded = parent_runs.runs.len();
                 gen.child_runs_recorded = child_runs.runs.len();
-                tokens += parent_runs.total_tokens + child_runs.total_tokens;
+                tokens += child_runs.total_tokens;
                 let verdict = verify_child(repo, &child)?;
                 match verdict.decision.verdict {
                     VerdictKind::Accepted => report.accepted += 1,
@@ -436,14 +568,180 @@ mod tests {
     fn prompt_has_rules_history_and_limit() {
         let (_d, repo) = fixture(MOCK);
         let tree = Tree::from_events(&repo.events().unwrap()).unwrap();
-        let p = build_mutation_prompt("base rules\n", &tree.root, &tree, 1000);
+        let p = build_mutation_prompt("base rules\n", &tree.root, &tree, 1000, "R");
         assert!(p.contains("at most 1000 bytes"));
         assert!(p.contains("base rules"));
         assert!(p.contains("No attempts yet."));
         // Same inputs, same prompt.
         assert_eq!(
             p,
-            build_mutation_prompt("base rules\n", &tree.root, &tree, 1000)
+            build_mutation_prompt("base rules\n", &tree.root, &tree, 1000, "R")
+        );
+    }
+
+    /// Wraps the mock and keeps every mutation prompt it is sent.
+    struct Capture {
+        inner: MockModel,
+        prompts: std::cell::RefCell<Vec<String>>,
+    }
+    impl Model for Capture {
+        fn name(&self) -> String {
+            self.inner.name()
+        }
+        fn kind(&self) -> crate::model::ProviderKind {
+            self.inner.kind()
+        }
+        fn estimate_tokens(&self, r: &crate::model::ModelRequest) -> u64 {
+            self.inner.estimate_tokens(r)
+        }
+        fn complete(&self, r: &crate::model::ModelRequest) -> Result<crate::model::ModelResponse> {
+            self.inner.complete(r)
+        }
+        fn estimate_mutation_tokens(&self, r: &MutationRequest) -> u64 {
+            self.inner.estimate_mutation_tokens(r)
+        }
+        fn propose_mutation(&self, r: &MutationRequest) -> Result<crate::model::MutationResponse> {
+            self.prompts.borrow_mut().push(r.prompt.to_string());
+            self.inner.propose_mutation(r)
+        }
+    }
+
+    const SECRET: &str = "# HIDDEN-EXPECTATION-7f3a: the answer must be exactly ok";
+
+    /// A check that prints its own source (like a traceback quoting a test)
+    /// and a failure message, then fails unless the answer is ok.
+    fn chatty_check(repo: &Repo, extra_lines: usize) {
+        let mut s = format!("{SECRET}\ncat check.sh\n");
+        for i in 0..extra_lines {
+            s.push_str(&format!("echo \"noise line {i} for $1\"\n"));
+        }
+        s.push_str(
+            "echo \"AssertionError: expected ok, got $(cat answers/$1.txt 2>/dev/null)\" >&2\n",
+        );
+        s.push_str("grep -qx ok \"answers/$1.txt\"\n");
+        std::fs::write(repo.dir().join("check.sh"), s).unwrap();
+    }
+
+    #[test]
+    fn failures_reach_the_mutation_prompt_without_hidden_lines() {
+        let (_d, repo) = fixture(MOCK);
+        chatty_check(&repo, 0);
+        let m = Capture {
+            inner: mock_model(&repo),
+            prompts: Default::default(),
+        };
+        evolve(
+            &repo,
+            &m,
+            &EvolveOptions {
+                generations: 1,
+                base_seed: 3,
+            },
+        )
+        .unwrap();
+        // the log keeps a note for each failed attempt, and only for those
+        let tree = Tree::from_events(&repo.events().unwrap()).unwrap();
+        let root = tree.node(&tree.root).unwrap();
+        let mut notes = 0;
+        for r in &root.runs {
+            for t in &r.tasks {
+                match t.status {
+                    crate::event::TaskStatus::Passed => assert!(t.detail.is_none()),
+                    _ => {
+                        let d = t.detail.as_deref().unwrap();
+                        assert!(d.contains("AssertionError: expected ok, got no"), "{d}");
+                        assert!(d.contains(&format!("Wrote: answers/{}.txt", t.id)), "{d}");
+                        assert!(!d.contains("HIDDEN-EXPECTATION"), "{d}");
+                        assert!(!d.contains("grep -qx"), "{d}");
+                        assert!(d.contains(crate::failure::REDACTED), "{d}");
+                        notes += 1;
+                    }
+                }
+            }
+        }
+        assert!(notes > 0, "the mock should fail some tasks");
+        // the parent ran before the mutation, so its prompt has the results
+        let prompts = m.prompts.borrow();
+        assert_eq!(prompts.len(), 1);
+        let p = &prompts[0];
+        assert!(
+            p.contains("## Benchmark results of the current rules"),
+            "{p}"
+        );
+        assert!(
+            p.contains("5 runs of this version, median pass rate"),
+            "{p}"
+        );
+        assert!(
+            p.contains("Tasks that did not always pass (passed of runs): "),
+            "{p}"
+        );
+        assert!(p.contains("AssertionError: expected ok, got no"), "{p}");
+        assert!(p.contains("Task: p"), "the task prompt is quoted: {p}");
+        assert!(!p.contains("HIDDEN-EXPECTATION"), "{p}");
+        assert!(!p.contains("grep -qx"), "{p}");
+        // the parent's runs were not run a second time
+        let runs_of_root = tree.node(&tree.root).unwrap().runs.len();
+        assert_eq!(runs_of_root, 5);
+    }
+
+    #[test]
+    fn results_section_stays_bounded() {
+        let (_d, repo) = fixture(MOCK);
+        // lots of output per failure, and long task prompts
+        chatty_check(&repo, 400);
+        let mut tasks = String::from("[sandbox]\nhidden = [\"check.sh\"]\n");
+        for i in 0..40 {
+            tasks.push_str(&format!(
+                "[[task]]\nid = \"t{i}\"\nprompt = \"{}\"\ncheck = \"sh check.sh t{i}\"\n",
+                "do the thing ".repeat(60)
+            ));
+        }
+        std::fs::write(repo.store().root().join("tasks.toml"), tasks).unwrap();
+        let m = mock_model(&repo);
+        crate::bench::run_version(
+            &repo,
+            &m,
+            &RunOptions {
+                version: "root".into(),
+                repeats: Some(3),
+                base_seed: 1,
+            },
+        )
+        .unwrap();
+        let tree = Tree::from_events(&repo.events().unwrap()).unwrap();
+        let tf = repo.tasks().unwrap();
+        let r = results_text(&tree, &tree.root, Some(&tf));
+        assert!(r.len() <= MAX_RESULTS_BYTES, "{} bytes", r.len());
+        assert!(r.contains("3 runs of this version"));
+        assert!(
+            r.contains("noise line 399"),
+            "the end of the output is kept: {r}"
+        );
+        assert!(r.contains("more failing tasks not described"), "{r}");
+        assert!(r.matches("\n### ").count() <= MAX_DETAILED_TASKS);
+        assert!(!r.contains("HIDDEN-EXPECTATION"));
+        // every logged note is bounded too
+        for run in &tree.node(&tree.root).unwrap().runs {
+            for t in &run.tasks {
+                if let Some(d) = &t.detail {
+                    assert!(d.len() <= crate::failure::MAX_DETAIL_BYTES);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn results_without_runs_or_task_detail_say_so() {
+        let (_d, repo) = fixture(MOCK);
+        let tree = Tree::from_events(&repo.events().unwrap()).unwrap();
+        assert_eq!(
+            results_text(&tree, &tree.root, None),
+            "No benchmark runs of this version yet."
+        );
+        assert_eq!(
+            results_text(&tree, "nope", None),
+            "No benchmark runs of this version yet."
         );
     }
 
@@ -460,7 +758,7 @@ mod tests {
             h.contains("[refused] same: the new text is identical to the parent"),
             "{h}"
         );
-        let prompt = build_mutation_prompt("x", &tree.root, &tree, 1000);
+        let prompt = build_mutation_prompt("x", &tree.root, &tree, 1000, "R");
         assert!(prompt.contains(&h));
     }
 

@@ -73,7 +73,7 @@ pub struct RunReport {
     pub total_tokens: u64,
 }
 
-fn pass_rate(passed: u32, total: u32) -> f64 {
+pub(crate) fn pass_rate(passed: u32, total: u32) -> f64 {
     if total == 0 {
         0.0
     } else {
@@ -106,6 +106,9 @@ pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<
     let runner = Runner::resolve(&repo.sandbox_settings()?, model.kind())?;
     let isolation = runner.backend().as_str().to_string();
     let sandbox = Sandbox::scan(repo.dir(), &tree.rules_file, &tasks.sandbox)?.with_runner(runner);
+    let hidden_lines = crate::failure::HiddenLines::from_texts(
+        sandbox.hidden_texts(crate::failure::MAX_HIDDEN_TEXT_BYTES),
+    );
     // Warn about shadow risks, or stop before anything is recorded.
     let settings = repo.sandbox_settings()?;
     let warnings = if settings.shadow_warnings == shadow::ShadowMode::Off {
@@ -148,6 +151,7 @@ pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<
             &tree.model,
             &tasks,
             &sandbox,
+            &hidden_lines,
             &rules_text,
             &version,
             run_index,
@@ -201,6 +205,7 @@ fn execute_run(
     model_name: &str,
     tasks: &TasksFile,
     sandbox: &Sandbox,
+    hidden: &crate::failure::HiddenLines,
     rules_text: &str,
     rules_hash: &str,
     run_index: u32,
@@ -216,6 +221,7 @@ fn execute_run(
             id: task.id.clone(),
             status: TaskStatus::Failed,
             tokens_used: 0,
+            detail: None,
         };
         if exhausted {
             outcome.status = TaskStatus::SkippedBudget;
@@ -247,8 +253,9 @@ fn execute_run(
             // A replay file that lacks an answer is not a failed task. The
             // whole run is invalid, so stop and say so.
             Err(e @ Error::ReplayMiss(_)) => return Err(e),
-            Err(_) => {
+            Err(e) => {
                 outcome.status = TaskStatus::ModelError;
+                outcome.detail = Some(crate::failure::model_error_note(&e.to_string()));
                 outcomes.push(outcome);
                 continue;
             }
@@ -264,18 +271,32 @@ fn execute_run(
         }
         used += response.tokens_used;
         outcome.tokens_used = response.tokens_used;
-        if worktree.apply_edits(&response.edits).is_err() {
+        if let Err(why) = worktree.apply_edits(&response.edits) {
             outcome.status = TaskStatus::Violation;
+            outcome.detail = Some(crate::failure::violation_note(&why));
             outcomes.push(outcome);
             continue;
         }
         worktree.restore_hidden()?;
-        let timeout = Duration::from_secs(tasks.timeout_for(task));
-        outcome.status = match worktree.run_check(&task.check, timeout)? {
+        let secs = tasks.timeout_for(task);
+        let (status, output) =
+            worktree.run_check_captured(&task.check, Duration::from_secs(secs))?;
+        outcome.status = match status {
             CheckStatus::Passed => TaskStatus::Passed,
             CheckStatus::Failed => TaskStatus::Failed,
             CheckStatus::TimedOut => TaskStatus::Timeout,
         };
+        if outcome.status != TaskStatus::Passed {
+            let files: Vec<String> = response.edits.iter().map(|e| e.path.clone()).collect();
+            let wt = worktree.path().to_string_lossy().to_string();
+            outcome.detail = Some(crate::failure::check_note(
+                &files,
+                (status == CheckStatus::TimedOut).then_some(secs),
+                &output,
+                hidden,
+                &[wt.as_str(), crate::isolation::WORK_DIR],
+            ));
+        }
         outcomes.push(outcome);
     }
     Ok(RunOutcome {

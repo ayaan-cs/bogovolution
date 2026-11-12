@@ -142,6 +142,11 @@ pub struct TaskOutcome {
     pub id: String,
     pub status: TaskStatus,
     pub tokens_used: u64,
+    /// A short note on what went wrong (files written, end of the check
+    /// output with hidden file lines removed). Only on failed attempts, and
+    /// missing in logs written before v2.2.0.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
 }
 
 /// One benchmark run of one rules version over the whole task set.

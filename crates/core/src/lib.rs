@@ -9,6 +9,7 @@ pub mod digest;
 pub mod error;
 pub mod event;
 pub mod export;
+pub mod failure;
 pub mod git;
 pub mod hash;
 pub mod init;

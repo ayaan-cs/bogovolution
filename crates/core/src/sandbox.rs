@@ -279,6 +279,29 @@ impl Sandbox {
         &self.hidden_files
     }
 
+    /// Text of the hidden files (pristine copies), up to `max_total` bytes in
+    /// all. Files that are not UTF-8 are skipped. Used to keep hidden lines
+    /// out of failure notes.
+    pub fn hidden_texts(&self, max_total: usize) -> Vec<String> {
+        let mut out = Vec::new();
+        let mut used = 0usize;
+        for rel in &self.hidden_files {
+            let p = self.pristine.path().join(rel);
+            let Ok(meta) = std::fs::metadata(&p) else {
+                continue;
+            };
+            let len = meta.len() as usize;
+            if used + len > max_total {
+                continue;
+            }
+            if let Ok(text) = std::fs::read_to_string(&p) {
+                used += len;
+                out.push(text);
+            }
+        }
+        out
+    }
+
     pub fn skipped_symlinks(&self) -> usize {
         self.skipped_symlinks
     }
@@ -448,6 +471,28 @@ impl Worktree<'_> {
         self.sandbox
             .runner
             .run(self.path(), command, &env, &self.sandbox.protected, timeout)
+    }
+
+    /// Like [`Worktree::run_check`], and also returns the tail of what the
+    /// check printed.
+    pub fn run_check_captured(
+        &self,
+        command: &str,
+        timeout: Duration,
+    ) -> Result<(CheckStatus, String)> {
+        let env: Vec<(String, String)> = self
+            .sandbox
+            .env_passthrough
+            .iter()
+            .filter_map(|n| std::env::var(n).ok().map(|v| (n.clone(), v)))
+            .collect();
+        self.sandbox.runner.run_captured(
+            self.path(),
+            command,
+            &env,
+            &self.sandbox.protected,
+            timeout,
+        )
     }
 }
 
@@ -659,6 +704,36 @@ mod tests {
             .run_check("sleep 30", Duration::from_millis(200))
             .unwrap();
         assert_eq!(status, CheckStatus::TimedOut);
+        assert!(start.elapsed() < Duration::from_secs(10));
+    }
+
+    #[test]
+    fn captured_check_keeps_the_tail_of_big_output_and_survives_timeouts() {
+        use crate::isolation::CHECK_OUTPUT_KEEP;
+        let (d, cfg) = fixture();
+        let sb = Sandbox::scan(d.path(), "AGENTS.md", &cfg).unwrap();
+        let wt = sb.prepare(b"r").unwrap();
+        let t = Duration::from_secs(20);
+        // far more than a pipe buffer on both streams: must not block
+        let (st, out) = wt
+            .run_check_captured(
+                "i=0; while [ $i -lt 20000 ]; do echo \"out $i\"; echo \"err $i\" >&2; i=$((i+1)); done; echo LAST >&2; exit 4",
+                t,
+            )
+            .unwrap();
+        assert_eq!(st, CheckStatus::Failed);
+        assert!(out.len() <= 2 * CHECK_OUTPUT_KEEP + 1, "{}", out.len());
+        assert!(out.contains("out 19999"));
+        assert!(out.trim_end().ends_with("LAST"), "stderr comes last");
+        assert!(!out.contains("out 0\n"));
+        let (st, out) = wt.run_check_captured("echo hi; exit 0", t).unwrap();
+        assert_eq!((st, out.as_str()), (CheckStatus::Passed, "hi\n"));
+        let start = Instant::now();
+        let (st, out) = wt
+            .run_check_captured("echo started; sleep 30", Duration::from_millis(500))
+            .unwrap();
+        assert_eq!(st, CheckStatus::TimedOut);
+        assert!(out.contains("started"), "{out:?}");
         assert!(start.elapsed() < Duration::from_secs(10));
     }
 

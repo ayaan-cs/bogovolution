@@ -24,6 +24,10 @@ pub struct RunSummary {
     pub seed: Option<u64>,
     pub provider: Option<String>,
     pub budget_exhausted: bool,
+    /// Per task results of the run, kept for the mutation prompt. Not part of
+    /// any JSON output.
+    #[serde(skip)]
+    pub tasks: Vec<crate::event::TaskOutcome>,
 }
 
 /// One version of the rules file.
@@ -268,6 +272,7 @@ impl Tree {
             seed: p.seed,
             provider: p.provider.clone(),
             budget_exhausted: p.budget_exhausted,
+            tasks: p.tasks.clone(),
         });
         Ok(())
     }

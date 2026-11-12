@@ -542,7 +542,8 @@ fn kill_all(spec: &CommandSpec, child: &mut std::process::Child) {
         let _ = quiet(Command::new(prog).args(args)).status();
     }
     // The child leads its own process group, so this reaches what it forked.
-    let group = format!("kill -KILL -- -{} 2>/dev/null; true", child.id());
+    // `kill -9 -PGID` works in dash and bash; dash rejects `kill -KILL -- -PGID`.
+    let group = format!("kill -9 -{} 2>/dev/null; true", child.id());
     let _ = quiet(Command::new("sh").arg("-c").arg(group)).status();
     let _ = child.kill();
     let _ = child.wait();
@@ -604,6 +605,103 @@ pub fn run_spec(
             Err(e) => return Err(Error::Input(format!("check command failed: {e}"))),
         }
     }
+}
+
+/// Most bytes kept from the end of a check's output (stdout and stderr each).
+pub const CHECK_OUTPUT_KEEP: usize = 8192;
+
+/// Read a pipe to the end on its own thread and keep only the last `keep`
+/// bytes, so a chatty check can never block on a full pipe or fill memory.
+fn tail_reader<R: Read + Send + 'static>(
+    mut pipe: R,
+    keep: usize,
+) -> std::sync::mpsc::Receiver<Vec<u8>> {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut kept: std::collections::VecDeque<u8> = std::collections::VecDeque::new();
+        let mut buf = [0u8; 4096];
+        loop {
+            match pipe.read(&mut buf) {
+                Ok(0) | Err(_) => break,
+                Ok(n) => {
+                    kept.extend(&buf[..n]);
+                    let extra = kept.len().saturating_sub(keep);
+                    kept.drain(..extra);
+                }
+            }
+        }
+        let _ = tx.send(kept.into_iter().collect());
+    });
+    rx
+}
+
+/// Like [`run_spec`], but stdout and stderr are both kept (the last
+/// [`CHECK_OUTPUT_KEEP`] bytes of each) and returned as one text: stdout first,
+/// then stderr. A timed out command returns what it printed before it was
+/// stopped.
+pub fn run_spec_captured(spec: &CommandSpec, timeout: Duration) -> Result<(CheckStatus, String)> {
+    use std::os::unix::process::CommandExt;
+    let mut cmd = Command::new(&spec.program);
+    cmd.args(&spec.args)
+        .env_clear()
+        .envs(spec.env.iter().map(|(k, v)| (k, v)))
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .process_group(0);
+    if let Some(cwd) = &spec.cwd {
+        cmd.current_dir(cwd);
+    }
+    let mut child = cmd.spawn().map_err(|e| {
+        Error::Input(format!(
+            "could not start the check command ({}): {e}",
+            spec.program
+        ))
+    })?;
+    let out = child
+        .stdout
+        .take()
+        .map(|p| tail_reader(p, CHECK_OUTPUT_KEEP));
+    let err = child
+        .stderr
+        .take()
+        .map(|p| tail_reader(p, CHECK_OUTPUT_KEEP));
+    let deadline = Instant::now() + timeout;
+    let status = loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                break if status.success() {
+                    CheckStatus::Passed
+                } else {
+                    CheckStatus::Failed
+                }
+            }
+            Ok(None) => {
+                if Instant::now() >= deadline {
+                    kill_all(spec, &mut child);
+                    break CheckStatus::TimedOut;
+                }
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            Err(e) => return Err(Error::Input(format!("check command failed: {e}"))),
+        }
+    };
+    // A process the check left behind may still hold a pipe open. Do not wait
+    // for it forever: take what arrived within a moment.
+    let collect = |rx: Option<std::sync::mpsc::Receiver<Vec<u8>>>| {
+        rx.and_then(|r| r.recv_timeout(Duration::from_secs(2)).ok())
+            .map(|b| String::from_utf8_lossy(&b).to_string())
+            .unwrap_or_default()
+    };
+    let (o, e) = (collect(out), collect(err));
+    let mut text = o;
+    if !e.is_empty() {
+        if !text.is_empty() && !text.ends_with('\n') {
+            text.push('\n');
+        }
+        text.push_str(&e);
+    }
+    Ok((status, text))
 }
 
 fn unique_name() -> String {
@@ -762,6 +860,26 @@ impl Runner {
             open_for_nobody_if_root(worktree);
         }
         run_spec(&spec, timeout, false).map(|(s, _)| s)
+    }
+
+    /// Like [`Runner::run`], and also returns the tail of what the check
+    /// printed (stdout, then stderr).
+    pub fn run_captured(
+        &self,
+        worktree: &Path,
+        check: &str,
+        env: &[(String, String)],
+        protected: &Protected,
+        timeout: Duration,
+    ) -> Result<(CheckStatus, String)> {
+        if matches!(self.backend, Backend::Docker | Backend::Podman) {
+            protected.check_container_paths(worktree)?;
+        }
+        let spec = self.spec(worktree, check, env, protected);
+        if matches!(self.backend, Backend::Docker | Backend::Podman) {
+            open_for_nobody_if_root(worktree);
+        }
+        run_spec_captured(&spec, timeout)
     }
 
     /// The command that [`Runner::run`] would start.
