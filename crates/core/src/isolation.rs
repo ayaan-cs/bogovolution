@@ -135,6 +135,17 @@ pub enum ProviderKind {
     Local,
     /// A real or network provider. Must run isolated.
     Real,
+    /// A real model on this machine (`local` provider). It costs nothing and
+    /// only talks to localhost, but what it writes is real model output that
+    /// the checks then run, so it must run isolated like `Real`.
+    LocalModel,
+}
+
+impl ProviderKind {
+    /// Whether checks for this kind of provider must run in an isolation backend.
+    pub fn needs_isolation(self) -> bool {
+        matches!(self, ProviderKind::Real | ProviderKind::LocalModel)
+    }
 }
 
 /// The `[sandbox]` table of `config.toml`.
@@ -718,7 +729,7 @@ impl Runner {
                 match (found, kind) {
                     (Some(b), _) => b,
                     (None, ProviderKind::Local) => Backend::None,
-                    (None, ProviderKind::Real) => {
+                    (None, ProviderKind::Real | ProviderKind::LocalModel) => {
                         return Err(Error::Input(format!(
                             "no isolation backend works here, and a real provider must run isolated. Install bubblewrap, podman or docker. Tried: {}",
                             why.join("; ")
@@ -796,7 +807,7 @@ pub const AUTO_ORDER: [Backend; 3] = [Backend::Bwrap, Backend::Podman, Backend::
 /// The part of the policy that needs no probing: a real provider may not ask
 /// for `none`.
 pub fn check_policy(kind: ProviderKind, asked: Isolation) -> Result<()> {
-    if kind == ProviderKind::Real && asked == Isolation::None {
+    if kind.needs_isolation() && asked == Isolation::None {
         return Err(Error::Input(
             "a real provider must run isolated: set isolation to auto, bwrap, docker or podman in [sandbox] of config.toml (isolation = \"none\" is for the mock and replay providers only)"
                 .into(),
@@ -806,7 +817,7 @@ pub fn check_policy(kind: ProviderKind, asked: Isolation) -> Result<()> {
 }
 
 fn enforce_resolved(kind: ProviderKind, backend: Backend) -> Result<()> {
-    if kind == ProviderKind::Real && !backend.is_isolated() {
+    if kind.needs_isolation() && !backend.is_isolated() {
         return Err(Error::Input(
             "a real provider must run isolated, but no isolation backend was chosen".into(),
         ));

@@ -144,7 +144,15 @@ pub fn mutate(repo: &Repo, model: &dyn Model, opts: &MutateOptions) -> Result<Mu
             format!("the mutation call would need about {estimate} tokens, over the cap of {cap}");
         return refuse(repo, &parent, &provider, opts.seed, 0, reason, limit);
     }
-    let response = model.propose_mutation(&request)?;
+    // A model that answers in a form we cannot read is a refused attempt, not
+    // a crash: log it with the reason and move on.
+    let response = match model.propose_mutation(&request) {
+        Ok(r) => r,
+        Err(Error::BadReply(why)) => {
+            return refuse(repo, &parent, &provider, opts.seed, 0, why, limit);
+        }
+        Err(e) => return Err(e),
+    };
     if response.tokens_used > cap {
         let reason = format!(
             "the model reported {} tokens, over the cap of {cap}, so its answer was thrown away",

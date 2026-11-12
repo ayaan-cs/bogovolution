@@ -1614,3 +1614,53 @@ fn hiding_the_whole_folder_clears_the_warning() {
     let v = ok_json(dir.path(), &["run", "--repeats", "1"]);
     assert_eq!(v["data"]["warnings"], serde_json::json!([]));
 }
+
+#[test]
+fn local_output_files_must_not_land_where_the_model_reads() {
+    let dir = project();
+    let d = dir.path();
+    // nothing listens on port 9: the guard must fire before any connection
+    let base = [
+        "run",
+        "--provider",
+        "local",
+        "--local-url",
+        "http://127.0.0.1:9",
+    ];
+    for (flag, path) in [
+        ("--record", "rec.jsonl"),
+        ("--local-transcript", "sub/../t.jsonl"),
+    ] {
+        let mut args: Vec<&str> = base.to_vec();
+        args.extend([flag, path, "--json"]);
+        let out = run(d, &args);
+        assert_eq!(out.status.code(), Some(1));
+        let msg = json_of(&out)["error"]["message"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(msg.contains("inside the repo"), "{msg}");
+    }
+    std::fs::create_dir(d.join("sub")).unwrap();
+    let out = run(
+        d,
+        &[&base[..], &["--record", "sub/rec.jsonl", "--json"]].concat(),
+    );
+    assert!(json_of(&out)["error"]["message"]
+        .as_str()
+        .unwrap()
+        .contains("inside the repo"));
+    // under .rules-evolve or outside the repo is fine: the run then fails only
+    // because no server is listening
+    let outside = tempfile::tempdir().unwrap();
+    let rec = outside.path().join("rec.jsonl");
+    for path in [".rules-evolve/rec.jsonl", rec.to_str().unwrap()] {
+        let out = run(d, &[&base[..], &["--record", path, "--json"]].concat());
+        assert_eq!(out.status.code(), Some(1));
+        let msg = json_of(&out)["error"]["message"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert!(!msg.contains("inside the repo"), "{msg}");
+    }
+}

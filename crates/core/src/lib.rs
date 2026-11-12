@@ -13,6 +13,7 @@ pub mod git;
 pub mod hash;
 pub mod init;
 pub mod isolation;
+pub mod local;
 pub mod log;
 pub mod model;
 pub mod mutate;

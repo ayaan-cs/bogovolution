@@ -16,6 +16,9 @@ pub enum Error {
     Input(String),
     #[error("{0}")]
     ReplayMiss(String),
+    /// A model answered, but not in a form the harness can use.
+    #[error("{0}")]
+    BadReply(String),
     #[error("io error at {path}: {source}")]
     Io {
         path: PathBuf,

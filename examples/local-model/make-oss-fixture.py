@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""Build a small coding task repo from the real more-itertools project.
+
+For each chosen function of more_itertools/recipes.py this writes
+
+  solve/<name>.py          a stub: the upstream signature and docstring, no body
+  checks/test_<name>.py    the upstream unit tests for that function, unchanged
+                           except that they import the stub instead of the package
+
+The checks are hidden from the model by rules-evolve. This is a task set DERIVED
+from a real open source project (MIT licensed), not the whole project.
+
+  make-oss-fixture.py <more-itertools checkout> <destination> [fn,fn,...]
+                     [--reference] [--tasks-out=PATH]
+
+--tasks-out writes tasks.toml somewhere else (default: <destination>/tasks.toml).
+Put it in <destination>/.rules-evolve/ after `rules-evolve init`, so the model
+never sees the check commands.
+
+--reference fills the stubs with the upstream implementations, to prove the
+checks pass for a correct answer. Without it every check must fail on the stub.
+"""
+import ast
+import sys
+from pathlib import Path
+
+# function name -> upstream test class in tests/test_recipes.py
+FUNCS = {
+    "take": "TakeTests",
+    "tail": "TailTests",
+    "nth": "NthTests",
+    "quantify": "QuantifyTests",
+    "ncycles": "NcyclesTests",
+    "dotproduct": "DotproductTests",
+    "flatten": "FlattenTests",
+    "repeatfunc": "RepeatfuncTests",
+    "first_true": "FirstTrueTests",
+    "iter_except": "IterExceptTests",
+    "unique_everseen": "UniqueEverseenTests",
+    "unique_justseen": "UniqueJustseenTests",
+    "powerset": "PowersetTests",
+    "prepend": "PrependTests",
+    "roundrobin": "RoundrobinTests",
+    "partition": "PartitionTests",
+    "grouper": "GrouperTests",
+}
+
+RULES = "# Project rules\n\nWrite clear code and keep changes small.\n"
+
+
+def main():
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    reference = "--reference" in sys.argv
+    tasks_out = next(
+        (a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--tasks-out=")),
+        None,
+    )
+    src_dir, dest = Path(args[0]), Path(args[1])
+    names = args[2].split(",") if len(args) > 2 else list(FUNCS)
+    recipes = (src_dir / "more_itertools/recipes.py").read_text()
+    tests = (src_dir / "tests/test_recipes.py").read_text()
+    rt, tt = ast.parse(recipes), ast.parse(tests)
+    funcs = {n.name: n for n in rt.body if isinstance(n, ast.FunctionDef)}
+    classes = {n.name: n for n in tt.body if isinstance(n, ast.ClassDef)}
+    r_imports = "\n".join(
+        ast.get_source_segment(recipes, n)
+        for n in rt.body
+        if isinstance(n, (ast.Import, ast.ImportFrom))
+    )
+    t_imports = [
+        ast.get_source_segment(tests, n)
+        for n in tt.body
+        if isinstance(n, (ast.Import, ast.ImportFrom))
+    ]
+    (dest / "solve").mkdir(parents=True, exist_ok=True)
+    (dest / "checks").mkdir(parents=True, exist_ok=True)
+    (dest / "solve/__init__.py").write_text("")
+    (dest / "checks/__init__.py").write_text("")
+    (dest / "AGENTS.md").write_text(RULES)
+    for name in names:
+        f = funcs[name]
+        lines = recipes.splitlines()
+        first = (f.decorator_list[0].lineno if f.decorator_list else f.lineno) - 1
+        if reference:
+            body = "\n".join(lines[first : f.end_lineno])
+            (dest / f"solve/{name}.py").write_text(r_imports + "\n\n\n" + body + "\n")
+        else:
+            sig = "\n".join(lines[first : f.body[0].lineno - 1])
+            doc = ast.get_docstring(f, clean=False)
+            has_doc = (
+                isinstance(f.body[0], ast.Expr)
+                and isinstance(getattr(f.body[0], "value", None), ast.Constant)
+                and isinstance(f.body[0].value.value, str)
+            )
+            if has_doc:
+                doc_src = "\n".join(lines[f.body[0].lineno - 1 : f.body[0].end_lineno])
+                stub = f"{sig}\n{doc_src}\n    raise NotImplementedError\n"
+            else:
+                stub = f"{sig}\n    raise NotImplementedError\n"
+            (dest / f"solve/{name}.py").write_text(stub)
+        c = classes[FUNCS[name]]
+        cfirst = (c.decorator_list[0].lineno if c.decorator_list else c.lineno) - 1
+        csrc = "\n".join(tests.splitlines()[cfirst : c.end_lineno])
+        header = "\n".join(
+            f"import solve.{name} as mi" if "more_itertools as mi" in i else i
+            for i in t_imports
+            if "more_itertools" not in i or "as mi" in i
+        )
+        (dest / f"checks/test_{name}.py").write_text(header + "\n\n\n" + csrc + "\n")
+    # tasks.toml
+    out = [
+        "# Tasks derived from more-itertools (MIT). Each task: implement one function from its docstring.",
+        "# The upstream unit tests live in checks/ and are hidden from the model.",
+        "",
+        "[sandbox]",
+        'hidden = ["checks"]',
+        "",
+    ]
+    for name in names:
+        out += [
+            "[[task]]",
+            f'id = "{name}"',
+            f'prompt = "Implement the function `{name}` in solve/{name}.py. Keep the signature and follow the docstring exactly. Write the whole file."',
+            f'check = "python3 -B -m unittest checks.test_{name}"',
+            "timeout_secs = 60",
+            "",
+        ]
+    Path(tasks_out or dest / "tasks.toml").write_text("\n".join(out))
+
+
+main()

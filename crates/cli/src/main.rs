@@ -47,9 +47,26 @@ struct Cli {
 /// Which model provider to use and where its files are.
 #[derive(Args, Clone)]
 struct ProviderArgs {
-    /// Model provider: `mock` or `replay`. No provider uses the network yet
+    /// Model provider: `mock`, `replay` or `local` (a model server on this
+    /// machine, localhost only). No provider uses the internet
     #[arg(long, default_value = "mock")]
     provider: String,
+    /// Base URL of the local model server. Only for `--provider local`. The host
+    /// must be localhost, 127.0.0.1 or [::1]
+    #[arg(long, default_value = rules_evolve_core::local::DEFAULT_URL, value_name = "URL")]
+    local_url: String,
+    /// Sampling temperature for `--provider local` (0 to 2)
+    #[arg(long, default_value_t = 0.7, value_name = "T")]
+    local_temperature: f64,
+    /// Most tokens the local model may write per call
+    #[arg(long, default_value_t = 1024, value_name = "N")]
+    local_max_new_tokens: u64,
+    /// Time limit for one local model call, in seconds
+    #[arg(long, default_value_t = 600, value_name = "SECS")]
+    local_timeout: u64,
+    /// Append every raw local model reply to this JSONL file (for debugging)
+    #[arg(long, value_name = "FILE")]
+    local_transcript: Option<PathBuf>,
     /// Settings for the mock model
     #[arg(long, default_value = ".rules-evolve/mock.toml")]
     mock_config: PathBuf,
@@ -90,14 +107,76 @@ impl ProviderArgs {
                 dir.join(p)
             }
         };
+        if self.provider == "local" {
+            for (flag, p) in [
+                ("--record", self.record.as_ref()),
+                ("--local-transcript", self.local_transcript.as_ref()),
+            ] {
+                if let Some(p) = p {
+                    if model_can_see(dir, &rel(p)) {
+                        return Err(rules_evolve_core::Error::Input(format!(
+                            "{flag} {} is inside the repo, where the local model would read it as a project file on the next task. Put it outside the repo or under .rules-evolve/",
+                            p.display()
+                        ))
+                        .into());
+                    }
+                }
+            }
+        }
         Ok(build_provider(&ProviderSpec {
             name: self.provider.clone(),
             mock_config: rel(&self.mock_config),
             replay_file: self.replay_file.as_ref().map(rel),
             record: self.record.as_ref().map(rel),
             pace_ms: self.pace,
+            local: rules_evolve_core::local::LocalSettings {
+                url: self.local_url.clone(),
+                temperature: self.local_temperature,
+                max_new_tokens: self.local_max_new_tokens,
+                timeout_secs: self.local_timeout,
+                transcript: self.local_transcript.as_ref().map(rel),
+            },
         })?)
     }
+}
+
+/// True when `path` lands in the repo copy the model is shown: inside `dir`
+/// and not under a hidden (dot) folder such as `.rules-evolve`.
+fn model_can_see(dir: &std::path::Path, path: &std::path::Path) -> bool {
+    use std::path::{Component, PathBuf};
+    let Ok(root) = dir.canonicalize() else {
+        return false;
+    };
+    // resolve `..` and `.` by hand, then any symlinks in the part that exists
+    let mut norm = PathBuf::new();
+    for c in path.components() {
+        match c {
+            Component::ParentDir => {
+                norm.pop();
+            }
+            Component::CurDir => {}
+            other => norm.push(other),
+        }
+    }
+    let mut existing = norm.clone();
+    let mut rest: Vec<std::ffi::OsString> = Vec::new();
+    while !existing.exists() {
+        match existing.file_name() {
+            Some(n) => rest.push(n.to_os_string()),
+            None => break,
+        }
+        existing.pop();
+    }
+    let mut full = existing.canonicalize().unwrap_or(existing);
+    for n in rest.into_iter().rev() {
+        full.push(n);
+    }
+    let Ok(inside) = full.strip_prefix(&root) else {
+        return false;
+    };
+    !inside
+        .components()
+        .any(|c| c.as_os_str().to_string_lossy().starts_with('.'))
 }
 
 /// Add replay counts to a command's JSON data.

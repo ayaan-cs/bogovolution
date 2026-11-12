@@ -16,7 +16,7 @@ The idea:
 - Every attempt, including failures and refused changes, is written to an
   append-only, hash-chained log. The lineage tree is rebuilt from that log.
 
-It is bring your own key and runs locally. Nothing is uploaded anywhere.
+It runs locally. Nothing is uploaded anywhere.
 
 ## Inspiration
 
@@ -24,10 +24,12 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: v2.0.0
+## Status: v2.1.0
 
-No real model is ever called yet. Everything runs on a deterministic **mock
-model**, so nothing here costs money or touches the network.
+The default is a deterministic **mock model**, so nothing costs money or touches
+the network. Since v2.1.0 there is one real provider, `local`: a model server
+on your own machine (for example llama.cpp), localhost only, free. No paid or
+remote provider exists.
 
 Done in Phase 1:
 
@@ -140,6 +142,22 @@ Done in v2.0.0 (Claude Code plugin):
   `.rules-evolve/`. Mock and replay only: the plugin refuses any other provider.
   See "Claude Code plugin" below.
 
+Done in v2.1.0 (free local model test):
+
+- `--provider local`: talks to an OpenAI compatible model server on
+  `localhost`, `127.0.0.1` or `[::1]` only, over plain HTTP. Any other URL is
+  refused before a connection is made. No key, no spend. Its provider kind is
+  `LocalModel`, which, like `Real`, must run with `bwrap`, `docker` or `podman`
+  isolation, because the checks execute what the model wrote.
+- `--local-transcript FILE` keeps every raw reply for debugging. For the local
+  provider, `--record` and `--local-transcript` files may not sit where the
+  model would read them as project files.
+- `examples/local-model/`: setup, a task set derived from more-itertools,
+  and an honest result: with a 3B model nothing was accepted, and the run
+  could not tell whether rules-evolve helps. Recorded answers from that
+  3B run are not in this repo (its weights use the Qwen Research license).
+  See "Local model test" below.
+
 Planned later (not built yet): real bring-your-own-key providers. See the
 roadmap below.
 
@@ -166,9 +184,10 @@ missing before a real provider that runs tools or code is switched on:
   fix in plain words (see "Shadow warnings"), but they are not prevented.
   List folders, not files, in `hidden` where you can.
 
-Other planned work: the real bring-your-own-key providers. No network provider
+Other planned work: the real bring-your-own-key providers. No remote provider
 exists in the code, and none should be added before the first bullet above is
-done. (The Claude Code plugin shipped in v2.0.0 and only allows `mock` and
+done. The `local` provider (v2.1.0) only talks to loopback and has no tools: it
+returns file contents, which the harness writes and the isolated check runs. (The Claude Code plugin shipped in v2.0.0 and only allows `mock` and
 `replay`.)
 
 ## Not doing
@@ -484,7 +503,8 @@ one character.
 A provider is anything that implements the `Model` trait in `crates/core`: it
 answers tasks and proposes mutations, and reports an estimate of its token use.
 The harness uses nothing else, so real bring-your-own-key providers can be added
-later without changing it. **No provider uses the network today.**
+later without changing it. **No provider leaves this machine:** `mock` and
+`replay` make no calls, and `local` only talks to a server on loopback.
 
 Options shared by `run`, `mutate` and `evolve`:
 
@@ -494,6 +514,12 @@ Options shared by `run`, `mutate` and `evolve`:
 | `--mock-config PATH` | Mock settings (default `.rules-evolve/mock.toml`) |
 | `--replay-file PATH` | Replay file to answer from (for `--provider replay`) |
 | `--record PATH` | Record every model request and response into this file |
+| `--provider local` | A model server on this machine (see "Local model test") |
+| `--local-url URL` | Its base URL, default `http://127.0.0.1:8080`. The host must be `localhost`, `127.0.0.1` or `[::1]`, plain `http`, no path, user info, query or fragment |
+| `--local-temperature T` | Sampling temperature, 0 to 2, default 0.7 |
+| `--local-max-new-tokens N` | Most tokens per reply, default 1024 |
+| `--local-timeout SECS` | Time limit per call, default 600 |
+| `--local-transcript FILE` | Append every raw reply to this JSON Lines file |
 
 **Recording.** `--record` works with any provider that makes calls (the mock now,
 real providers later). Each call is stored in a replay file, which is JSON Lines.
@@ -521,6 +547,43 @@ which says `replay`). If the file has no answer for a request, the command stops
 with a `replay miss` error that names the task, rules version and seed, and
 nothing from that run is written. Record the file again with `--record` if you change the model
 name, tasks, prompts, rules or seeds.
+
+## Local model test
+
+`--provider local` sends each task to an OpenAI compatible server running on
+this machine (`/v1/chat/completions`, with the run seed). The prompt holds the
+rules, the visible project files (hidden files and `.rules-evolve` are never
+shown) and the task. The model answers with `FILE: path` lines, each followed
+by a fenced block with the whole new file. A mutation answer has a `HYPOTHESIS:`
+line and a `RULES:` block; an answer in another shape is recorded as a refusal.
+The connection goes to a resolved loopback address only (no DNS, no TLS, no
+redirects), and the peer is checked to be loopback.
+
+Run it with a free Apache 2.0 model and llama.cpp (see
+`examples/local-model/README.md` for a 1.5B or 7B setup), then replay your
+own recording for free:
+
+```sh
+cargo build --release
+# start llama-server on 127.0.0.1:8080 first, see examples/local-model/README.md
+OUT=/tmp/lm-out examples/local-model/run-local-test.sh demo
+OUT=/tmp/lm-out examples/local-model/run-local-test.sh oss /path/to/more-itertools
+examples/local-model/replay.sh demo /tmp/lm-out/demo-replay.jsonl
+```
+
+Result on Nov 11, 2026, from a private run with Qwen2.5 Coder 3B Instruct
+(Q4_K_M, CPU only, default rule, 3 generations each): **nothing was accepted,
+and the run cannot tell whether rules-evolve improves a rules file.** That
+model's answers are not shipped here, because its weights use the Qwen
+Research license (non-commercial research only). On the demo every version
+scored 0%. On 8 tasks derived from more-itertools every version had a median
+of 37.5%, with runs from 0% to 50% depending mostly on the seed. The model's
+mutations were generic ("naming conventions"), and even a correct hand written
+rule (import what you use, the main failure) did not change what the 3B model
+wrote. The verdict rule did not accept anything from that noise. Full numbers,
+runtimes, tokens and failure modes are in `examples/local-model/README.md`.
+Prefer Qwen2.5 Coder 1.5B or 7B Instruct for a run whose answers you may
+commit: both are Apache 2.0.
 
 ## Demo (no key, no cost)
 
@@ -976,8 +1039,9 @@ A backend you name that cannot start is an error that says why, not a fallback.
 event stores the backend that ran it in an optional `isolation` field (old logs
 without it still read).
 
-**Policy.** Every provider declares a kind. Mock and replay are `Local`. A
-provider marked `Real` (a real or network provider, none exist yet) is refused by
+**Policy.** Every provider declares a kind. Mock and replay are `Local`. The
+`local` model provider is `LocalModel` and follows the same rule as `Real`. A
+provider marked `Real` or `LocalModel` is refused by
 `run`, `mutate` and `evolve` unless the isolation resolves to `bwrap`, `docker`
 or `podman`: `isolation = "none"`, and the `--isolation none` override, are
 errors for it, and `auto` with no working backend is an error. The check lives in
@@ -1352,5 +1416,6 @@ Apache License 2.0. See the `LICENSE` file.
 ## Cost
 
 Phases 1 to 4 make no network calls and cost nothing to run. The providers are
-the mock and replay. Later phases will use your own API key, and the per run token cap
+the mock and replay. The `local` provider (v2.1.0) calls only a model server on
+loopback, so it costs nothing beyond your own CPU time. Later phases will use your own API key, and the per run token cap
 (default 200000, enforced since Phase 2) is part of the config from the start.

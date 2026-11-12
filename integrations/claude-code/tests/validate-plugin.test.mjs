@@ -232,9 +232,9 @@ test("all plugin json files are valid and use two space indentation", () => {
   }
 });
 
-test("README states v2.0.0 and keeps the Petri credit", () => {
+test("README states v2.x and keeps the Petri credit", () => {
   const readme = read(path.join(repo, "README.md"));
-  assert.match(readme, /^## Status: v2\.0\.0$/m);
+  assert.match(readme, /^## Status: v2\.\d+\.\d+$/m);
   assert.match(readme, /https:\/\/ethglobal\.com\/showcase\/petri-mjy1y/);
   assert.match(readme, /## Claude Code plugin/);
   for (const s of EXPECTED_SKILLS) assert.ok(readme.includes(`/rules-evolve:${s}`), `README lacks /rules-evolve:${s}`);

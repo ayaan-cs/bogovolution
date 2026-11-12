@@ -396,7 +396,7 @@ impl Model for MockModel {
 /// Which provider to build and where its files are.
 #[derive(Debug, Clone)]
 pub struct ProviderSpec {
-    /// `mock` or `replay`.
+    /// `mock`, `replay` or `local`.
     pub name: String,
     pub mock_config: PathBuf,
     /// Replay file to serve answers from (`replay` provider).
@@ -406,9 +406,12 @@ pub struct ProviderSpec {
     /// Milliseconds to wait before each replayed answer. Zero means no wait.
     /// Only the `replay` provider accepts a non-zero value.
     pub pace_ms: u64,
+    /// Settings for the `local` provider (a model server on this machine).
+    pub local: crate::local::LocalSettings,
 }
 
-/// Build a provider. Only `mock` and `replay` exist. Neither uses the network.
+/// Build a provider. `mock` and `replay` use no network at all. `local` talks
+/// only to a model server on this machine (see the `local` module).
 pub fn build_provider(spec: &ProviderSpec) -> Result<Box<dyn Model>> {
     match spec.name.as_str() {
         "mock" => {
@@ -438,8 +441,21 @@ pub fn build_provider(spec: &ProviderSpec) -> Result<Box<dyn Model>> {
                 ReplayModel::load(path)?.with_pace(std::time::Duration::from_millis(spec.pace_ms)),
             ))
         }
+        "local" => {
+            if spec.pace_ms > 0 {
+                return Err(Error::Input(
+                    "--pace only works with --provider replay".into(),
+                ));
+            }
+            let local: Box<dyn Model> =
+                Box::new(crate::local::LocalModel::connect(&spec.local)?);
+            match &spec.record {
+                Some(path) => Ok(Box::new(RecordingModel::new(local, path)?)),
+                None => Ok(local),
+            }
+        }
         other => Err(Error::Input(format!(
-            "provider {other:?} is not available. Only \"mock\" and \"replay\" exist so far; real providers come in a later phase"
+            "provider {other:?} is not available. Only \"mock\", \"replay\" and \"local\" (a model server on this machine) exist; no provider uses the internet"
         ))),
     }
 }
@@ -611,6 +627,7 @@ mod tests {
             replay_file: None,
             record: None,
             pace_ms: 0,
+            local: Default::default(),
         };
         assert!(build_provider(&spec("openai")).is_err());
         assert!(build_provider(&spec("mock")).is_err());
@@ -628,6 +645,7 @@ mod tests {
             replay_file: None,
             record: None,
             pace_ms: 5,
+            local: Default::default(),
         })
         .err()
         .expect("mock with a pace is refused");
