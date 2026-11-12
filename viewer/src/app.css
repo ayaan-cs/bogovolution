@@ -11,12 +11,14 @@
   --c-accepted: #1f9d57;
   --c-rejected: #d23f3f;
   --c-noise: #c4850c;
+  --c-overfit: #8e44c9;
   --c-pending: #6b7a90;
   --c-root: #3563e9;
   --c-refused: #8a94a3;
   --bg-accepted: #e4f6ec;
   --bg-rejected: #fbe7e7;
   --bg-noise: #fbf0d8;
+  --bg-overfit: #f2e8fb;
   --bg-pending: #e9edf3;
   --bg-root: #e3eafd;
   --bg-refused: #f3f4f6;
@@ -24,6 +26,7 @@
   --tx-accepted: #16793f;
   --tx-rejected: #b32d2d;
   --tx-noise: #895800;
+  --tx-overfit: #6f2fa3;
   --tx-pending: #53617a;
   --tx-root: #2a52c9;
   --tx-refused: #5d6776;
@@ -45,18 +48,21 @@
   --c-accepted: #46c47f;
   --c-rejected: #f06a6a;
   --c-noise: #e8ae3d;
+  --c-overfit: #b583ea;
   --c-pending: #8f9db3;
   --c-root: #6c93ff;
   --c-refused: #7d8798;
   --bg-accepted: #153326;
   --bg-rejected: #3a1b1d;
   --bg-noise: #3a2e14;
+  --bg-overfit: #2c1f3d;
   --bg-pending: #232b38;
   --bg-root: #1b2748;
   --bg-refused: #1b212b;
   --tx-accepted: var(--c-accepted);
   --tx-rejected: var(--c-rejected);
   --tx-noise: var(--c-noise);
+  --tx-overfit: var(--c-overfit);
   --tx-pending: var(--c-pending);
   --tx-root: var(--c-root);
   --tx-refused: var(--c-refused);
@@ -139,6 +145,7 @@ code,
 .badge.accepted { color: var(--tx-accepted); background: var(--bg-accepted); }
 .badge.rejected { color: var(--tx-rejected); background: var(--bg-rejected); }
 .badge.noise { color: var(--tx-noise); background: var(--bg-noise); }
+.badge.overfit { color: var(--tx-overfit); background: var(--bg-overfit); }
 .badge.pending { color: var(--tx-pending); background: var(--bg-pending); }
 .badge.root { color: var(--tx-root); background: var(--bg-root); }
 .badge.refused { color: var(--tx-refused); background: var(--bg-refused); }

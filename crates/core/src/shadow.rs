@@ -391,6 +391,7 @@ mod tests {
             prompt: "p".into(),
             check: check.into(),
             timeout_secs: None,
+            split: Default::default(),
         }
     }
 

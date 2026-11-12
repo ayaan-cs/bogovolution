@@ -2,7 +2,8 @@
 # Free, local real model test of rules-evolve.
 #
 #   run-local-test.sh demo                      the demo fixture (12 toy tasks)
-#   run-local-test.sh oss <more-itertools dir>  8 tasks derived from more-itertools
+#   run-local-test.sh oss <more-itertools dir>  8 train and 8 held out tasks derived
+#                                               from more-itertools
 #
 # Needs a model server already listening on 127.0.0.1 (see README.md here).
 # Nothing leaves this machine: the local provider refuses non-localhost URLs.
@@ -14,6 +15,9 @@
 #   WORK         the throwaway project folder (default: a new temp folder)
 #   LOCAL_URL    model server (default http://127.0.0.1:8080)
 #   RULES_EVOLVE path to the binary (default: target/release/rules-evolve)
+#   OSS_FUNCS    train functions (default: the 8 below)
+#   OSS_HELD_OUT held out functions (default: the 8 below). Set it to an empty
+#                string for the train only task set of v2.2.0.
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -35,6 +39,9 @@ WORK=$(cd "$WORK" && pwd)
 # 8 functions picked from a 17 function baseline: 2 the model usually solves,
 # 6 it usually fails (mostly missing imports or wrong edge cases).
 OSS_FUNCS=${OSS_FUNCS:-take,tail,nth,flatten,partition,unique_justseen,prepend,quantify}
+# 8 related functions the mutation prompt never shows: 3 use islice like take
+# and nth, 4 need other itertools or collections imports, 1 needs none.
+OSS_HELD_OUT=${OSS_HELD_OUT-consume,roundrobin,iter_index,tabulate,ncycles,powerset,unique_everseen,first_true}
 
 case "$MODE" in
   demo)
@@ -44,7 +51,8 @@ case "$MODE" in
     ;;
   oss)
     SRC=${2:?usage: run-local-test.sh oss <more-itertools checkout>}
-    python3 "$HERE/make-oss-fixture.py" "$SRC" "$WORK" "$OSS_FUNCS" --tasks-out="$OUT/tasks.toml"
+    python3 "$HERE/make-oss-fixture.py" "$SRC" "$WORK" "$OSS_FUNCS" \
+      --held-out="$OSS_HELD_OUT" --tasks-out="$OUT/tasks.toml"
     "$BIN" -C "$WORK" init --model local-model >/dev/null
     mv "$OUT/tasks.toml" "$WORK/.rules-evolve/tasks.toml"
     ;;

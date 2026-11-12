@@ -17,6 +17,16 @@
 //!    `paired_wins >= min_paired_wins`.
 //! 2. else `rejected` if `child_median <= parent_median`.
 //! 3. else `noise` (the child looks a little better, but not clearly).
+//!
+//! Held out gate (v2.3.0). When the task set has held out tasks, `passed`
+//! and the rates above count train tasks only, and held out tasks are scored
+//! the same way on their own (held out medians, gain and paired wins over the
+//! same paired runs). A child that rule 1 accepts is then kept only if also
+//! `held_out_gain_pp >= held_out_accept_threshold_pp` (default 10) AND
+//! `held_out_paired_wins >= held_out_min_paired_wins` (default 3 of 5).
+//! Otherwise the verdict is `overfit`, and `current` does not move. Rejected
+//! and noise are decided by the train rule alone, as before. A task set with
+//! no held out tasks behaves exactly as before.
 
 use crate::event::VerdictKind;
 use serde::Serialize;
@@ -31,6 +41,25 @@ const EPS: f64 = 1e-9;
 pub struct Rule {
     pub accept_threshold_pp: f64,
     pub min_paired_wins: u32,
+}
+
+/// The held out gate. Taken from `config.toml`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct HeldOutRule {
+    pub accept_threshold_pp: f64,
+    pub min_paired_wins: u32,
+}
+
+/// How the child did on the held out tasks.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct HeldOutDecision {
+    pub parent_median: f64,
+    pub child_median: f64,
+    pub gain_pp: f64,
+    pub paired_wins: u32,
+    pub pairs: Vec<Pair>,
+    /// Whether the gate is met.
+    pub passed: bool,
 }
 
 /// Is a child's pass rate a strict win over its parent's? Same test as the
@@ -60,6 +89,9 @@ pub struct Decision {
     pub pairs: Vec<Pair>,
     /// Plain English explanation, also stored in the log.
     pub reason: String,
+    /// The held out gate, when the task set has held out tasks.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out: Option<HeldOutDecision>,
 }
 
 /// Why the rule could not be applied.
@@ -165,7 +197,88 @@ pub fn decide(
         repeats,
         pairs,
         reason,
+        held_out: None,
     })
+}
+
+fn check_rates(parent: &[f64], child: &[f64]) -> Result<Vec<Pair>, RuleError> {
+    if parent.len() != child.len() {
+        return Err(RuleError::LengthMismatch {
+            parent: parent.len(),
+            child: child.len(),
+        });
+    }
+    if parent.is_empty() {
+        return Err(RuleError::NoRuns);
+    }
+    for &r in parent.iter().chain(child.iter()) {
+        if !(0.0..=1.0).contains(&r) || r.is_nan() {
+            return Err(RuleError::BadRate(r));
+        }
+    }
+    Ok(parent
+        .iter()
+        .zip(child.iter())
+        .enumerate()
+        .map(|(i, (&p, &c))| Pair {
+            run_index: i as u32,
+            parent_rate: p,
+            child_rate: c,
+            win: pair_win(p, c),
+        })
+        .collect())
+}
+
+/// Apply the train rule, then the held out gate. `held_parent[i]` and
+/// `held_child[i]` are the held out pass rates of the same paired run `i`.
+pub fn decide_with_held_out(
+    parent_rates: &[f64],
+    child_rates: &[f64],
+    rule: &Rule,
+    held_parent: &[f64],
+    held_child: &[f64],
+    gate: &HeldOutRule,
+) -> Result<Decision, RuleError> {
+    let mut d = decide(parent_rates, child_rates, rule)?;
+    let pairs = check_rates(held_parent, held_child)?;
+    if pairs.len() != d.pairs.len() {
+        return Err(RuleError::LengthMismatch {
+            parent: d.pairs.len(),
+            child: pairs.len(),
+        });
+    }
+    let paired_wins = pairs.iter().filter(|p| p.win).count() as u32;
+    let parent_median = median(held_parent);
+    let child_median = median(held_child);
+    let gain_pp = (child_median - parent_median) * 100.0;
+    let gain_ok = gain_pp + EPS >= gate.accept_threshold_pp;
+    let wins_ok = paired_wins >= gate.min_paired_wins;
+    let passed = gain_ok && wins_ok;
+    let repeats = pairs.len();
+    let held_text = format!(
+        "held out median gain {gain_pp:.1} points (needs {}), held out wins {paired_wins} of {repeats} (needs {})",
+        gate.accept_threshold_pp, gate.min_paired_wins
+    );
+    if d.verdict == VerdictKind::Accepted {
+        if passed {
+            d.reason = format!("{}; {held_text}", d.reason);
+        } else {
+            d.verdict = VerdictKind::Overfit;
+            d.reason = format!(
+                "the train rule would accept ({}), but on the held out tasks: {held_text}",
+                d.reason
+            );
+        }
+    }
+    d.held_out = Some(HeldOutDecision {
+        parent_median,
+        child_median,
+        gain_pp,
+        paired_wins,
+        pairs,
+        passed,
+    });
+    Ok(d)
 }
 
 #[cfg(test)]
@@ -179,6 +292,70 @@ mod tests {
 
     fn v(parent: &[f64], child: &[f64]) -> VerdictKind {
         decide(parent, child, &RULE).unwrap().verdict
+    }
+
+    const GATE: HeldOutRule = HeldOutRule {
+        accept_threshold_pp: 10.0,
+        min_paired_wins: 3,
+    };
+
+    fn h(train: (&[f64], &[f64]), held: (&[f64], &[f64])) -> Decision {
+        decide_with_held_out(train.0, train.1, &RULE, held.0, held.1, &GATE).unwrap()
+    }
+
+    #[test]
+    fn held_out_gate_needs_a_gain_on_both() {
+        let win = (&[0.5; 5][..], &[0.75; 5][..]);
+        // gain on both: accepted
+        let d = h(win, (&[0.4; 5], &[0.6; 5]));
+        assert_eq!(d.verdict, VerdictKind::Accepted);
+        let ho = d.held_out.as_ref().unwrap();
+        assert!(ho.passed && ho.paired_wins == 5 && (ho.gain_pp - 20.0).abs() < 1e-9);
+        assert!(
+            d.reason.contains("held out median gain 20.0"),
+            "{}",
+            d.reason
+        );
+        // flat held out: overfit, with a reason that says why
+        let d = h(win, (&[0.5; 5], &[0.5; 5]));
+        assert_eq!(d.verdict, VerdictKind::Overfit);
+        assert!(d.reason.contains("train rule would accept"), "{}", d.reason);
+        // worse held out: overfit
+        assert_eq!(h(win, (&[0.5; 5], &[0.2; 5])).verdict, VerdictKind::Overfit);
+        // held out gain but only 2 wins: overfit
+        let d = h(
+            win,
+            (&[0.5, 0.5, 0.5, 0.9, 0.9], &[0.9, 0.9, 0.5, 0.5, 0.9]),
+        );
+        assert_eq!(d.held_out.as_ref().unwrap().paired_wins, 2);
+        assert_eq!(d.verdict, VerdictKind::Overfit);
+        // exactly 10 points and 3 wins passes
+        let d = h(win, (&[0.5; 5], &[0.6, 0.6, 0.6, 0.5, 0.5]));
+        assert_eq!(d.verdict, VerdictKind::Accepted, "{}", d.reason);
+    }
+
+    #[test]
+    fn held_out_never_rescues_or_changes_a_train_reject_or_noise() {
+        let good_held = (&[0.2; 5][..], &[0.9; 5][..]);
+        assert_eq!(
+            h((&[0.5; 5], &[0.5; 5]), good_held).verdict,
+            VerdictKind::Rejected
+        );
+        assert_eq!(
+            h((&[0.5; 5], &[0.55; 5]), good_held).verdict,
+            VerdictKind::Noise
+        );
+        // and the train numbers are the train numbers
+        let d = h((&[0.5; 5], &[0.75; 5]), (&[0.5; 5], &[0.5; 5]));
+        assert!((d.gain_pp - 25.0).abs() < 1e-9);
+        assert!((d.child_median - 0.75).abs() < 1e-9);
+    }
+
+    #[test]
+    fn held_out_rates_are_checked() {
+        let t = [0.5; 5];
+        assert!(decide_with_held_out(&t, &t, &RULE, &[0.5; 4], &[0.5; 4], &GATE).is_err());
+        assert!(decide_with_held_out(&t, &t, &RULE, &[0.5; 5], &[1.5; 5], &GATE).is_err());
     }
 
     #[test]

@@ -44,6 +44,11 @@ pub struct ExportConfig {
     pub min_paired_wins: u32,
     pub max_tokens_per_run: u64,
     pub max_change_bytes: usize,
+    /// The held out gate. Only present when some run scored held out tasks.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_accept_threshold_pp: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_min_paired_wins: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -55,6 +60,14 @@ pub struct ExportRun {
     pub pass_rate: f64,
     pub tokens_used: u64,
     pub budget_exhausted: bool,
+    /// Held out tasks of the run. `passed`, `total` and `pass_rate` then
+    /// count train tasks only. Absent when there were no held out tasks.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_passed: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_total: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_pass_rate: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -66,13 +79,15 @@ pub struct ExportNode {
     pub created_seq: u64,
     pub hypothesis: Option<String>,
     pub verdict: Option<VerdictKind>,
-    /// `root`, `pending`, `accepted`, `rejected` or `noise`.
+    /// `root`, `pending`, `accepted`, `rejected`, `noise` or `overfit`.
     pub status: String,
     pub is_current: bool,
     pub size_bytes: usize,
     pub content: String,
     pub diff: Option<String>,
     pub median_pass_rate: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_median_pass_rate: Option<f64>,
     pub runs: Vec<ExportRun>,
 }
 
@@ -90,6 +105,14 @@ pub struct ExportEdge {
     pub paired_wins: Option<u32>,
     pub repeats: Option<u32>,
     pub pairs: Vec<Pair>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_parent_median: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_child_median: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_gain_pp: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_paired_wins: Option<u32>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -106,7 +129,7 @@ pub struct ExportRefusal {
 pub struct SeriesPoint {
     pub attempt: u32,
     pub seq: u64,
-    /// `accepted`, `rejected`, `noise`, `pending` or `refused`.
+    /// `accepted`, `rejected`, `noise`, `overfit`, `pending` or `refused`.
     pub outcome: String,
     pub parent: String,
     pub child: Option<String>,
@@ -146,6 +169,24 @@ pub fn node_median(node: &Node) -> Option<f64> {
         .iter()
         .filter(|r| r.total > 0)
         .map(|r| r.passed as f64 / r.total as f64)
+        .collect();
+    if rates.is_empty() {
+        None
+    } else {
+        Some(median(&rates))
+    }
+}
+
+/// Held out median pass rate over a node's recorded runs, when they scored
+/// held out tasks.
+pub fn node_held_out_median(node: &Node) -> Option<f64> {
+    let rates: Vec<f64> = node
+        .runs
+        .iter()
+        .filter_map(|r| match (r.held_out_passed, r.held_out_total) {
+            (Some(p), Some(t)) if t > 0 => Some(p as f64 / t as f64),
+            _ => None,
+        })
         .collect();
     if rates.is_empty() {
         None
@@ -295,6 +336,10 @@ pub fn build_export(repo: &Repo) -> Result<Export> {
         .last()
         .ok_or_else(|| Error::InvalidLineage("the log has no events".into()))?;
 
+    let has_held_out = tree
+        .nodes
+        .iter()
+        .any(|n| n.runs.iter().any(|r| r.held_out_total.is_some()));
     let mut contents = std::collections::HashMap::new();
     for n in &tree.nodes {
         let bytes = repo.store().get_blob(&n.hash)?;
@@ -329,6 +374,7 @@ pub fn build_export(repo: &Repo) -> Result<Export> {
                 content,
                 diff,
                 median_pass_rate: node_median(n),
+                held_out_median_pass_rate: node_held_out_median(n),
                 runs: n
                     .runs
                     .iter()
@@ -344,6 +390,13 @@ pub fn build_export(repo: &Repo) -> Result<Export> {
                         },
                         tokens_used: r.tokens_used,
                         budget_exhausted: r.budget_exhausted,
+                        held_out_passed: r.held_out_passed,
+                        held_out_total: r.held_out_total,
+                        held_out_pass_rate: match (r.held_out_passed, r.held_out_total) {
+                            (Some(p), Some(t)) if t > 0 => Some(p as f64 / t as f64),
+                            (Some(_), Some(_)) => Some(0.0),
+                            _ => None,
+                        },
                     })
                     .collect(),
             }
@@ -371,6 +424,10 @@ pub fn build_export(repo: &Repo) -> Result<Export> {
                 paired_wins: e.paired_wins,
                 repeats: e.repeats,
                 pairs,
+                held_out_parent_median: e.held_out_parent_median,
+                held_out_child_median: e.held_out_child_median,
+                held_out_gain_pp: gain(e.held_out_parent_median, e.held_out_child_median),
+                held_out_paired_wins: e.held_out_paired_wins,
             }
         })
         .collect();
@@ -411,6 +468,10 @@ pub fn build_export(repo: &Repo) -> Result<Export> {
             min_paired_wins: config.evaluation.min_paired_wins,
             max_tokens_per_run: config.budget.max_tokens_per_run,
             max_change_bytes: config.mutation.max_change_bytes,
+            held_out_accept_threshold_pp: has_held_out
+                .then_some(config.evaluation.held_out_accept_threshold_pp),
+            held_out_min_paired_wins: has_held_out
+                .then_some(config.evaluation.held_out_min_paired_wins),
         },
         root: tree.root.clone(),
         current: tree.current.clone(),

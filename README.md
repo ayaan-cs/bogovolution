@@ -24,7 +24,7 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: v2.2.0
+## Status: v2.3.0
 
 The default is a deterministic **mock model**, so nothing costs money or touches
 the network. Since v2.1.0 there is one real provider, `local`: a model server
@@ -177,6 +177,24 @@ Done in v2.2.0 (failure details in the mutation prompt):
   one model written rule, +25 points, and its replay is committed in
   `examples/local-model/replays/qwen2.5-coder-7b/`. See "Local model test".
 
+Done in v2.3.0 (held out tasks):
+
+- A task can be marked `split = "held_out"` in `tasks.toml` (the default is
+  `train`). Held out tasks run with every version, but their ids, prompts,
+  counts and failure notes never reach the mutation prompt. See "Tasks".
+- With held out tasks, a change the train rule accepts is kept only if it
+  also gains on the held out tasks: at least 10 points of held out median and
+  at least 3 of 5 held out paired wins (both configurable). Otherwise the
+  verdict is the new **overfit**, and `current` does not move. See "The
+  verdict rule".
+- A task set with no held out tasks behaves exactly as before: same verdicts,
+  same log lines, same mutation prompts, same exports.
+- The log, `status`, `digest`, `export` (schema), `watch` and the viewer show
+  held out numbers and the overfit verdict. The mock model can limit a marker
+  to some tasks (`tasks = [...]`), to model a narrow rule.
+- `examples/local-model/` has 8 held out functions next to the 8 train ones.
+  See "Local model test" for what the 7B model did under the new rule.
+
 Planned later (not built yet): real bring-your-own-key providers. See the
 roadmap below.
 
@@ -282,6 +300,8 @@ as `defaults_confirmed = true`):
 | `repeats` | 5 | Runs per version, median taken |
 | `accept_threshold_pp` | 10 | Child must beat parent by 10 percentage points of median pass rate |
 | `min_paired_wins` | 4 | And win at least 4 of the 5 paired runs, otherwise it is noise |
+| `held_out_accept_threshold_pp` | 10 | Only with held out tasks: the child must also gain 10 points of held out median pass rate |
+| `held_out_min_paired_wins` | 3 | And win at least 3 of the 5 held out pairs, otherwise it is overfit |
 | `max_tokens_per_run` | 200000 | Token cap for one run |
 | `max_change_bytes` | 1000 | Largest allowed change for `propose` (under `[mutation]`) |
 | `isolation` | `auto` | How check commands are isolated (under `[sandbox]`, see "Sandbox and threat model") |
@@ -371,7 +391,7 @@ and the median change for judged ones, oldest first, at most the latest 40
 lines), and the size limit. The same tree always gives the same prompt text.
 
 The benchmark results (since v2.2.0) come from the runs already recorded for
-the version: the number of runs and the median pass rate, how often each task
+the version, train tasks only (held out tasks are never shown, see "Tasks"): the number of runs and the median pass rate, how often each task
 passed, and for the tasks that failed most (at most 6), the task prompt and
 the failure note the harness kept. The section is at most 3000 bytes. A
 version with no runs yet gets "No benchmark runs of this version yet."
@@ -506,8 +526,14 @@ same bytes.
 The format is described by [`schema/export.v1.json`](schema/export.v1.json)
 (JSON Schema draft 2020-12). Tests validate real exports against it, and the
 viewer validates every file it opens against the same schema. Version 1 never
-removes or renames a field. A change to the shape means a new version number
-and a new schema file.
+removes or renames a field. A change to an existing field means a new version
+number and a new schema file. Since v2.3.0 version 1 also has optional held
+out fields (`held_out_passed`, `held_out_total` and `held_out_pass_rate` on
+runs, `held_out_median_pass_rate` on nodes, `held_out_parent_median`,
+`held_out_child_median`, `held_out_gain_pp` and `held_out_paired_wins` on
+edges, the two gate settings under `config`, `overfit` under `summary`) and
+the verdict `overfit`. They appear only when the lineage has held out tasks,
+so older lineages export to the same bytes as before.
 
 ### Exit codes
 
@@ -534,8 +560,34 @@ id = "fix-parser-bug"          # letters, digits, _ - . only, unique
 prompt = "The date parser fails on leap days. Fix it."
 check = "sh tests/run.sh fix-parser-bug"   # exit 0 means pass
 timeout_secs = 120             # optional, overrides default_timeout_secs
+split = "train"                # optional: "train" (default) or "held_out"
 ```
 
+**Held out tasks (v2.3.0).** Mark a task `split = "held_out"` to keep it out
+of the model's sight while the rules are written. Held out tasks are run with
+every version, in the same runs and with the same seeds as the train tasks,
+and their outcomes are logged (marked `held_out`), but:
+
+- the mutation prompt never names them: no id, prompt, pass count or failure
+  note, and the median it shows is the train median;
+- in the history part of the prompt, an overfit change is listed as
+  `[rejected]` with its train medians, so the model does not learn held out
+  results from the history either;
+- when there are held out tasks the prompt adds one fixed sentence: the rules
+  are also scored on other tasks that are not shown, so a general habit beats
+  a fix for one task. That sentence says nothing about the tasks themselves.
+
+Use them to catch rules that only fit the tasks they were tuned on. Pick held
+out tasks that are like the train tasks but not the same ones. A set where
+every task is held out is an error. The hidden check files of held out tasks
+are protected the same way as all others. Note that the model doing a task
+still sees the repo, so the stub or source files of held out tasks are visible
+to it like any other file, as they would be in real work; only the mutating
+model is kept from the held out results.
+
+If you add held out tasks to a project that already has runs, `verify` refuses
+to judge pairs whose runs did not score the same held out tasks, and asks for
+new runs.
 Unknown keys are errors, so typos do not pass silently. Paths in `hidden` and
 `exclude` are relative to the repo root. A path covers everything under it. `*`
 matches inside one folder level, `**` matches any number of levels, `?` matches
@@ -979,6 +1031,7 @@ tokens_per_call = 1000        # plus (prompt + rules characters) / 4
 [[marker]]                    # if this text is in the rules, add delta
 text = "run the tests first"
 delta = 0.4
+# tasks = ["fix-parser-bug"]  # optional: only these tasks (default: all)
 
 [[answer]]                    # what a right and a wrong answer look like
 task = "fix-parser-bug"
@@ -1310,6 +1363,32 @@ Comparisons use a tolerance of 1e-9, so a gain of exactly 10 points counts even
 though `0.6 - 0.5` is slightly under 0.1 in floating point. `verify` refuses to
 run if `min_paired_wins` is larger than `repeats`, since nothing could be
 accepted. An accepted child becomes `current` in the tree.
+
+**Held out gate (v2.3.0).** When `tasks.toml` has held out tasks, the pass
+rates above count train tasks only, and the held out tasks are scored the
+same way on their own: held out median per version, held out gain, and held
+out paired wins over the same five pairs of runs. Rule 1 then becomes:
+
+1. **accepted** if the train rule above accepts AND the held out gain is at
+   least `held_out_accept_threshold_pp` (10) AND the held out paired wins are
+   at least `held_out_min_paired_wins` (3 of 5);
+2. **overfit** if the train rule accepts but the held out gate does not pass.
+   `current` does not move, and the reason says which part failed.
+
+Rejected and noise are decided by the train numbers alone, exactly as before:
+a held out gain never rescues a change the train rule turned down.
+
+Why this gate. The size bar is the same as for train (10 points), so a
+change has to show a gain of the same size on tasks it never saw, not just
+"not worse". The consistency bar is a strict majority of the pairs (3 of 5)
+rather than the train rule's 4 of 5: the train rule already asked for a
+consistent win, and the gate asks for a real gain in the same direction on
+new tasks, not a second independent replication. With 5 repeats, needing 4
+wins on both sets would make a true but modest general gain fail by chance
+fairly often. Both numbers are in `config.toml` if your project wants a
+stricter or looser gate; `verify` refuses a `held_out_min_paired_wins` above
+`repeats`. The gate is a pure function (`verdict::decide_with_held_out`) and
+unit tested.
 ## JSON output
 
 With `--json`, every command prints one JSON object to stdout.
@@ -1380,7 +1459,10 @@ without a bump. Object keys are sorted.
 - `verify`: `parent`, `child`, `accept_threshold_pp`, `min_paired_wins`,
   `event_seq`, and `decision`: `verdict`, `parent_median`, `child_median`,
   `gain_pp`, `paired_wins`, `repeats`, `reason`, and `pairs` (each with
-  `run_index`, `parent_rate`, `child_rate`, `win`).
+  `run_index`, `parent_rate`, `child_rate`, `win`). With held out tasks there
+  are also `held_out_accept_threshold_pp`, `held_out_min_paired_wins` and
+  `decision.held_out`: `parent_median`, `child_median`, `gain_pp`,
+  `paired_wins`, `pairs` and `passed` (whether the gate passed).
 - `verify-log`: `valid`, `chain`, `blob_problems`. `chain` has `valid`,
   `events`, `head_seq`, `head_hash`, `problems`. A problem has `code`, `seq`,
   `line`, `message`. Codes: `invalid_line`, `bad_seq`, `bad_prev_hash`,
@@ -1438,8 +1520,8 @@ Event kinds (names are stable):
 | `init` | `rules_file`, `model`, `root_hash`, `tool_version` | Start of the lineage. Always `seq` 0. |
 | `mutation_proposed` | `parent`, `child`, `hypothesis`, and optional `seed`, `provider`, `tokens_used` | A child version of a parent version. The optional fields are set when a model wrote it. |
 | `mutation_refused` | `parent`, `hypothesis` (optional), `reason`, and optional `seed`, `provider`, `tokens_used` | A change that was not allowed, for example too large |
-| `run_recorded` | `node`, `run_index`, `passed`, `total`, `tokens_used`, `seed`, `provider`, `budget_exhausted`, `tasks`, `isolation` | One benchmark run of one version over all tasks. `tasks` is a list of `id`, `status`, `tokens_used`, and, for failed attempts since v2.2.0, `detail` (a failure note of at most 600 bytes, see `mutate`). `isolation` is the backend the checks ran with. The last five fields are optional when reading older logs, and `isolation` is left out of the line when absent, so old lines keep their bytes. |
-| `verdict` | `parent`, `child`, `verdict`, `parent_median`, `child_median`, `paired_wins`, `repeats`, `note` | `verdict` is `accepted`, `rejected`, or `noise` |
+| `run_recorded` | `node`, `run_index`, `passed`, `total`, `tokens_used`, `seed`, `provider`, `budget_exhausted`, `tasks`, `isolation` | One benchmark run of one version over all tasks. `tasks` is a list of `id`, `status`, `tokens_used`, and, for failed attempts since v2.2.0, `detail` (a failure note of at most 600 bytes, see `mutate`). `isolation` is the backend the checks ran with. The last five fields are optional when reading older logs, and `isolation` is left out of the line when absent, so old lines keep their bytes. Since v2.3.0, with held out tasks, `passed` and `total` count train tasks only, the optional `held_out_passed` and `held_out_total` count held out tasks, and held out entries in `tasks` have `held_out: true`. Without held out tasks none of these appear. |
+| `verdict` | `parent`, `child`, `verdict`, `parent_median`, `child_median`, `paired_wins`, `repeats`, `note`, and optional `held_out_parent_median`, `held_out_child_median`, `held_out_paired_wins` | `verdict` is `accepted`, `rejected`, `noise`, or (since v2.3.0, only with held out tasks) `overfit`. The medians and wins are train numbers when there are held out tasks. |
 
 `init` is written by `init`, `mutation_proposed` and `mutation_refused` by
 `propose`, `mutate` and `evolve`, `run_recorded` by `run`, and `verdict` by `verify`. In the log, `seed`

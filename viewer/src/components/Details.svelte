@@ -38,6 +38,7 @@
     <p class="meta">
       Generation {node.generation} · {node.size_bytes} bytes
       {#if node.median_pass_rate !== null} · median pass rate {pct(node.median_pass_rate)}{/if}
+      {#if node.held_out_median_pass_rate !== undefined} · held out {pct(node.held_out_median_pass_rate)}{/if}
     </p>
 
     {#if node.hypothesis}
@@ -73,9 +74,26 @@
           <dd>{edge.paired_wins === null ? 'n/a' : `${edge.paired_wins} of ${edge.repeats}`}</dd>
         </div>
       </dl>
+      {#if edge.held_out_gain_pp !== undefined}
+        <h3>Held out tasks</h3>
+        <dl class="stats">
+          <div><dt>Parent median</dt><dd>{pct(edge.held_out_parent_median ?? null)}</dd></div>
+          <div><dt>Child median</dt><dd>{pct(edge.held_out_child_median ?? null)}</dd></div>
+          <div><dt>Gain</dt><dd>{points(edge.held_out_gain_pp)}</dd></div>
+          <div>
+            <dt>Paired wins</dt>
+            <dd>{edge.held_out_paired_wins === undefined ? 'n/a' : `${edge.held_out_paired_wins} of ${edge.repeats}`}</dd>
+          </div>
+        </dl>
+      {/if}
       <p class="rule">
         Rule: accept only with a gain of at least {data.config.accept_threshold_pp} points and at least
         {data.config.min_paired_wins} paired wins. Otherwise reject if the child is not above the parent, else call it noise.
+        {#if data.config.held_out_min_paired_wins !== undefined}
+          The median and wins above count train tasks only. A change the rule would accept must also gain at least
+          {data.config.held_out_accept_threshold_pp} points with at least {data.config.held_out_min_paired_wins} paired
+          wins on the held out tasks, which the model never sees. Otherwise it is overfit.
+        {/if}
       </p>
 
       <h3>Run pairs</h3>

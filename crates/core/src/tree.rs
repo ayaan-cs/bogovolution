@@ -24,6 +24,12 @@ pub struct RunSummary {
     pub seed: Option<u64>,
     pub provider: Option<String>,
     pub budget_exhausted: bool,
+    /// Held out tasks passed and run, when the task set had held out tasks.
+    /// `passed` and `total` then count train tasks only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_passed: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_total: Option<u32>,
     /// Per task results of the run, kept for the mutation prompt. Not part of
     /// any JSON output.
     #[serde(skip)]
@@ -60,6 +66,13 @@ pub struct Edge {
     pub paired_wins: Option<u32>,
     pub repeats: Option<u32>,
     pub note: Option<String>,
+    /// Held out medians and paired wins, when the task set had held out tasks.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_parent_median: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_child_median: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_paired_wins: Option<u32>,
     /// Sequence number of the proposal event.
     pub seq: u64,
     /// Sequence number of the verdict event, if there is one.
@@ -77,6 +90,10 @@ pub struct Refusal {
     pub provider: Option<String>,
 }
 
+fn is_zero(n: &usize) -> bool {
+    *n == 0
+}
+
 /// Counts for the status command.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct TreeSummary {
@@ -85,6 +102,10 @@ pub struct TreeSummary {
     pub accepted: usize,
     pub rejected: usize,
     pub noise: usize,
+    /// Left out of JSON when 0, so task sets without held out tasks give the
+    /// same output as before.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub overfit: usize,
     pub pending: usize,
     pub refused: usize,
     pub runs: usize,
@@ -221,6 +242,9 @@ impl Tree {
             paired_wins: None,
             repeats: None,
             note: None,
+            held_out_parent_median: None,
+            held_out_child_median: None,
+            held_out_paired_wins: None,
             seq,
             verdict_seq: None,
         });
@@ -252,6 +276,18 @@ impl Tree {
         if p.passed > p.total {
             return Err(bad("a run cannot pass more tasks than it ran"));
         }
+        match (p.held_out_passed, p.held_out_total) {
+            (None, None) => {}
+            (Some(hp), Some(ht)) if hp <= ht => {}
+            (Some(_), Some(_)) => {
+                return Err(bad("a run cannot pass more held out tasks than it ran"))
+            }
+            _ => {
+                return Err(bad(
+                    "a run has only one of held_out_passed and held_out_total",
+                ))
+            }
+        }
         if self.nodes[idx]
             .runs
             .iter()
@@ -272,6 +308,8 @@ impl Tree {
             seed: p.seed,
             provider: p.provider.clone(),
             budget_exhausted: p.budget_exhausted,
+            held_out_passed: p.held_out_passed,
+            held_out_total: p.held_out_total,
             tasks: p.tasks.clone(),
         });
         Ok(())
@@ -304,6 +342,9 @@ impl Tree {
         edge.paired_wins = p.paired_wins;
         edge.repeats = p.repeats;
         edge.note = p.note.clone();
+        edge.held_out_parent_median = p.held_out_parent_median;
+        edge.held_out_child_median = p.held_out_child_median;
+        edge.held_out_paired_wins = p.held_out_paired_wins;
         let node_idx = self.node_index[&p.child];
         self.nodes[node_idx].verdict = Some(p.verdict);
         if p.verdict == VerdictKind::Accepted {
@@ -365,6 +406,7 @@ impl Tree {
             accepted: count(VerdictKind::Accepted),
             rejected: count(VerdictKind::Rejected),
             noise: count(VerdictKind::Noise),
+            overfit: count(VerdictKind::Overfit),
             pending: self.edges.iter().filter(|e| e.verdict.is_none()).count(),
             refused: self.refused.len(),
             runs: self.nodes.iter().map(|n| n.runs.len()).sum(),
@@ -417,6 +459,9 @@ mod tests {
             paired_wins: Some(4),
             repeats: Some(5),
             note: None,
+            held_out_parent_median: None,
+            held_out_child_median: None,
+            held_out_paired_wins: None,
         })
     }
 

@@ -26,10 +26,17 @@ fn short(hash: &str) -> &str {
 
 /// A plain text account of what has been tried: accepted, rejected, noise,
 /// pending and refused changes, oldest first. Same tree, same text.
+///
+/// Held out results never appear here: an `overfit` change is shown as
+/// `rejected`, with its train medians only.
 pub fn history_text(tree: &Tree) -> String {
     let mut lines: Vec<(u64, String)> = Vec::new();
     for e in &tree.edges {
-        let label = e.verdict.map(|v| v.as_str()).unwrap_or("pending");
+        let label = match e.verdict {
+            Some(VerdictKind::Overfit) => "rejected",
+            Some(v) => v.as_str(),
+            None => "pending",
+        };
         let detail = match (e.parent_median, e.child_median, e.paired_wins, e.repeats) {
             (Some(p), Some(c), Some(w), Some(r)) => format!(
                 " (median {:.0}% to {:.0}%, {w} of {r} paired wins)",
@@ -70,6 +77,10 @@ const MAX_TASK_PROMPT_BYTES: usize = 200;
 /// the failure note kept by the harness (files written and the end of the
 /// check output, with hidden file lines already removed). Bounded by
 /// [`MAX_RESULTS_BYTES`]. Same tree, same text.
+///
+/// Train tasks only. Outcomes marked held out, and any task that `tasks`
+/// marks held out, are left out entirely (no id, prompt, count or note), and
+/// the median is the train median.
 pub fn results_text(tree: &Tree, version: &str, tasks: Option<&crate::tasks::TasksFile>) -> String {
     let Some(node) = tree.node(version) else {
         return "No benchmark runs of this version yet.".to_string();
@@ -89,12 +100,25 @@ pub fn results_text(tree: &Tree, version: &str, tasks: Option<&crate::tasks::Tas
         runs.len(),
         median * 100.0
     );
+    let held_out_ids: std::collections::HashSet<&str> = tasks
+        .map(|t| {
+            t.task
+                .iter()
+                .filter(|t| !t.split.is_train())
+                .map(|t| t.id.as_str())
+                .collect()
+        })
+        .unwrap_or_default();
     // task id -> (runs, passes, first note), in task order of the first run
     let mut order: Vec<String> = Vec::new();
     let mut stats: std::collections::HashMap<String, (u32, u32, Option<String>)> =
         std::collections::HashMap::new();
     for r in &runs {
-        for t in &r.tasks {
+        for t in r
+            .tasks
+            .iter()
+            .filter(|t| !t.held_out && !held_out_ids.contains(t.id.as_str()))
+        {
             let e = stats.entry(t.id.clone()).or_insert_with(|| {
                 order.push(t.id.clone());
                 (0, 0, None)
@@ -141,6 +165,7 @@ pub fn results_text(tree: &Tree, version: &str, tasks: Option<&crate::tasks::Tas
         .map(|t| {
             t.task
                 .iter()
+                .filter(|t| t.split.is_train())
                 .map(|t| (t.id.as_str(), t.prompt.as_str()))
                 .collect()
         })
@@ -177,6 +202,11 @@ pub fn results_text(tree: &Tree, version: &str, tasks: Option<&crate::tasks::Tas
     }
     out
 }
+
+/// Added to the results section when the task set has held out tasks. It
+/// says that they exist, and nothing about them.
+pub const HELD_OUT_NOTICE: &str = "\nThe rules are also scored on other tasks that are not shown here. A change is kept only if it \
+helps on those too, so prefer a general habit over a fix for one task.\n";
 
 /// The prompt sent for a mutation: the current rules, how they did on the
 /// benchmark (with failure notes), the history, and the size limit.
@@ -254,7 +284,10 @@ pub fn mutate(repo: &Repo, model: &dyn Model, opts: &MutateOptions) -> Result<Mu
     let limit = config.mutation.max_change_bytes;
     let cap = config.budget.max_tokens_per_run;
     let tasks = repo.tasks().ok();
-    let results = results_text(&tree, &parent, tasks.as_ref());
+    let mut results = results_text(&tree, &parent, tasks.as_ref());
+    if tasks.as_ref().is_some_and(|t| t.has_held_out()) {
+        results.push_str(HELD_OUT_NOTICE);
+    }
     let prompt = build_mutation_prompt(&parent_text, &parent, &tree, limit, &results);
     let request = MutationRequest {
         model: &tree.model,
@@ -377,6 +410,9 @@ pub struct EvolveReport {
     pub accepted: u32,
     pub rejected: u32,
     pub noise: u32,
+    /// Train gain without a held out gain. Left out of JSON when 0.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub overfit: u32,
     pub refused: u32,
     pub total_tokens: u64,
     /// Isolation backend the checks ran with. `None` when no check ran (every
@@ -385,6 +421,10 @@ pub struct EvolveReport {
     /// Layouts where model-written files could shadow hidden tests.
     pub warnings: Vec<crate::shadow::ShadowWarning>,
     pub generations: Vec<Generation>,
+}
+
+fn is_zero(n: &u32) -> bool {
+    *n == 0
 }
 
 /// Loop `generations` times: mutate from `current`, run parent and child, and
@@ -402,6 +442,7 @@ pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<Ev
         accepted: 0,
         rejected: 0,
         noise: 0,
+        overfit: 0,
         refused: 0,
         total_tokens: 0,
         isolation: None,
@@ -454,6 +495,7 @@ pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<Ev
                     VerdictKind::Accepted => report.accepted += 1,
                     VerdictKind::Rejected => report.rejected += 1,
                     VerdictKind::Noise => report.noise += 1,
+                    VerdictKind::Overfit => report.overfit += 1,
                 }
                 gen.verdict = Some(verdict);
             }
@@ -906,6 +948,280 @@ mod tests {
         let b = verify_child(&repo, bad.result.child.as_deref().unwrap()).unwrap();
         assert_eq!(g.decision.verdict, VerdictKind::Accepted);
         assert_eq!(b.decision.verdict, VerdictKind::Rejected);
+        // no held out tasks: no gate, and nothing new in the log
+        assert!(g.decision.held_out.is_none());
+        assert!(g.held_out_min_paired_wins.is_none());
+        let log = std::fs::read_to_string(repo.store().root().join("log.jsonl")).unwrap();
+        assert!(!log.contains("held_out"), "{log}");
+        let tree = Tree::from_events(&repo.events().unwrap()).unwrap();
+        assert_eq!(tree.current, good.result.child.clone().unwrap());
+    }
+
+    /// Five train tasks (t0..t4) and three held out tasks (h0..h2). NARROW
+    /// helps only the train tasks, GENERAL helps every task.
+    fn held_out_fixture() -> (TempDir, Repo) {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+        std::fs::write(root.join("AGENTS.md"), "base rules\n").unwrap();
+        init(&InitOptions {
+            dir: root.to_path_buf(),
+            rules_file: None,
+            model: "mock-model".into(),
+        })
+        .unwrap();
+        let mut tasks = String::from("[sandbox]\nhidden = [\"check.sh\"]\n");
+        let mut mock = String::from(
+            "seed = 2\nbase_pass_probability = 0.3\ntokens_per_call = 100\n\
+             [[marker]]\ntext = \"NARROW\"\ndelta = 0.6\ntasks = [\"t0\", \"t1\", \"t2\", \"t3\", \"t4\"]\n\
+             [[marker]]\ntext = \"GENERAL\"\ndelta = 0.6\n\
+             [[mutation]]\nhypothesis = \"add the narrow hint\"\nappend = \"NARROW\"\n",
+        );
+        let ids: Vec<(String, bool)> = (0..5)
+            .map(|i| (format!("t{i}"), false))
+            .chain((0..3).map(|i| (format!("h{i}"), true)))
+            .collect();
+        for (id, held) in &ids {
+            let (prompt, split) = if *held {
+                (format!("HELDOUT-PROMPT-{id}"), "split = \"held_out\"\n")
+            } else {
+                (format!("p {id}"), "")
+            };
+            tasks.push_str(&format!(
+                "[[task]]\nid = \"{id}\"\nprompt = \"{prompt}\"\ncheck = \"sh check.sh {id}\"\n{split}"
+            ));
+            mock.push_str(&format!(
+                "[[answer]]\ntask = \"{id}\"\npath = \"answers/{id}.txt\"\npass_content = \"ok\\n\"\nfail_content = \"no\\n\"\n"
+            ));
+        }
+        // Prints its own source (a hidden line) and a message naming the task.
+        std::fs::write(
+            root.join("check.sh"),
+            format!(
+                "{SECRET}\ncat check.sh\necho \"AssertionError in $1: expected ok\" >&2\ngrep -qx ok \"answers/$1.txt\"\n"
+            ),
+        )
+        .unwrap();
+        std::fs::write(root.join(".rules-evolve/tasks.toml"), tasks).unwrap();
+        std::fs::write(root.join(".rules-evolve/mock.toml"), &mock).unwrap();
+        let repo = Repo::open(root).unwrap();
+        (dir, repo)
+    }
+
+    fn run_all(repo: &Repo, versions: &[String]) {
+        let m = mock_model(repo);
+        for v in versions {
+            run_version(
+                repo,
+                &m,
+                &RunOptions {
+                    version: v.clone(),
+                    repeats: None,
+                    base_seed: 0,
+                },
+            )
+            .unwrap();
+        }
+    }
+
+    #[test]
+    fn held_out_tasks_never_reach_the_mutation_prompt() {
+        let (_d, repo) = held_out_fixture();
+        let m = Capture {
+            inner: mock_model(&repo),
+            prompts: Default::default(),
+        };
+        let report = evolve(
+            &repo,
+            &m,
+            &EvolveOptions {
+                generations: 2,
+                base_seed: 3,
+            },
+        )
+        .unwrap();
+        // the narrow hint wins on train only, so it is overfit
+        assert_eq!(report.overfit, 1, "{report:?}");
+        let tree = Tree::from_events(&repo.events().unwrap()).unwrap();
+        // held out outcomes are in the log, marked, and redacted like the others
+        let root = tree.node(&tree.root).unwrap();
+        let mut held_notes = 0;
+        for r in &root.runs {
+            assert_eq!(r.total, 5);
+            assert_eq!(r.held_out_total, Some(3));
+            for t in &r.tasks {
+                assert_eq!(t.held_out, t.id.starts_with('h'), "{t:?}");
+                if let Some(d) = &t.detail {
+                    assert!(!d.contains("HIDDEN-EXPECTATION"), "{d}");
+                    assert!(!d.contains("grep -qx"), "{d}");
+                    if t.held_out {
+                        held_notes += 1;
+                    }
+                }
+            }
+        }
+        assert!(held_notes > 0, "some held out task should fail at the root");
+        let prompts = m.prompts.borrow();
+        assert_eq!(prompts.len(), 2);
+        for p in prompts.iter() {
+            // no held out id, prompt, note or count
+            for h in ["h0", "h1", "h2", "HELDOUT", "held out", "held_out"] {
+                assert!(!p.contains(h), "{h:?} leaked into the prompt: {p}");
+            }
+            assert!(!p.contains("overfit"), "{p}");
+            assert!(!p.contains("HIDDEN-EXPECTATION"), "{p}");
+            assert!(!p.contains("grep -qx"), "{p}");
+            // the train results are there, and the notice
+            assert!(p.contains("AssertionError in t"), "{p}");
+            assert!(p.contains("Task: p t"), "{p}");
+            assert!(p.contains(HELD_OUT_NOTICE.trim()), "{p}");
+        }
+        // the second prompt shows the overfit change as rejected, train numbers only
+        assert!(
+            prompts[1].contains("- [rejected] add the narrow hint (median"),
+            "{}",
+            prompts[1]
+        );
+        // the train median in the prompt is over 5 train tasks: a multiple of 20%
+        let line = prompts[0]
+            .lines()
+            .find(|l| l.contains("runs of this version, median pass rate"))
+            .unwrap();
+        let pct: f64 = line
+            .rsplit(' ')
+            .next()
+            .unwrap()
+            .trim_end_matches(['%', '.'])
+            .parse()
+            .unwrap();
+        assert!((pct / 20.0 - (pct / 20.0).round()).abs() < 1e-9, "{line}");
+    }
+
+    #[test]
+    fn narrow_train_win_with_flat_held_out_is_overfit_not_accepted() {
+        let (_d, repo) = held_out_fixture();
+        let narrow = mutate(&repo, &fixed("base rules\nNARROW\n", "narrow"), &opts(1)).unwrap();
+        let child = narrow.result.child.clone().unwrap();
+        run_all(&repo, &["root".to_string(), child.clone()]);
+        let v = verify_child(&repo, &child).unwrap();
+        assert_eq!(
+            v.decision.verdict,
+            VerdictKind::Overfit,
+            "{}",
+            v.decision.reason
+        );
+        // the train rule alone would have accepted it
+        assert!(v.decision.gain_pp >= 10.0 && v.decision.paired_wins >= 4);
+        let h = v.decision.held_out.as_ref().unwrap();
+        assert!(!h.passed);
+        assert!(h.gain_pp.abs() < 1e-9, "flat held out: {h:?}");
+        assert_eq!(v.held_out_min_paired_wins, Some(3));
+        let tree = Tree::from_events(&repo.events().unwrap()).unwrap();
+        assert_eq!(tree.current, tree.root, "current must not move");
+        assert_eq!(tree.summary().overfit, 1);
+        let e = tree.edge_for_child(&child).unwrap();
+        assert_eq!(e.held_out_paired_wins, Some(h.paired_wins));
+        assert!(e.held_out_child_median.is_some());
+    }
+
+    #[test]
+    fn worse_held_out_is_overfit_too() {
+        let (_d, repo) = held_out_fixture();
+        let mut mock = std::fs::read_to_string(repo.store().root().join("mock.toml")).unwrap();
+        mock.push_str(
+            "[[marker]]\ntext = \"NARROW\"\ndelta = -0.3\ntasks = [\"h0\", \"h1\", \"h2\"]\n",
+        );
+        std::fs::write(repo.store().root().join("mock.toml"), mock).unwrap();
+        let narrow = mutate(&repo, &fixed("base rules\nNARROW\n", "narrow"), &opts(1)).unwrap();
+        let child = narrow.result.child.clone().unwrap();
+        run_all(&repo, &["root".to_string(), child.clone()]);
+        let v = verify_child(&repo, &child).unwrap();
+        assert_eq!(
+            v.decision.verdict,
+            VerdictKind::Overfit,
+            "{}",
+            v.decision.reason
+        );
+    }
+
+    #[test]
+    fn gain_on_train_and_held_out_is_accepted() {
+        let (_d, repo) = held_out_fixture();
+        let general = mutate(&repo, &fixed("base rules\nGENERAL\n", "general"), &opts(1)).unwrap();
+        let child = general.result.child.clone().unwrap();
+        run_all(&repo, &["root".to_string(), child.clone()]);
+        let v = verify_child(&repo, &child).unwrap();
+        assert_eq!(
+            v.decision.verdict,
+            VerdictKind::Accepted,
+            "{}",
+            v.decision.reason
+        );
+        assert!(v.decision.held_out.as_ref().unwrap().passed);
+        let tree = Tree::from_events(&repo.events().unwrap()).unwrap();
+        assert_eq!(tree.current, child);
+    }
+
+    #[test]
+    fn held_out_gate_is_configurable() {
+        let (_d, repo) = held_out_fixture();
+        // a gate of 0 points and 0 wins lets the narrow change through
+        let cfg_path = repo.store().root().join("config.toml");
+        let cfg = std::fs::read_to_string(&cfg_path)
+            .unwrap()
+            .replace(
+                "held_out_accept_threshold_pp = 10.0",
+                "held_out_accept_threshold_pp = 0.0",
+            )
+            .replace(
+                "held_out_min_paired_wins = 3",
+                "held_out_min_paired_wins = 0",
+            );
+        std::fs::write(&cfg_path, cfg).unwrap();
+        let narrow = mutate(&repo, &fixed("base rules\nNARROW\n", "narrow"), &opts(1)).unwrap();
+        let child = narrow.result.child.clone().unwrap();
+        run_all(&repo, &["root".to_string(), child.clone()]);
+        let v = verify_child(&repo, &child).unwrap();
+        assert_eq!(
+            v.decision.verdict,
+            VerdictKind::Accepted,
+            "{}",
+            v.decision.reason
+        );
+    }
+
+    #[test]
+    fn adding_held_out_tasks_after_runs_asks_for_a_rerun() {
+        let (_d, repo) = fixture(MOCK);
+        let good = mutate(&repo, &fixed("base rules\nGOOD\n", "good"), &opts(1)).unwrap();
+        let child = good.result.child.clone().unwrap();
+        run_all(&repo, &["root".to_string(), child.clone()]);
+        let path = repo.store().root().join("tasks.toml");
+        let mut t = std::fs::read_to_string(&path).unwrap();
+        t.push_str(
+            "[[task]]\nid = \"h0\"\nprompt = \"x\"\ncheck = \"true\"\nsplit = \"held_out\"\n",
+        );
+        std::fs::write(&path, t).unwrap();
+        let err = verify_child(&repo, &child).unwrap_err().to_string();
+        assert!(err.contains("held out"), "{err}");
+    }
+
+    #[test]
+    fn results_text_skips_tasks_marked_held_out_in_tasks_toml() {
+        // runs recorded before a task was marked held out still keep it out
+        let (_d, repo) = fixture(MOCK);
+        chatty_check(&repo, 0);
+        run_all(&repo, &["root".to_string()]);
+        let tree = Tree::from_events(&repo.events().unwrap()).unwrap();
+        let mut tf = repo.tasks().unwrap();
+        for t in &mut tf.task {
+            if t.id != "t0" {
+                t.split = crate::tasks::Split::HeldOut;
+            }
+        }
+        let r = results_text(&tree, &tree.root, Some(&tf));
+        for i in 1..N {
+            assert!(!r.contains(&format!("t{i}")), "{r}");
+        }
     }
 
     #[test]

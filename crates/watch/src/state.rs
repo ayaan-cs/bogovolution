@@ -61,6 +61,7 @@ pub enum RowStatus {
     Accepted,
     Rejected,
     Noise,
+    Overfit,
     Refused,
 }
 
@@ -72,6 +73,7 @@ impl RowStatus {
             RowStatus::Accepted => "accepted",
             RowStatus::Rejected => "rejected",
             RowStatus::Noise => "noise",
+            RowStatus::Overfit => "overfit",
             RowStatus::Refused => "refused",
         }
     }
@@ -199,6 +201,7 @@ pub struct WatchState {
     pub accepted: usize,
     pub rejected: usize,
     pub noise: usize,
+    pub overfit: usize,
     pub pending: usize,
     pub refused: usize,
 }
@@ -214,6 +217,7 @@ fn verdict_status(v: Option<VerdictKind>, is_root: bool) -> RowStatus {
         (false, Some(VerdictKind::Accepted)) => RowStatus::Accepted,
         (false, Some(VerdictKind::Rejected)) => RowStatus::Rejected,
         (false, Some(VerdictKind::Noise)) => RowStatus::Noise,
+        (false, Some(VerdictKind::Overfit)) => RowStatus::Overfit,
     }
 }
 
@@ -460,6 +464,7 @@ impl WatchState {
             accepted: 0,
             rejected: 0,
             noise: 0,
+            overfit: 0,
             pending: 0,
             refused: 0,
         }
@@ -499,6 +504,7 @@ impl WatchState {
         state.accepted = summary.accepted;
         state.rejected = summary.rejected;
         state.noise = summary.noise;
+        state.overfit = summary.overfit;
         state.pending = summary.pending;
         state.refused = summary.refused;
         state.tree = Some(tree);
@@ -693,6 +699,24 @@ mod tests {
         assert_eq!(s.rows[1].prefix, "\u{2514}\u{2500} ");
         assert_eq!(s.rows[2].prefix, "   \u{251c}\u{2500} ");
         assert_eq!(s.rows.last().unwrap().prefix, "   \u{2514}\u{2500} ");
+    }
+
+    #[test]
+    fn overfit_is_its_own_status_and_does_not_move_current() {
+        let s = build(&[
+            init(),
+            proposed('a', 'b', "narrow"),
+            verdict('a', 'b', VerdictKind::Overfit, 0.5, 0.75, 5),
+        ]);
+        let b = s
+            .rows
+            .iter()
+            .find(|r| matches!(&r.id, RowId::Version(h) if h.starts_with('b')))
+            .unwrap();
+        assert_eq!(b.status, RowStatus::Overfit);
+        assert_eq!(b.status.label(), "overfit");
+        assert!(!b.is_current);
+        assert_eq!((s.accepted, s.overfit), (0, 1));
     }
 
     #[test]

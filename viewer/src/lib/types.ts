@@ -1,7 +1,8 @@
 // Shapes of schema/export.v1.json. The schema is the source of truth: the
 // loader validates every file against it before these types are trusted.
 
-export type Verdict = 'accepted' | 'rejected' | 'noise';
+// overfit (v2.3.0): gained on the train tasks but not on the held out tasks.
+export type Verdict = 'accepted' | 'rejected' | 'noise' | 'overfit';
 export type NodeStatus = 'root' | 'pending' | Verdict;
 export type Outcome = Verdict | 'pending' | 'refused';
 
@@ -13,6 +14,11 @@ export interface Run {
   pass_rate: number;
   tokens_used: number;
   budget_exhausted: boolean;
+  // Present only when the task set had held out tasks. passed, total and
+  // pass_rate then count train tasks only.
+  held_out_passed?: number;
+  held_out_total?: number;
+  held_out_pass_rate?: number;
 }
 
 export interface TreeNode {
@@ -29,6 +35,7 @@ export interface TreeNode {
   content: string;
   diff: string | null;
   median_pass_rate: number | null;
+  held_out_median_pass_rate?: number;
   runs: Run[];
 }
 
@@ -52,6 +59,10 @@ export interface TreeEdge {
   paired_wins: number | null;
   repeats: number | null;
   pairs: Pair[];
+  held_out_parent_median?: number;
+  held_out_child_median?: number;
+  held_out_gain_pp?: number;
+  held_out_paired_wins?: number;
 }
 
 export interface Refusal {
@@ -83,6 +94,8 @@ export interface ExportConfig {
   min_paired_wins: number;
   max_tokens_per_run: number;
   max_change_bytes: number;
+  held_out_accept_threshold_pp?: number;
+  held_out_min_paired_wins?: number;
 }
 
 export interface Summary {
@@ -91,6 +104,7 @@ export interface Summary {
   accepted: number;
   rejected: number;
   noise: number;
+  overfit?: number;
   pending: number;
   refused: number;
   runs: number;

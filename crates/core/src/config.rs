@@ -19,6 +19,21 @@ pub struct EvaluationConfig {
     pub accept_threshold_pp: f64,
     /// And win at least this many of the paired runs.
     pub min_paired_wins: u32,
+    /// Held out gate (used only when tasks.toml has held out tasks): the
+    /// child must also gain this many points of held out median pass rate...
+    #[serde(default = "default_held_out_threshold")]
+    pub held_out_accept_threshold_pp: f64,
+    /// ...and win at least this many paired runs on the held out tasks.
+    #[serde(default = "default_held_out_wins")]
+    pub held_out_min_paired_wins: u32,
+}
+
+fn default_held_out_threshold() -> f64 {
+    10.0
+}
+
+fn default_held_out_wins() -> u32 {
+    3
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -74,6 +89,8 @@ impl Config {
                 repeats: 5,
                 accept_threshold_pp: 10.0,
                 min_paired_wins: 4,
+                held_out_accept_threshold_pp: default_held_out_threshold(),
+                held_out_min_paired_wins: default_held_out_wins(),
             },
             budget: BudgetConfig {
                 max_tokens_per_run: 200_000,
@@ -106,6 +123,11 @@ impl Config {
              accept_threshold_pp = {threshold:?}\n\
              # ...and win at least this many of the paired runs. Otherwise the result is noise.\n\
              min_paired_wins = {wins}\n\
+             # Only when tasks.toml marks tasks with split = \"held_out\": a child the rule above\n\
+             # accepts must also gain this many points on the held out median...\n\
+             held_out_accept_threshold_pp = {ho_threshold:?}\n\
+             # ...and win this many held out pairs. Otherwise the verdict is overfit.\n\
+             held_out_min_paired_wins = {ho_wins}\n\
              \n\
              [budget]\n\
              # Token cap for one run.\n\
@@ -138,6 +160,8 @@ impl Config {
             rules_file = toml_string(&self.project.rules_file),
             model = toml_string(&self.project.model),
             repeats = self.evaluation.repeats,
+            ho_threshold = self.evaluation.held_out_accept_threshold_pp,
+            ho_wins = self.evaluation.held_out_min_paired_wins,
             threshold = self.evaluation.accept_threshold_pp,
             wins = self.evaluation.min_paired_wins,
             tokens = self.budget.max_tokens_per_run,

@@ -34,7 +34,13 @@
 
   const untrackedShow = () => showRefused;
   const refusedCount = $derived(data.refused.length);
-  const STATUSES = ['accepted', 'rejected', 'noise', 'pending', 'root', 'refused'] as const;
+  const STATUSES = ['accepted', 'rejected', 'noise', 'overfit', 'pending', 'root', 'refused'] as const;
+  /// overfit appears in the legend only when the lineage has held out tasks.
+  const legend = $derived(
+    data.config.held_out_min_paired_wins !== undefined
+      ? ['accepted', 'rejected', 'noise', 'overfit', 'pending', 'refused']
+      : ['accepted', 'rejected', 'noise', 'pending', 'refused'],
+  );
 
   function styles(): cytoscape.StylesheetJson {
     const fg = cssVar('--fg');
@@ -342,7 +348,7 @@
     <p class="hint">Zoomed in so the text stays readable. Drag to move, scroll to zoom, or press Fit all to see the whole tree.</p>
   {/if}
   <div class="legend" aria-hidden="true">
-    {#each ['accepted', 'rejected', 'noise', 'pending', 'refused'] as s}
+    {#each legend as s}
       <span class="item"><i class="dot {s}"></i>{s}</span>
     {/each}
     <span class="item"><i class="dot ring"></i>current</span>
@@ -412,6 +418,7 @@
   .dot.accepted { border-color: var(--c-accepted); background: var(--bg-accepted); }
   .dot.rejected { border-color: var(--c-rejected); background: var(--bg-rejected); }
   .dot.noise { border-color: var(--c-noise); background: var(--bg-noise); }
+  .dot.overfit { border-color: var(--c-overfit); background: var(--bg-overfit); }
   .dot.pending { border-color: var(--c-pending); background: var(--bg-pending); }
   .dot.refused { border-color: var(--c-refused); background: var(--bg-refused); border-style: dashed; }
   .dot.ring { border-color: var(--c-accepted); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-accepted) 25%, transparent); }

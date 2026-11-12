@@ -18,7 +18,7 @@
   let gainW = $state(0);
   let spreadW = $state(0);
 
-  const OUTCOMES = ['accepted', 'rejected', 'noise', 'pending', 'refused'];
+  const OUTCOMES = ['accepted', 'rejected', 'noise', 'overfit', 'pending', 'refused'];
 
   function palette() {
     return {
@@ -135,8 +135,8 @@
     );
     const meds = nodes.map((n, idx) => ({ idx, rate: (n.median_pass_rate ?? 0) * 100, status: n.status }));
     const statusColor = {
-      domain: ['root', 'accepted', 'rejected', 'noise', 'pending'],
-      range: ['root', 'accepted', 'rejected', 'noise', 'pending'].map((o) => cssVar(`--c-${o}`)),
+      domain: ['root', 'accepted', 'rejected', 'noise', 'overfit', 'pending'],
+      range: ['root', 'accepted', 'rejected', 'noise', 'overfit', 'pending'].map((o) => cssVar(`--c-${o}`)),
     };
     put(
       spreadEl,

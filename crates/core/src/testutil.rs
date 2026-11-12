@@ -49,6 +49,9 @@ pub fn verdict(parent: char, child: char, v: VerdictKind, pm: f64, cm: f64, wins
         paired_wins: Some(wins),
         repeats: Some(5),
         note: Some(format!("because {}", v.as_str())),
+        held_out_parent_median: None,
+        held_out_child_median: None,
+        held_out_paired_wins: None,
     })
 }
 

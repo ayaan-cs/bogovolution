@@ -194,6 +194,9 @@ mod tests {
             paired_wins: None,
             repeats: None,
             note: None,
+            held_out_parent_median: None,
+            held_out_child_median: None,
+            held_out_paired_wins: None,
         });
         assert!(repo.append(&bad).is_err());
         assert_eq!(repo.events().unwrap().len(), 1);

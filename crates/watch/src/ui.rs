@@ -33,6 +33,7 @@ fn status_color(s: RowStatus) -> Color {
         RowStatus::Accepted => Color::Green,
         RowStatus::Rejected => Color::Red,
         RowStatus::Noise => Color::Yellow,
+        RowStatus::Overfit => Color::Magenta,
         RowStatus::Refused => Color::DarkGray,
     }
 }
@@ -42,6 +43,7 @@ fn feed_color(k: FeedKind) -> Color {
         FeedKind::Verdict(VerdictKind::Accepted) => Color::Green,
         FeedKind::Verdict(VerdictKind::Rejected) => Color::Red,
         FeedKind::Verdict(VerdictKind::Noise) => Color::Yellow,
+        FeedKind::Verdict(VerdictKind::Overfit) => Color::Magenta,
         FeedKind::Refused => Color::DarkGray,
     }
 }
@@ -149,6 +151,13 @@ fn draw_title(frame: &mut Frame, area: Rect, state: &WatchState) {
             format!("{} noise", state.noise),
             Style::default().fg(Color::Yellow),
         ));
+        if state.overfit > 0 {
+            spans.push(Span::raw("  "));
+            spans.push(Span::styled(
+                format!("{} overfit", state.overfit),
+                Style::default().fg(Color::Magenta),
+            ));
+        }
         spans.push(Span::raw("  "));
         spans.push(Span::styled(
             format!("{} pending", state.pending),

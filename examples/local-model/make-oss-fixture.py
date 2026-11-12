@@ -11,7 +11,11 @@ The checks are hidden from the model by rules-evolve. This is a task set DERIVED
 from a real open source project (MIT licensed), not the whole project.
 
   make-oss-fixture.py <more-itertools checkout> <destination> [fn,fn,...]
-                     [--reference] [--tasks-out=PATH]
+                     [--held-out=fn,fn,...] [--reference] [--tasks-out=PATH]
+
+--held-out adds more functions as held out tasks (split = "held_out" in
+tasks.toml): rules-evolve runs and scores them, but never shows them to the
+model that writes the rules, and accepts a change only if it also gains on them.
 
 --tasks-out writes tasks.toml somewhere else (default: <destination>/tasks.toml).
 Put it in <destination>/.rules-evolve/ after `rules-evolve init`, so the model
@@ -43,6 +47,14 @@ FUNCS = {
     "roundrobin": "RoundrobinTests",
     "partition": "PartitionTests",
     "grouper": "GrouperTests",
+    "consume": "ConsumeTests",
+    "tabulate": "TabulateTests",
+    "nth_combination": "NthCombinationTests",
+    "before_and_after": "BeforeAndAfterTests",
+    "triplewise": "TriplewiseTests",
+    "subslices": "SubslicesTests",
+    "iter_index": "IterIndexTests",
+    "transpose": "TransposeTests",
 }
 
 RULES = "# Project rules\n\nWrite clear code and keep changes small.\n"
@@ -57,6 +69,14 @@ def main():
     )
     src_dir, dest = Path(args[0]), Path(args[1])
     names = args[2].split(",") if len(args) > 2 else list(FUNCS)
+    held_out = next(
+        (a.split("=", 1)[1].split(",") for a in sys.argv[1:] if a.startswith("--held-out=")),
+        [],
+    )
+    held_out = [h for h in held_out if h]
+    overlap = sorted(set(names) & set(held_out))
+    if overlap:
+        sys.exit(f"a function cannot be both train and held out: {', '.join(overlap)}")
     recipes = (src_dir / "more_itertools/recipes.py").read_text()
     tests = (src_dir / "tests/test_recipes.py").read_text()
     rt, tt = ast.parse(recipes), ast.parse(tests)
@@ -77,7 +97,7 @@ def main():
     (dest / "solve/__init__.py").write_text("")
     (dest / "checks/__init__.py").write_text("")
     (dest / "AGENTS.md").write_text(RULES)
-    for name in names:
+    for name in names + held_out:
         f = funcs[name]
         lines = recipes.splitlines()
         first = (f.decorator_list[0].lineno if f.decorator_list else f.lineno) - 1
@@ -116,15 +136,17 @@ def main():
         'hidden = ["checks"]',
         "",
     ]
-    for name in names:
+    for name in names + held_out:
         out += [
             "[[task]]",
             f'id = "{name}"',
             f'prompt = "Implement the function `{name}` in solve/{name}.py. Keep the signature and follow the docstring exactly. Write the whole file."',
             f'check = "python3 -B -m unittest checks.test_{name}"',
             "timeout_secs = 60",
-            "",
         ]
+        if name in held_out:
+            out.append('split = "held_out"')
+        out.append("")
     Path(tasks_out or dest / "tasks.toml").write_text("\n".join(out))
 
 

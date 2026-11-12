@@ -120,6 +120,10 @@ pub trait Model {
 pub struct Marker {
     pub text: String,
     pub delta: f64,
+    /// Task ids the marker applies to. Empty (the default) means every task.
+    /// Lets a mock model a narrow rule that helps only some tasks.
+    #[serde(default)]
+    pub tasks: Vec<String>,
 }
 
 /// What a right and a wrong answer look like for one task. The mock writes
@@ -277,9 +281,17 @@ impl MockModel {
 
     /// Pass probability for a rules text, clamped to 0 to 1.
     pub fn pass_probability(&self, rules: &str) -> f64 {
+        self.task_pass_probability(rules, None)
+    }
+
+    /// Pass probability for a rules text on one task. Markers limited to
+    /// other tasks do not count. `None` counts only markers for every task.
+    pub fn task_pass_probability(&self, rules: &str, task_id: Option<&str>) -> f64 {
         let mut p = self.config.base_pass_probability;
         for m in &self.config.marker {
-            if rules.contains(&m.text) {
+            let applies =
+                m.tasks.is_empty() || task_id.is_some_and(|t| m.tasks.iter().any(|x| x == t));
+            if applies && rules.contains(&m.text) {
                 p += m.delta;
             }
         }
@@ -288,7 +300,7 @@ impl MockModel {
 
     /// Whether the mock answers correctly for this request.
     pub fn would_pass(&self, req: &ModelRequest) -> bool {
-        let p = self.pass_probability(req.rules);
+        let p = self.task_pass_probability(req.rules, Some(req.task_id));
         let cfg_seed = self.config.seed.to_string();
         let seed = req.seed.to_string();
         let run = req.run_index.to_string();
@@ -474,10 +486,12 @@ mod tests {
                 Marker {
                     text: "GOOD".into(),
                     delta: 0.5,
+                    tasks: vec![],
                 },
                 Marker {
                     text: "BAD".into(),
                     delta: -0.5,
+                    tasks: vec![],
                 },
             ],
             answer: vec![Answer {
@@ -541,6 +555,18 @@ mod tests {
         assert!(good > base + 0.3, "{good} vs {base}");
         assert!(bad < 0.01, "{bad}");
         assert!((base - 0.4).abs() < 0.1, "{base}");
+    }
+
+    #[test]
+    fn a_marker_can_be_limited_to_some_tasks() {
+        let cfg: MockConfig = toml::from_str(
+            "base_pass_probability = 0.2\n[[marker]]\ntext = \"N\"\ndelta = 0.7\ntasks = [\"a\"]\n",
+        )
+        .unwrap();
+        let m = MockModel::new(cfg);
+        assert!((m.task_pass_probability("N", Some("a")) - 0.9).abs() < 1e-12);
+        assert!((m.task_pass_probability("N", Some("b")) - 0.2).abs() < 1e-12);
+        assert!((m.pass_probability("N") - 0.2).abs() < 1e-12);
     }
 
     #[test]

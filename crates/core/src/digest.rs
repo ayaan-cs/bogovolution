@@ -20,7 +20,7 @@ pub struct DigestItem {
     pub parent: String,
     pub generation: u32,
     pub hypothesis: String,
-    /// `accepted`, `rejected`, `noise` or `pending`.
+    /// `accepted`, `rejected`, `noise`, `overfit` or `pending`.
     pub status: String,
     pub gain_pp: Option<f64>,
     pub parent_median: Option<f64>,
@@ -28,6 +28,11 @@ pub struct DigestItem {
     pub paired_wins: Option<u32>,
     pub repeats: Option<u32>,
     pub reason: Option<String>,
+    /// Held out medians and wins, when the task set had held out tasks.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_gain_pp: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_paired_wins: Option<u32>,
     /// Number of runs recorded for the version.
     pub runs_recorded: usize,
 }
@@ -86,6 +91,10 @@ pub struct Digest {
     pub worked: Vec<DigestItem>,
     pub rejected: Vec<DigestItem>,
     pub noise: Vec<DigestItem>,
+    /// Gained on the train tasks but not on the held out tasks. Left out of
+    /// JSON when empty.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub overfit: Vec<DigestItem>,
     pub pending: Vec<DigestItem>,
     pub refused: Vec<DigestRefusal>,
     pub themes: Themes,
@@ -254,6 +263,11 @@ fn item(tree: &Tree, e: &Edge) -> DigestItem {
         paired_wins: e.paired_wins,
         repeats: e.repeats,
         reason: e.note.clone(),
+        held_out_gain_pp: match (e.held_out_parent_median, e.held_out_child_median) {
+            (Some(p), Some(c)) => Some((c - p) * 100.0),
+            _ => None,
+        },
+        held_out_paired_wins: e.held_out_paired_wins,
         runs_recorded: node.map(|n| n.runs.len()).unwrap_or(0),
     }
 }
@@ -286,6 +300,7 @@ pub fn build_digest(tree: &Tree) -> Digest {
     let mut worked = Vec::new();
     let mut rejected = Vec::new();
     let mut noise = Vec::new();
+    let mut overfit = Vec::new();
     let mut pending = Vec::new();
     for e in &tree.edges {
         let it = item(tree, e);
@@ -293,6 +308,7 @@ pub fn build_digest(tree: &Tree) -> Digest {
             Some(VerdictKind::Accepted) => worked.push(it),
             Some(VerdictKind::Rejected) => rejected.push(it),
             Some(VerdictKind::Noise) => noise.push(it),
+            Some(VerdictKind::Overfit) => overfit.push(it),
             None => pending.push(it),
         }
     }
@@ -356,7 +372,7 @@ pub fn build_digest(tree: &Tree) -> Digest {
         })
         .collect();
 
-    let suggestions = suggest(
+    let mut suggestions = suggest(
         tree,
         &worked,
         &noise,
@@ -365,6 +381,18 @@ pub fn build_digest(tree: &Tree) -> Digest {
         &themes,
         &untried_areas,
     );
+
+    for o in overfit.iter().rev().take(3) {
+        suggestions.push(Suggestion {
+            kind: "generalize".to_string(),
+            text: format!(
+                "\"{}\" gained {} on the train tasks but {} on the held out tasks. Look for the general habit behind it rather than a rule about one task.",
+                quote(&o.hypothesis),
+                gain_text(o.gain_pp),
+                gain_text(o.held_out_gain_pp)
+            ),
+        });
+    }
 
     Digest {
         rules_file: tree.rules_file.clone(),
@@ -376,6 +404,7 @@ pub fn build_digest(tree: &Tree) -> Digest {
         worked,
         rejected,
         noise,
+        overfit,
         pending,
         refused,
         themes,
@@ -537,6 +566,12 @@ pub fn render_markdown(d: &Digest) -> String {
         c.pending,
         c.refused
     ));
+    if c.overfit > 0 {
+        s.push_str(&format!(
+            "{} more gained on the train tasks but not on the held out tasks (overfit).\n\n",
+            c.overfit
+        ));
+    }
     s.push_str(&format!(
         "Current version: `{}` (root `{}`). ",
         d.current, d.root
@@ -582,6 +617,19 @@ pub fn render_markdown(d: &Digest) -> String {
             gain_text(it.gain_pp),
             it.reason.clone().unwrap_or_default()
         ));
+    }
+    if !d.overfit.is_empty() {
+        s.push_str("\n### Overfit\n\n");
+        for it in &d.overfit {
+            s.push_str(&format!(
+                "- {} (`{}`, train {}, held out {}). {}\n",
+                quote(&it.hypothesis),
+                it.version,
+                gain_text(it.gain_pp),
+                gain_text(it.held_out_gain_pp),
+                it.reason.clone().unwrap_or_default()
+            ));
+        }
     }
     s.push_str("\n### Refused\n\n");
     if d.refused.is_empty() {

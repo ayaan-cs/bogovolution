@@ -25,6 +25,31 @@ describe('parseExport', () => {
     }
   });
 
+  it('accepts held out fields and the overfit verdict', () => {
+    const d = clone();
+    d.config.held_out_accept_threshold_pp = 10;
+    d.config.held_out_min_paired_wins = 3;
+    d.summary.overfit = 1;
+    d.edges[0].verdict = 'overfit';
+    d.edges[0].held_out_parent_median = 0.4;
+    d.edges[0].held_out_child_median = 0.4;
+    d.edges[0].held_out_gain_pp = 0;
+    d.edges[0].held_out_paired_wins = 0;
+    const child = d.nodes.find((n: any) => n.hash === d.edges[0].child);
+    child.verdict = 'overfit';
+    child.status = 'overfit';
+    child.held_out_median_pass_rate = 0.4;
+    child.runs[0].held_out_passed = 2;
+    child.runs[0].held_out_total = 5;
+    child.runs[0].held_out_pass_rate = 0.4;
+    d.series[0].outcome = 'overfit';
+    const r = parseExport(JSON.stringify(d));
+    expect(r.ok).toBe(true);
+    // a held out rate above 1 is still caught
+    child.runs[0].held_out_pass_rate = 1.5;
+    expect(parseExport(JSON.stringify(d)).ok).toBe(false);
+  });
+
   it('explains an empty file', () => {
     expect(failure('   ').title).toMatch(/empty/i);
   });

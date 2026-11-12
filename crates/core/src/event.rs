@@ -45,6 +45,10 @@ pub enum VerdictKind {
     Accepted,
     Rejected,
     Noise,
+    /// The child met the train rule but not the held out gate: it fits the
+    /// tasks it was tuned on and did not show a clear gain on the others.
+    /// Like rejected, `current` does not move.
+    Overfit,
 }
 
 impl VerdictKind {
@@ -53,6 +57,7 @@ impl VerdictKind {
             VerdictKind::Accepted => "accepted",
             VerdictKind::Rejected => "rejected",
             VerdictKind::Noise => "noise",
+            VerdictKind::Overfit => "overfit",
         }
     }
 }
@@ -147,6 +152,10 @@ pub struct TaskOutcome {
     /// missing in logs written before v2.2.0.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub detail: Option<String>,
+    /// True for a held out task (v2.3.0). Its result never reaches the
+    /// mutation prompt. Left out of the line for train tasks.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub held_out: bool,
 }
 
 /// One benchmark run of one rules version over the whole task set.
@@ -174,6 +183,13 @@ pub struct RunRecordedPayload {
     /// `none`). Missing in logs written before it existed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub isolation: Option<String>,
+    /// Held out tasks passed and run (v2.3.0). `passed` and `total` then
+    /// count train tasks only. Both are left out when there are no held out
+    /// tasks, so such runs look exactly as before.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held_out_passed: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held_out_total: Option<u32>,
 }
 
 /// The final decision about a child, by the fixed public rule.
@@ -192,6 +208,14 @@ pub struct VerdictPayload {
     pub repeats: Option<u32>,
     #[serde(default)]
     pub note: Option<String>,
+    /// Held out medians and paired wins, when the task set has held out
+    /// tasks (v2.3.0). Left out of the line otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held_out_parent_median: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held_out_child_median: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held_out_paired_wins: Option<u32>,
 }
 
 /// Typed payload for each event kind.

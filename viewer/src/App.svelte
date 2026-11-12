@@ -165,6 +165,9 @@
       <div class="stat accepted"><span class="n">{data.summary.accepted}</span><span class="l">accepted</span></div>
       <div class="stat rejected"><span class="n">{data.summary.rejected}</span><span class="l">rejected</span></div>
       <div class="stat noise"><span class="n">{data.summary.noise}</span><span class="l">noise</span></div>
+      {#if data.summary.overfit}
+        <div class="stat overfit"><span class="n">{data.summary.overfit}</span><span class="l">overfit</span></div>
+      {/if}
       <div class="stat pending"><span class="n">{data.summary.pending}</span><span class="l">pending</span></div>
       <div class="stat refused"><span class="n">{data.summary.refused}</span><span class="l">refused</span></div>
       <div class="stat wide">
@@ -262,6 +265,7 @@
   .stat.accepted .n { color: var(--tx-accepted); }
   .stat.rejected .n { color: var(--tx-rejected); }
   .stat.noise .n { color: var(--tx-noise); }
+  .stat.overfit .n { color: var(--tx-overfit); }
   .stat.pending .n { color: var(--tx-pending); }
   .stat.refused .n { color: var(--tx-refused); }
   .stage {

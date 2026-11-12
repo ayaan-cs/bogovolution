@@ -17,7 +17,7 @@ use crate::sandbox::{CheckStatus, Sandbox};
 use crate::shadow::{self, ShadowWarning};
 use crate::tasks::TasksFile;
 use crate::tree::Tree;
-use crate::verdict::{decide, Decision, Rule};
+use crate::verdict::{decide, decide_with_held_out, Decision, HeldOutRule, Rule};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -49,6 +49,12 @@ pub struct RunDetail {
     pub pass_rate: f64,
     pub tokens_used: u64,
     pub budget_exhausted: bool,
+    /// Held out tasks passed and run, when there are held out tasks.
+    /// `passed`, `total` and `pass_rate` then count train tasks only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_passed: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_total: Option<u32>,
     pub tasks: Vec<TaskOutcome>,
     /// Sequence number of the `run_recorded` event.
     pub event_seq: u64,
@@ -158,12 +164,19 @@ pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<
             seed,
             cap,
         )?;
-        let passed = outcome
-            .tasks
-            .iter()
-            .filter(|t| t.status == TaskStatus::Passed)
-            .count() as u32;
-        let total = tasks.task.len() as u32;
+        let count = |held: bool| {
+            let of_split = outcome.tasks.iter().filter(|t| t.held_out == held);
+            let total = of_split.clone().count() as u32;
+            let passed = of_split.filter(|t| t.status == TaskStatus::Passed).count() as u32;
+            (passed, total)
+        };
+        let (passed, total) = count(false);
+        let (held_out_passed, held_out_total) = if tasks.has_held_out() {
+            let (p, t) = count(true);
+            (Some(p), Some(t))
+        } else {
+            (None, None)
+        };
         let event = repo.append(&Payload::RunRecorded(RunRecordedPayload {
             node: version.clone(),
             run_index,
@@ -175,6 +188,8 @@ pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<
             budget_exhausted: outcome.budget_exhausted,
             tasks: outcome.tasks.clone(),
             isolation: Some(isolation.clone()),
+            held_out_passed,
+            held_out_total,
         }))?;
         report.total_tokens += outcome.tokens_used;
         report.runs.push(RunDetail {
@@ -185,6 +200,8 @@ pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<
             pass_rate: pass_rate(passed, total),
             tokens_used: outcome.tokens_used,
             budget_exhausted: outcome.budget_exhausted,
+            held_out_passed,
+            held_out_total,
             tasks: outcome.tasks,
             event_seq: event.seq,
         });
@@ -222,6 +239,7 @@ fn execute_run(
             status: TaskStatus::Failed,
             tokens_used: 0,
             detail: None,
+            held_out: task.split == crate::tasks::Split::HeldOut,
         };
         if exhausted {
             outcome.status = TaskStatus::SkippedBudget;
@@ -313,6 +331,11 @@ pub struct VerifyOutcome {
     pub child: String,
     pub accept_threshold_pp: f64,
     pub min_paired_wins: u32,
+    /// The held out gate, when it was applied.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_accept_threshold_pp: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub held_out_min_paired_wins: Option<u32>,
     pub decision: Decision,
     /// Sequence number of the `verdict` event.
     pub event_seq: u64,
@@ -342,8 +365,19 @@ pub fn verify_child(repo: &Repo, child_spec: &str) -> Result<VerifyOutcome> {
         )));
     }
 
+    if config.evaluation.held_out_min_paired_wins > repeats {
+        return Err(Error::Input(format!(
+            "held_out_min_paired_wins ({}) is more than repeats ({repeats}), so nothing could ever be accepted",
+            config.evaluation.held_out_min_paired_wins
+        )));
+    }
+    let tasks_have_held_out = repo.tasks()?.has_held_out();
+
     let mut parent_rates = Vec::new();
     let mut child_rates = Vec::new();
+    let mut held_parent = Vec::new();
+    let mut held_child = Vec::new();
+    let mut runs_have_held_out = Vec::new();
     for run_index in 0..repeats {
         let find = |hash: &str| {
             tree.node(hash)
@@ -374,14 +408,50 @@ pub fn verify_child(repo: &Repo, child_spec: &str) -> Result<VerifyOutcome> {
         }
         parent_rates.push(pass_rate(p.passed, p.total));
         child_rates.push(pass_rate(c.passed, c.total));
+        for r in [p, c] {
+            runs_have_held_out.push(r.held_out_total.is_some_and(|t| t > 0));
+        }
+        if let (Some(pp), Some(pt), Some(cp), Some(ct)) = (
+            p.held_out_passed,
+            p.held_out_total,
+            c.held_out_passed,
+            c.held_out_total,
+        ) {
+            if pt > 0 && pt == ct {
+                held_parent.push(pass_rate(pp, pt));
+                held_child.push(pass_rate(cp, ct));
+            }
+        }
+    }
+    let all_held = runs_have_held_out.iter().all(|&b| b);
+    let any_held = runs_have_held_out.iter().any(|&b| b);
+    if (tasks_have_held_out || any_held) && !(all_held && held_parent.len() == repeats as usize) {
+        return Err(Error::Input(
+            "tasks.toml has held out tasks, but not every paired run of the parent and child scored the same held out tasks. Rerun the versions with `run` (a new seed, or a fresh project) so the held out gate can be applied".into(),
+        ));
     }
 
     let rule = Rule {
         accept_threshold_pp: config.evaluation.accept_threshold_pp,
         min_paired_wins: config.evaluation.min_paired_wins,
     };
-    let decision =
-        decide(&parent_rates, &child_rates, &rule).map_err(|e| Error::Input(e.to_string()))?;
+    let gate = HeldOutRule {
+        accept_threshold_pp: config.evaluation.held_out_accept_threshold_pp,
+        min_paired_wins: config.evaluation.held_out_min_paired_wins,
+    };
+    let decision = if all_held && !held_parent.is_empty() {
+        decide_with_held_out(
+            &parent_rates,
+            &child_rates,
+            &rule,
+            &held_parent,
+            &held_child,
+            &gate,
+        )
+    } else {
+        decide(&parent_rates, &child_rates, &rule)
+    }
+    .map_err(|e| Error::Input(e.to_string()))?;
     let event = repo.append(&Payload::Verdict(VerdictPayload {
         parent: parent.clone(),
         child: child.clone(),
@@ -391,12 +461,17 @@ pub fn verify_child(repo: &Repo, child_spec: &str) -> Result<VerifyOutcome> {
         paired_wins: Some(decision.paired_wins),
         repeats: Some(decision.repeats),
         note: Some(decision.reason.clone()),
+        held_out_parent_median: decision.held_out.as_ref().map(|h| h.parent_median),
+        held_out_child_median: decision.held_out.as_ref().map(|h| h.child_median),
+        held_out_paired_wins: decision.held_out.as_ref().map(|h| h.paired_wins),
     }))?;
     Ok(VerifyOutcome {
         parent,
         child,
         accept_threshold_pp: rule.accept_threshold_pp,
         min_paired_wins: rule.min_paired_wins,
+        held_out_accept_threshold_pp: decision.held_out.as_ref().map(|_| gate.accept_threshold_pp),
+        held_out_min_paired_wins: decision.held_out.as_ref().map(|_| gate.min_paired_wins),
         decision,
         event_seq: event.seq,
     })

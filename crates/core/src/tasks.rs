@@ -19,6 +19,27 @@ pub struct Task {
     /// Seconds before the check is killed. Falls back to `default_timeout_secs`.
     #[serde(default)]
     pub timeout_secs: Option<u64>,
+    /// `train` (the default) or `held_out`. Held out tasks are run and scored
+    /// with every version, but their prompts, results and failure notes never
+    /// reach the mutation prompt, and a child is accepted only if it also
+    /// gains on them (see "The verdict rule").
+    #[serde(default, skip_serializing_if = "Split::is_train")]
+    pub split: Split,
+}
+
+/// Which part of the task set a task belongs to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Split {
+    #[default]
+    Train,
+    HeldOut,
+}
+
+impl Split {
+    pub fn is_train(&self) -> bool {
+        *self == Split::Train
+    }
 }
 
 /// How the sandbox treats files.
@@ -123,6 +144,11 @@ impl TasksFile {
                 return Err(format!("task {} has timeout_secs = 0", t.id));
             }
         }
+        if !self.task.is_empty() && self.task.iter().all(|t| t.split == Split::HeldOut) {
+            return Err(
+                "every task is held_out: at least one task must be train (the default)".into(),
+            );
+        }
         if self.sandbox.default_timeout_secs == 0 {
             return Err("default_timeout_secs must be above 0".into());
         }
@@ -139,6 +165,11 @@ impl TasksFile {
             }
         }
         Ok(())
+    }
+
+    /// True when at least one task is held out.
+    pub fn has_held_out(&self) -> bool {
+        self.task.iter().any(|t| t.split == Split::HeldOut)
     }
 
     /// Timeout in seconds for a task.
@@ -179,6 +210,9 @@ id = "example-fix-failing-test"
 prompt = "The test suite has one failing test. Fix the code so all tests pass."
 check = "cargo test --quiet"
 # timeout_secs = 300
+# Mark some tasks split = "held_out" to keep them out of every mutation
+# prompt. A change is then accepted only if it also gains on them.
+# split = "train"
 "#;
 
 #[cfg(test)]
@@ -192,6 +226,30 @@ mod tests {
         assert_eq!(parsed.task[0].id, "example-fix-failing-test");
         assert_eq!(parsed.sandbox.hidden, vec!["tests".to_string()]);
         assert_eq!(parsed.timeout_for(&parsed.task[0]), 60);
+    }
+
+    #[test]
+    fn split_defaults_to_train_and_parses_held_out() {
+        let f = TasksFile::parse(
+            "[[task]]\nid=\"a\"\nprompt=\"p\"\ncheck=\"true\"\n\
+             [[task]]\nid=\"b\"\nprompt=\"p\"\ncheck=\"true\"\nsplit=\"held_out\"\n\
+             [[task]]\nid=\"c\"\nprompt=\"p\"\ncheck=\"true\"\nsplit=\"train\"\n",
+        )
+        .unwrap();
+        let splits: Vec<Split> = f.task.iter().map(|t| t.split).collect();
+        assert_eq!(splits, vec![Split::Train, Split::HeldOut, Split::Train]);
+        assert!(f.has_held_out());
+        assert!(!TasksFile::parse(TASKS_TEMPLATE).unwrap().has_held_out());
+        // a typo is an error, and so is a set with no train task
+        assert!(TasksFile::parse(
+            "[[task]]\nid=\"a\"\nprompt=\"p\"\ncheck=\"true\"\nsplit=\"heldout\"\n"
+        )
+        .is_err());
+        let err = TasksFile::parse(
+            "[[task]]\nid=\"a\"\nprompt=\"p\"\ncheck=\"true\"\nsplit=\"held_out\"\n",
+        )
+        .unwrap_err();
+        assert!(err.contains("at least one task must be train"), "{err}");
     }
 
     #[test]

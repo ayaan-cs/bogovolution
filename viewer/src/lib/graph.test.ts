@@ -62,6 +62,7 @@ describe('buildElements', () => {
   it('labels nodes with id, status, median, gain and refusals', () => {
     expect(nodeLabel('accepted', 'abc1234', 0.92)).toBe('abc1234\naccepted \u00b7 92%');
     expect(nodeLabel('pending', 'abc1234', null)).toBe('abc1234\npending \u00b7 no runs');
+    expect(nodeLabel('overfit', 'abc1234', 0.75, 25)).toBe('abc1234\noverfit \u00b7 75%\n+25 pts');
     expect(nodeLabel('rejected', 'abc1234', 0.5, -41.7, 3)).toBe('abc1234\nrejected \u00b7 50%\n-42 pts\n3 refused');
   });
 });

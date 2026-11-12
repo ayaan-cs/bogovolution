@@ -1664,3 +1664,89 @@ fn local_output_files_must_not_land_where_the_model_reads() {
         assert!(!msg.contains("inside the repo"), "{msg}");
     }
 }
+
+/// Five train tasks and three held out ones. NARROW helps train tasks only.
+fn held_out_project() -> tempfile::TempDir {
+    let dir = bench_project(5);
+    let root = dir.path();
+    let mut tasks = std::fs::read_to_string(root.join(".rules-evolve/tasks.toml")).unwrap();
+    let mut mock = std::fs::read_to_string(root.join(".rules-evolve/mock.toml")).unwrap();
+    let train: Vec<String> = (0..N_TASKS).map(|i| format!("\"t{i}\"")).collect();
+    mock.push_str(&format!(
+        "[[marker]]\ntext = \"NARROW\"\ndelta = 0.6\ntasks = [{}]\n",
+        train.join(", ")
+    ));
+    for i in 0..3 {
+        tasks.push_str(&format!(
+            "[[task]]\nid = \"h{i}\"\nprompt = \"held out {i}\"\ncheck = \"sh check.sh h{i}\"\nsplit = \"held_out\"\n"
+        ));
+        mock.push_str(&format!(
+            "[[answer]]\ntask = \"h{i}\"\npath = \"answers/h{i}.txt\"\npass_content = \"ok\\n\"\nfail_content = \"no\\n\"\n"
+        ));
+    }
+    std::fs::write(root.join(".rules-evolve/tasks.toml"), tasks).unwrap();
+    std::fs::write(root.join(".rules-evolve/mock.toml"), mock).unwrap();
+    dir
+}
+
+#[test]
+fn held_out_gate_through_the_cli_and_export() {
+    let dir = held_out_project();
+    let d = dir.path();
+    let narrow = evolve(d, "base rules\nNARROW\n", "add the narrow hint");
+    assert_eq!(narrow["decision"]["verdict"], "overfit", "{narrow}");
+    assert!(narrow["decision"]["gain_pp"].as_f64().unwrap() >= 10.0);
+    assert_eq!(narrow["held_out_min_paired_wins"], 3);
+    assert_eq!(narrow["decision"]["held_out"]["passed"], false);
+    let general = evolve(d, "base rules\nGOOD\n", "add the good hint");
+    assert_eq!(general["decision"]["verdict"], "accepted", "{general}");
+    assert_eq!(general["decision"]["held_out"]["passed"], true);
+
+    // human text names the gate
+    let file = d.join("c2.txt");
+    std::fs::write(&file, "base rules\nNARROW\nx\n").unwrap();
+    let p = ok_json(
+        d,
+        &[
+            "propose",
+            "--file",
+            file.to_str().unwrap(),
+            "--hypothesis",
+            "h",
+            "--parent",
+            "root",
+        ],
+    );
+    let child = p["data"]["child"].as_str().unwrap().to_string();
+    ok_json(d, &["run", "--version", &child]);
+    let out = run(d, &["verify", "--child", &child]);
+    let text = String::from_utf8_lossy(&out.stdout);
+    assert!(text.contains("OVERFIT"), "{text}");
+    assert!(text.contains("held out: parent median"), "{text}");
+    let st = String::from_utf8_lossy(&run(d, &["status"]).stdout).to_string();
+    assert!(st.contains("overfit 2"), "{st}");
+
+    // the export carries the held out fields and validates
+    let out = d.join("tree.json");
+    ok_json(d, &["export", "--out", out.to_str().unwrap()]);
+    let doc = read_json(&out);
+    assert_valid(&schema_validator(), &doc);
+    assert_eq!(doc["summary"]["overfit"], 2);
+    assert_eq!(doc["config"]["held_out_min_paired_wins"], 3);
+    let edges = doc["edges"].as_array().unwrap();
+    assert_eq!(edges[0]["verdict"], "overfit");
+    assert!(edges[0]["held_out_gain_pp"].is_number());
+    let run0 = &doc["nodes"][0]["runs"][0];
+    assert_eq!(run0["total"], N_TASKS as u64);
+    assert_eq!(run0["held_out_total"], 3);
+    assert!(doc["nodes"][0]["held_out_median_pass_rate"].is_number());
+    assert!(doc["series"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|p| p["outcome"] == "overfit"));
+
+    // the digest has an overfit section
+    let dg = String::from_utf8_lossy(&run(d, &["digest"]).stdout).to_string();
+    assert!(dg.contains("### Overfit"), "{dg}");
+}

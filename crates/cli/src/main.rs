@@ -555,8 +555,12 @@ fn run(cli: &Cli) -> Result<Output> {
             );
             text.push_str(&warnings_text(&report.warnings));
             for r in &report.runs {
+                let held = match (r.held_out_passed, r.held_out_total) {
+                    (Some(hp), Some(ht)) => format!(" train, {hp}/{ht} held out"),
+                    _ => String::new(),
+                };
                 text.push_str(&format!(
-                    "  run {}: {}/{} passed ({:.0}%), {} tokens{}\n",
+                    "  run {}: {}/{} passed ({:.0}%){held}, {} tokens{}\n",
                     r.run_index,
                     r.passed,
                     r.total,
@@ -659,11 +663,18 @@ fn run(cli: &Cli) -> Result<Output> {
             for g in &report.generations {
                 let what = match &g.verdict {
                     Some(v) => format!(
-                        "{} (gain {:.1} points, {} of {} wins)",
+                        "{} (gain {:.1} points, {} of {} wins{})",
                         v.decision.verdict.as_str().to_uppercase(),
                         v.decision.gain_pp,
                         v.decision.paired_wins,
-                        v.decision.repeats
+                        v.decision.repeats,
+                        match &v.decision.held_out {
+                            Some(h) => format!(
+                                "; held out gain {:.1} points, {} of {} wins",
+                                h.gain_pp, h.paired_wins, v.decision.repeats
+                            ),
+                            None => String::new(),
+                        }
                     ),
                     None => format!(
                         "REFUSED ({})",
@@ -686,8 +697,17 @@ fn run(cli: &Cli) -> Result<Output> {
                 text.push_str(&format!("Isolation: {}\n", label_isolation(iso)));
             }
             text.push_str(&format!(
-                "Accepted {}, rejected {}, noise {}, refused {}. Total tokens: {}\n",
-                report.accepted, report.rejected, report.noise, report.refused, report.total_tokens
+                "Accepted {}, rejected {}, noise {}, {}refused {}. Total tokens: {}\n",
+                report.accepted,
+                report.rejected,
+                report.noise,
+                if report.overfit > 0 {
+                    format!("overfit {}, ", report.overfit)
+                } else {
+                    String::new()
+                },
+                report.refused,
+                report.total_tokens
             ));
             text.push_str(&format!(
                 "Current: {} (was {})\n",
@@ -720,6 +740,18 @@ fn run(cli: &Cli) -> Result<Output> {
                 out.accept_threshold_pp,
                 d.reason
             );
+            if let Some(h) = &d.held_out {
+                text.push_str(&format!(
+                    "  held out: parent median {:.3}, child median {:.3}, gain {:.1} points, paired wins {} of {} (needs {} and a gain of {} points)\n",
+                    h.parent_median,
+                    h.child_median,
+                    h.gain_pp,
+                    h.paired_wins,
+                    d.repeats,
+                    out.held_out_min_paired_wins.unwrap_or(0),
+                    out.held_out_accept_threshold_pp.unwrap_or(0.0)
+                ));
+            }
             for p in &d.pairs {
                 text.push_str(&format!(
                     "  pair {}: parent {:.2}, child {:.2}{}\n",
@@ -930,11 +962,15 @@ fn event_summary(e: &Event) -> String {
             format!("from {}: refused: {}", short(&p.parent), p.reason)
         }
         Ok(Payload::RunRecorded(p)) => format!(
-            "{} run {}: {}/{} passed, {} tokens{}{}",
+            "{} run {}: {}/{} passed{}, {} tokens{}{}",
             short(&p.node),
             p.run_index,
             p.passed,
             p.total,
+            match (p.held_out_passed, p.held_out_total) {
+                (Some(hp), Some(ht)) => format!(" (train), {hp}/{ht} held out"),
+                _ => String::new(),
+            },
             p.tokens_used,
             p.seed.map(|s| format!(", seed {s}")).unwrap_or_default(),
             if p.budget_exhausted {
@@ -997,13 +1033,18 @@ fn status_text(s: &StatusReport) -> String {
                 short(&tree.current)
             ));
             t.push_str(&format!(
-                "Versions: {} (deepest generation {})\nMutations: {} (accepted {}, rejected {}, noise {}, pending {})\nRefused: {}\nRuns recorded: {} ({} tokens)\n",
+                "Versions: {} (deepest generation {})\nMutations: {} (accepted {}, rejected {}, noise {}, {}pending {})\nRefused: {}\nRuns recorded: {} ({} tokens)\n",
                 sum.nodes,
                 sum.max_generation,
                 sum.edges,
                 sum.accepted,
                 sum.rejected,
                 sum.noise,
+                if sum.overfit > 0 {
+                    format!("overfit {}, ", sum.overfit)
+                } else {
+                    String::new()
+                },
                 sum.pending,
                 sum.refused,
                 sum.runs,
