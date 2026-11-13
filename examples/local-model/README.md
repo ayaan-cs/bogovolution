@@ -129,15 +129,42 @@ What this shows:
   one task's worth and just above the bar. `consume` failed for every rule
   (its tests saw the wrong number of items left, for example `3 != 0`).
 
-**A new 7B `evolve` with both sets in one project did not finish.** It was
-started at 10:03 PM (America/Chicago) with the defaults (8 train plus 8 held
-out tasks, 3 generations, seed 7, bwrap). About 17 calls into the root's
-first runs the box restarted (around 10:22 PM) and took the model server and
-the run with it. After the restart about 12 of 16 GB of RAM were already in
-use by other things, which leaves too little for the 7B (about 5 GB), so it
-was not started again. Its partial output is kept outside the repo; nothing
-from it is committed. A run of the default set needs about 330 calls, so
-expect about 2 to 3 hours on an 8 vCPU box like this one.
+**The combined 7B `evolve` (8 train plus 8 held out tasks in one project).**
+A first attempt on Nov 11 was cut short when the box restarted. It was run
+again on Nov 13, 2026 from 1:52 AM to 3:26 AM (America/Chicago) with the
+defaults: 3 generations, seed 7, bwrap, the same model and server settings.
+243 calls, 662708 tokens, 5655 s (94 min 15 s). The replay is
+`replays/qwen2.5-coder-7b/oss-held-out-replay.jsonl`, and replaying it
+reproduces every run, verdict and hash of the rules versions (117 s, no model
+server).
+
+| Version | Rules change | Train runs (of 8) | Train median | Held out runs (of 8) | Held out median | Verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| root | none | 4, 4, 5, 4, 4 | 50% | 5, 5, 6, 4, 5 | 62.5% | |
+| gen 1 | "At the beginning of each Python file, import any necessary modules." | 4, 5, 4, 4, 5 | 50% | 3, 5, 4, 5, 5 | 62.5% | rejected, 0.0 points, 2 of 5 wins (held out 0.0, 1 of 5) |
+| gen 2 | "Import all necessary modules at the beginning of each file." | 4, 4, 4, 4, 4 | 50% | 4, 5, 5, 5, 5 | 62.5% | rejected, 0.0 points, 0 of 5 wins (held out 0.0, 1 of 5) |
+| gen 3 | the same text as gen 2 | | | | | refused: already in the tree |
+
+Nothing was accepted and nothing was overfit. This time the model never
+proposed the narrow `islice` rule: all three hypotheses were the same generic
+"import necessary modules" idea, which, as in the earlier runs, did not change
+what the model wrote. Per task, passes of 5 (root / gen 1 / gen 2): train
+`take` 0/0/0, `tail` 1/1/1, `nth` 0/0/0, `flatten` 5/5/5, `partition` 4/5/4,
+`unique_justseen` 1/1/0, `prepend` 5/5/5, `quantify` 5/5/5; held out
+`consume` 0/0/0, `roundrobin` 1/0/0, `iter_index` 0/0/0, `tabulate` 5/5/5,
+`ncycles` 5/5/5, `powerset` 5/5/5, `unique_everseen` 4/3/5, `first_true`
+5/4/4. So the same model, seed and tasks gave a different mutation path than
+the two train only runs (which both found `islice` in generation 2): with
+held out tasks in the project the model saw 16 stubs and different failure
+notes, and llama.cpp is not deterministic across runs anyway. One run is a
+sample, not a law.
+
+Replay it for free:
+
+```sh
+examples/local-model/replay.sh oss-held-out /tmp/more-itertools \
+  examples/local-model/replays/qwen2.5-coder-7b/oss-held-out-replay.jsonl
+```
 
 Replay the held out check (about 4 minutes, no model server):
 

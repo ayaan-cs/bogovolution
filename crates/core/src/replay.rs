@@ -165,6 +165,30 @@ impl ReplayFile {
         self.order.is_empty()
     }
 
+    /// The one recorded mutation for this model, parent version and seed, if
+    /// there is exactly one. Used when the exact key misses: a mutation prompt
+    /// carries failure notes from real check output, and in earlier versions those
+    /// notes kept test run times (`Ran 3 tests in 0.002s`) that change on every
+    /// run. Parent hash plus seed still pin the call; the task calls, whose
+    /// prompts hold no check output, are always matched exactly.
+    fn unique_mutation(&self, model: &str, rules_hash: &str, seed: u64) -> Option<&Value> {
+        let mut found = self.entries.values().filter_map(|l| match l {
+            Line::Entry {
+                kind,
+                model: m,
+                rules_hash: r,
+                seed: s,
+                response,
+                ..
+            } if kind == KIND_MUTATION && m == model && r == rules_hash && *s == seed => {
+                Some(response)
+            }
+            _ => None,
+        });
+        let first = found.next()?;
+        found.next().is_none().then_some(first)
+    }
+
     fn get(&self, key: &str) -> Option<&Value> {
         match self.entries.get(key) {
             Some(Line::Entry { response, .. }) => Some(response),
@@ -455,6 +479,10 @@ impl Model for ReplayModel {
         );
         self.file
             .get(&key)
+            .or_else(|| {
+                self.file
+                    .unique_mutation(req.model, req.parent_hash, req.seed)
+            })
             .and_then(|v| v.get("tokens_used"))
             .and_then(Value::as_u64)
             .unwrap_or(0)
@@ -472,6 +500,10 @@ impl Model for ReplayModel {
         let value = self
             .file
             .get(&key)
+            .or_else(|| {
+                self.file
+                    .unique_mutation(req.model, req.parent_hash, req.seed)
+            })
             .ok_or_else(|| self.miss("a mutation", req.parent_hash, req.seed))?;
         let resp: MutationResponse =
             serde_json::from_value(value.clone()).map_err(|e| Error::Parse {
@@ -605,6 +637,31 @@ mod tests {
             Err(Error::ReplayMiss(_))
         ));
         assert_eq!(rep.counters().replayed, 0);
+    }
+
+    #[test]
+    fn a_mutation_whose_prompt_changed_is_found_by_parent_and_seed_if_unique() {
+        let d = tempdir().unwrap();
+        let path = d.path().join("r.jsonl");
+        let rec = RecordingModel::new(mock(), &path).unwrap();
+        let recorded = rec.propose_mutation(&mreq(1)).unwrap();
+        let rep = ReplayModel::load(&path).unwrap();
+        // same parent and seed, different prompt (run times in the notes)
+        let mut other = mreq(1);
+        other.prompt = "the same request with different failure notes";
+        assert_eq!(rep.propose_mutation(&other).unwrap(), recorded);
+        assert!(rep.estimate_mutation_tokens(&other) > 0);
+        // a different seed or parent is still a miss
+        assert!(matches!(
+            rep.propose_mutation(&mreq(2)),
+            Err(Error::ReplayMiss(_))
+        ));
+        let mut other_parent = mreq(1);
+        other_parent.parent_hash = "another-parent";
+        assert!(matches!(
+            rep.propose_mutation(&other_parent),
+            Err(Error::ReplayMiss(_))
+        ));
     }
 
     #[test]

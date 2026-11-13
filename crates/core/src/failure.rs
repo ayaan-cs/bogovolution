@@ -117,6 +117,33 @@ fn replace_path(text: &str, root: &str) -> String {
     out
 }
 
+/// Drop a run time such as ` in 0.002s` from a summary line (`Ran 3 tests in
+/// 0.002s`, pytest's `== 2 failed in 0.12s ==`). Timings change from run to
+/// run, so keeping them would make the mutation prompt, and with it the
+/// replay key, differ between a recording and its replay.
+fn drop_timing(line: &str) -> String {
+    let mut search = line.len();
+    while let Some(i) = line[..search].rfind(" in ") {
+        let after = &line[i + 4..];
+        let num_len = after
+            .find(|c: char| !(c.is_ascii_digit() || c == '.'))
+            .unwrap_or(after.len());
+        let num = &after[..num_len];
+        let rest = &after[num_len..];
+        if !num.is_empty()
+            && num.chars().next().is_some_and(|c| c.is_ascii_digit())
+            && rest.starts_with('s')
+            && rest[1..]
+                .chars()
+                .all(|c| c == ' ' || c == '=' || c == ')' || c == '(')
+        {
+            return format!("{}{}", &line[..i], &rest[1..]);
+        }
+        search = i;
+    }
+    line.to_string()
+}
+
 /// Clean check output: no color codes, worktree paths shown as `.`, and every
 /// line that quotes a hidden file replaced (runs of them become one line).
 pub fn redact(output: &str, hidden: &HiddenLines, roots: &[&str]) -> String {
@@ -133,7 +160,7 @@ pub fn redact(output: &str, hidden: &HiddenLines, roots: &[&str]) -> String {
                 out.push(placeholder);
             }
         } else {
-            out.push(line.trim_end().to_string());
+            out.push(drop_timing(line.trim_end()));
         }
     }
     // drop blank lines at both ends
@@ -323,6 +350,23 @@ mod tests {
             &["/tmp/wt-1", "/work"],
         );
         assert_eq!(r, "./a.py /workshop/b .\n./c");
+    }
+
+    #[test]
+    fn run_times_are_dropped_so_notes_are_stable() {
+        let h = hidden(&[]);
+        let a = redact("Ran 3 tests in 0.002s\n\nFAILED (errors=3)", &h, &[]);
+        let b = redact("Ran 3 tests in 8.060s\n\nFAILED (errors=3)", &h, &[]);
+        assert_eq!(a, "Ran 3 tests\n\nFAILED (errors=3)");
+        assert_eq!(a, b);
+        assert_eq!(
+            drop_timing("==== 2 failed, 1 passed in 0.12s ===="),
+            "==== 2 failed, 1 passed ===="
+        );
+        // other uses of "in" stay
+        assert_eq!(drop_timing("error in 3 places"), "error in 3 places");
+        assert_eq!(drop_timing("File in 2s.py"), "File in 2s.py");
+        assert_eq!(drop_timing("x in 5s and more"), "x in 5s and more");
     }
 
     #[test]

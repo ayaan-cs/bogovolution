@@ -94,6 +94,27 @@ paired wins on the held out tasks gets the verdict **overfit** instead of
 accepted. Under that rule the `islice` rule is overfit and the hand written
 rule is accepted.
 
+## Round 4: one combined run, and nothing was accepted
+
+Finally the 7B ran the whole loop once with both sets in one project: 8 train
+and 8 held out tasks, 3 generations, seed 7. 243 calls, 662,708 tokens, 94 min
+15 s.
+
+| Version | Change | Train median | Held out median | Verdict |
+| --- | --- | --- | --- | --- |
+| root | none | 50% (4, 4, 5, 4, 4) | 62.5% (5, 5, 6, 4, 5) | |
+| gen 1 | "At the beginning of each Python file, import any necessary modules." | 50% | 62.5% | rejected, 0.0 points, 2 of 5 wins |
+| gen 2 | "Import all necessary modules at the beginning of each file." | 50% | 62.5% | rejected, 0.0 points, 0 of 5 wins |
+| gen 3 | the same text as gen 2 | | | refused, already in the tree |
+
+This time the model never proposed the narrow `islice` rule. All three ideas
+were the generic import rule, which again changed nothing (`take` and `nth`
+stayed at 0 of 5). So the same model, seed and tasks took a different path
+than the two train only runs, which both found `islice` in generation 2. The
+model saw 16 stubs instead of 8 and different failure notes, and llama.cpp
+does not give identical answers across runs anyway. No overfit verdict came
+up, because nothing passed the train gate.
+
 ## What this suggests
 
 - A loop that only measures the tasks it tunes on will happily accept a rule
@@ -118,8 +139,9 @@ rule is accepted.
 - **The held out verdict was put together by hand** from two projects (the
   train runs and a held out only project), so in the held out runs the model
   saw 8 stub files per task instead of 16. A single combined run with both
-  sets in one project was started once and cut short when the machine
-  restarted.
+  sets in one project was done afterwards (see below), but it did not
+  reproduce the `islice` rule, so the overfit verdict was never produced by
+  the tool itself in a live run.
 - **One library, one kind of task.** All tasks are "write this function" in
   one Python library.
 
@@ -135,6 +157,8 @@ examples/local-model/replay.sh oss /path/to/more-itertools \
   examples/local-model/replays/qwen2.5-coder-7b/oss-oracle-replay.jsonl
 examples/local-model/replay.sh held-out-eval /path/to/more-itertools \
   examples/local-model/replays/qwen2.5-coder-7b/held-out-eval-replay.jsonl
+examples/local-model/replay.sh oss-held-out /path/to/more-itertools \
+  examples/local-model/replays/qwen2.5-coder-7b/oss-held-out-replay.jsonl
 ```
 
 The more-itertools checkout must be at commit

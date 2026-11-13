@@ -761,6 +761,14 @@ with a `replay miss` error that names the task, rules version and seed, and
 nothing from that run is written. Record the file again with `--record` if you change the model
 name, tasks, prompts, rules or seeds.
 
+One exception for mutations: a mutation prompt carries failure notes from
+real check output, which is not always byte for byte the same between a
+recording and its replay. So when the exact key of a mutation misses, replay
+uses the recorded mutation with the same model name, parent version and seed,
+if there is exactly one. Task calls are always matched exactly. Now
+failure notes also drop test run times (`Ran 3 tests in 0.002s`), the one part
+that changed on every run.
+
 ### Paid providers (your own key)
 
 **Using these costs real money, billed to your own API account.** Every task
@@ -872,8 +880,13 @@ made things worse (`tabulate` 5 to 3 of 5, `ncycles` 5 to 2 of 5, with logic
 errors rather than import errors), and the new gate would have called it
 overfit. The general hand written rule passes the gate. This verdict is put
 together by hand from two projects (the train runs of v2.2.0 and a held out
-only project), so the model saw 8 stub files per task instead of 16. A new
-7B `evolve` with both sets in one project was started but did not finish
+only project), so the model saw 8 stub files per task instead of 16. A combined
+7B `evolve` with both sets in one project (Nov 13, 243 calls, 662708 tokens,
+94 min) accepted nothing: the model only proposed generic "import necessary
+modules" rules (train 50% to 50%, held out 62.5% to 62.5%, both rejected) and
+never found the `islice` rule this time, so the gate had nothing to call
+overfit. Its replay is
+`examples/local-model/replays/qwen2.5-coder-7b/oss-held-out-replay.jsonl`
 (see `examples/local-model/README.md`). Replay the held out check for free
 with `examples/local-model/replay.sh held-out-eval /path/to/more-itertools
 examples/local-model/replays/qwen2.5-coder-7b/held-out-eval-replay.jsonl`.

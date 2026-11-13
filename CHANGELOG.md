@@ -8,6 +8,17 @@ been published: every version below exists only as a local git commit.
 - README: install from source, a one minute quickstart with the replay demo,
   and a short summary of what the real model runs found.
 - `docs/writeup.md`: the story and the numbers of the real model runs.
+- Combined 7B `evolve` with 8 train and 8 held out tasks: nothing accepted,
+  2 rejected, 1 refused; the model never proposed the narrow `islice` rule this
+  time. Replay committed as `oss-held-out-replay.jsonl`.
+- Fix: failure notes kept test run times (`Ran 3 tests in 0.002s`), which
+  change on every run, so a replay of a run with failure notes could miss on
+  a mutation. Run times are now dropped from the notes, and a replayed
+  mutation whose exact key misses is matched by model, parent version and
+  seed when exactly one recorded mutation fits. Task calls still match
+  exactly. All committed 7B replays reproduce again.
+- `examples/local-model/replay.sh` makes replay file paths absolute, so the
+  documented relative paths work.
 - `docs/release-checklist.md`: a draft checklist for a first public release.
 - The crate version now matches the documented version (2.6.0, was 0.1.0), so
   `rules-evolve --version` and the `generator.version` field of an export say

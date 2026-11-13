@@ -22,11 +22,14 @@ BIN=${RULES_EVOLVE:-$ROOT/target/release/rules-evolve}
 if [ ! -x "$BIN" ]; then
   (cd "$ROOT" && cargo build --release -q)
 fi
+# The binary reads --replay-file relative to the project (-C), so make the
+# replay paths absolute here.
+abs() { case "$1" in /*) printf '%s' "$1" ;; *) printf '%s/%s' "$PWD" "$1" ;; esac; }
 WORK=${WORK:-$(mktemp -d)}
 mkdir -p "$WORK"
 case "${1:-}" in
   demo)
-    REPLAY=${2:?usage: replay.sh demo <demo-replay.jsonl>}
+    REPLAY=$(abs "${2:?usage: replay.sh demo <demo-replay.jsonl>}")
     cp -R "$ROOT/examples/demo/fixture/." "$WORK/"
     "$BIN" -C "$WORK" init --model local-model >/dev/null
     cp "$ROOT/examples/demo/tasks.toml" "$WORK/.rules-evolve/"
@@ -35,7 +38,7 @@ case "${1:-}" in
     ;;
   oss)
     SRC=${2:?usage: replay.sh oss <more-itertools checkout> <oss-replay.jsonl> [oracle-replay.jsonl]}
-    REPLAY=${3:?usage: replay.sh oss <more-itertools checkout> <oss-replay.jsonl> [oracle-replay.jsonl]}
+    REPLAY=$(abs "${3:?usage: replay.sh oss <more-itertools checkout> <oss-replay.jsonl> [oracle-replay.jsonl]}")
     TASKS=$(mktemp)
     python3 "$HERE/make-oss-fixture.py" "$SRC" "$WORK" \
       take,tail,nth,flatten,partition,unique_justseen,prepend,quantify --tasks-out="$TASKS"
@@ -48,13 +51,13 @@ case "${1:-}" in
         --hypothesis "Hand written (not from the model): most failures in the baseline were missing imports, so say to import everything used." \
         | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"]["child"])')
       "$BIN" -C "$WORK" run --version "$child" --seed 7 --provider replay \
-        --replay-file "$4"
+        --replay-file "$(abs "$4")"
       "$BIN" -C "$WORK" verify --child "$child"
     fi
     ;;
   oss-held-out)
     SRC=${2:?usage: replay.sh oss-held-out <more-itertools checkout> <replay.jsonl>}
-    REPLAY=${3:?usage: replay.sh oss-held-out <more-itertools checkout> <replay.jsonl>}
+    REPLAY=$(abs "${3:?usage: replay.sh oss-held-out <more-itertools checkout> <replay.jsonl>}")
     TASKS=$(mktemp)
     python3 "$HERE/make-oss-fixture.py" "$SRC" "$WORK" \
       take,tail,nth,flatten,partition,unique_justseen,prepend,quantify \
@@ -67,7 +70,7 @@ case "${1:-}" in
     ;;
   held-out-eval)
     SRC=${2:?usage: replay.sh held-out-eval <more-itertools checkout> <replay.jsonl>}
-    REPLAY=${3:?usage: replay.sh held-out-eval <more-itertools checkout> <replay.jsonl>}
+    REPLAY=$(abs "${3:?usage: replay.sh held-out-eval <more-itertools checkout> <replay.jsonl>}")
     R7=$HERE/replays/qwen2.5-coder-7b
     TASKS=$(mktemp)
     python3 "$HERE/make-oss-fixture.py" "$SRC" "$WORK" \
