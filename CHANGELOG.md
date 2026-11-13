@@ -7,6 +7,7 @@ been published: every version below exists only as a local git commit.
 
 - README: install from source, a one minute quickstart with the replay demo,
   and a short summary of what the real model runs found.
+- `docs/writeup.md`: the story and the numbers of the real model runs.
 - `docs/release-checklist.md`: a draft checklist for a first public release.
 - The crate version now matches the documented version (2.6.0, was 0.1.0), so
   `rules-evolve --version` and the `generator.version` field of an export say

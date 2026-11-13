@@ -38,7 +38,7 @@ where marked. No remote exists, nothing is pushed or published.
 
 - [x] README: install, quickstart, findings, Petri credit.
 - [x] CHANGELOG.md.
-- [ ] docs/writeup.md.
+- [x] docs/writeup.md.
 - [ ] Replace `<this repo>` placeholders with the real URL once it exists.
 - [ ] Read the README top to bottom once more; it is long. Consider moving the
       sandbox and plugin sections into `docs/`.

@@ -71,7 +71,8 @@ rules: it had fitted the benchmark, not taught a general lesson. A hand written
 general rule ("import everything you use") gained on both sets (+25 on train,
 +12.5 on held out). Since v2.3.0 the tool can hold tasks out and calls such a
 result **overfit** instead of accepting it. Details and caveats (8 tasks, so
-one task is 12.5 points; one small model) are in "Local model test".
+one task is 12.5 points; one small model) are in "Local model test" and, in plain words, in
+[`docs/writeup.md`](docs/writeup.md).
 
 ## Inspiration
 
