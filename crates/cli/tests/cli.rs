@@ -363,7 +363,7 @@ fn verify_before_running_and_unknown_provider_are_errors() {
         .as_str()
         .unwrap()
         .contains("missing"));
-    let out = run(d, &["run", "--provider", "openai", "--json"]);
+    let out = run(d, &["run", "--provider", "gemini", "--json"]);
     assert_eq!(out.status.code(), Some(1));
     assert!(json_of(&out)["error"]["message"]
         .as_str()
@@ -679,7 +679,8 @@ fn replay_option_errors() {
         "y.jsonl"
     ])
     .contains("--record cannot be used"));
-    assert!(err(&["run", "--provider", "openai"]).contains("not available"));
+    assert!(err(&["run", "--provider", "gemini"]).contains("not available"));
+    assert!(err(&["run", "--provider", "openai"]).contains("--allow-spend"));
     // A broken replay file is reported with its line number.
     std::fs::write(d.join("bad.jsonl"), "not json\n").unwrap();
     assert!(err(&["run", "--provider", "replay", "--replay-file", "bad.jsonl"]).contains("line 1"));
@@ -1813,4 +1814,181 @@ fn apply_is_a_dry_run_until_yes_and_needs_force_for_non_accepted() {
     );
     assert_eq!(v["data"]["forced"], true);
     assert_eq!(v["data"]["status"], "rejected");
+}
+
+/// A fake OpenAI compatible server on 127.0.0.1 that answers every task with
+/// a passing file. Returns the port and the raw requests it saw.
+fn fake_paid_server() -> (u16, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+    use std::io::{Read, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let log = seen.clone();
+    std::thread::spawn(move || {
+        for conn in listener.incoming() {
+            let Ok(mut s) = conn else { return };
+            let mut raw = Vec::new();
+            let mut buf = [0u8; 16384];
+            loop {
+                let n = s.read(&mut buf).unwrap_or(0);
+                if n == 0 {
+                    break;
+                }
+                raw.extend_from_slice(&buf[..n]);
+                let t = String::from_utf8_lossy(&raw).to_string();
+                if let Some(end) = t.find("\r\n\r\n") {
+                    let len: usize = t[..end]
+                        .lines()
+                        .find_map(|l| {
+                            l.to_ascii_lowercase()
+                                .strip_prefix("content-length:")
+                                .map(|v| v.trim().parse().unwrap_or(0))
+                        })
+                        .unwrap_or(0);
+                    if raw.len() >= end + 4 + len {
+                        break;
+                    }
+                }
+            }
+            let t = String::from_utf8_lossy(&raw).to_string();
+            let task = t
+                .split("solve task ")
+                .nth(1)
+                .map(|r| {
+                    r.chars()
+                        .take_while(|c| c.is_ascii_digit())
+                        .collect::<String>()
+                })
+                .unwrap_or_default();
+            log.lock().unwrap().push(t);
+            let content = format!("FILE: answers/t{task}.txt\n```\nok\n```");
+            let body = serde_json::json!({
+                "choices": [{"message": {"content": content}}],
+                "usage": {"total_tokens": 50}
+            })
+            .to_string();
+            let reply = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            let _ = s.write_all(reply.as_bytes());
+        }
+    });
+    (port, seen)
+}
+
+#[test]
+fn paid_providers_need_allow_spend_a_model_a_key_and_isolation() {
+    const KEY: &str = "sk-cli-test-NOT-A-REAL-KEY-42";
+    let dir = bench_project(5);
+    let d = dir.path();
+    let (port, seen) = fake_paid_server();
+    let url = format!("http://127.0.0.1:{port}/v1");
+    let paid = |extra: &[&str], key: Option<&str>| {
+        let mut args = vec![
+            "run",
+            "--repeats",
+            "1",
+            "--provider",
+            "openai",
+            "--api-url",
+            &url,
+        ];
+        args.extend_from_slice(extra);
+        args.push("--json");
+        let mut c = bin();
+        c.current_dir(d).args(&args).env_remove("OPENAI_API_KEY");
+        if let Some(k) = key {
+            c.env("OPENAI_API_KEY", k);
+        }
+        c.output().unwrap()
+    };
+    let msg = |o: &Output| {
+        json_of(o)["error"]["message"]
+            .as_str()
+            .unwrap_or("")
+            .to_string()
+    };
+    let events_before = ok_json(d, &["log"])["data"]["events"]
+        .as_array()
+        .unwrap()
+        .len();
+
+    let o = paid(&["--api-model", "m1"], Some(KEY));
+    assert_eq!(o.status.code(), Some(1));
+    assert!(msg(&o).contains("--allow-spend"), "{}", msg(&o));
+    let o = paid(&["--allow-spend"], Some(KEY));
+    assert!(msg(&o).contains("--api-model"), "{}", msg(&o));
+    let o = paid(&["--allow-spend", "--api-model", "m1"], None);
+    assert!(msg(&o).contains("OPENAI_API_KEY is not set"), "{}", msg(&o));
+    let o = paid(
+        &["--allow-spend", "--api-model", "m1", "--isolation", "none"],
+        Some(KEY),
+    );
+    assert_eq!(o.status.code(), Some(1));
+    assert!(msg(&o).to_lowercase().contains("isolat"), "{}", msg(&o));
+    // the free providers refuse the paid flags
+    let o = run(d, &["run", "--allow-spend", "--json"]);
+    assert!(msg(&o).contains("only apply to --provider anthropic or openai"));
+    assert!(
+        seen.lock().unwrap().is_empty(),
+        "nothing may be sent before all checks pass"
+    );
+    let events_after = ok_json(d, &["log"])["data"]["events"]
+        .as_array()
+        .unwrap()
+        .len();
+    assert_eq!(events_before, events_after);
+
+    // with everything in place and bwrap working, a run goes through the fake
+    // server, and the key is nowhere on disk
+    let want = survey_json(d);
+    if !backend_works(&want, "bwrap") {
+        return;
+    }
+    let rec = tempfile::tempdir().unwrap();
+    let rec_file = rec.path().join("rec.jsonl");
+    let o = paid(
+        &[
+            "--allow-spend",
+            "--api-model",
+            "m1",
+            "--isolation",
+            "bwrap",
+            "--record",
+            rec_file.to_str().unwrap(),
+        ],
+        Some(KEY),
+    );
+    assert_eq!(
+        o.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&o.stdout)
+    );
+    let v = json_of(&o);
+    assert_eq!(v["data"]["provider"], "openai");
+    assert_eq!(v["data"]["runs"][0]["passed"], N_TASKS as u64);
+    assert_eq!(seen.lock().unwrap().len(), N_TASKS);
+    assert!(seen.lock().unwrap()[0].contains(KEY));
+    let mut on_disk = std::fs::read_to_string(&rec_file).unwrap();
+    for entry in walk_files(&d.join(".rules-evolve")) {
+        on_disk.push_str(&String::from_utf8_lossy(&std::fs::read(entry).unwrap()));
+    }
+    assert!(!on_disk.contains(KEY));
+    assert!(!String::from_utf8_lossy(&o.stdout).contains(KEY));
+    assert!(!String::from_utf8_lossy(&o.stderr).contains(KEY));
+}
+
+fn walk_files(dir: &Path) -> Vec<std::path::PathBuf> {
+    let mut out = Vec::new();
+    for e in std::fs::read_dir(dir).unwrap().flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            out.extend(walk_files(&p));
+        } else {
+            out.push(p);
+        }
+    }
+    out
 }

@@ -420,10 +420,14 @@ pub struct ProviderSpec {
     pub pace_ms: u64,
     /// Settings for the `local` provider (a model server on this machine).
     pub local: crate::local::LocalSettings,
+    /// Settings for the paid `anthropic` and `openai` providers.
+    pub remote: crate::remote::RemoteSettings,
 }
 
 /// Build a provider. `mock` and `replay` use no network at all. `local` talks
 /// only to a model server on this machine (see the `local` module).
+/// `anthropic` and `openai` are paid, bring your own key providers (see the
+/// `remote` module); they need `--allow-spend`.
 pub fn build_provider(spec: &ProviderSpec) -> Result<Box<dyn Model>> {
     match spec.name.as_str() {
         "mock" => {
@@ -466,8 +470,22 @@ pub fn build_provider(spec: &ProviderSpec) -> Result<Box<dyn Model>> {
                 None => Ok(local),
             }
         }
+        "anthropic" | "openai" => {
+            if spec.pace_ms > 0 {
+                return Err(Error::Input(
+                    "--pace only works with --provider replay".into(),
+                ));
+            }
+            let api = crate::remote::Api::from_provider(&spec.name).expect("matched above");
+            let remote: Box<dyn Model> =
+                Box::new(crate::remote::RemoteModel::new(api, &spec.remote)?);
+            match &spec.record {
+                Some(path) => Ok(Box::new(RecordingModel::new(remote, path)?)),
+                None => Ok(remote),
+            }
+        }
         other => Err(Error::Input(format!(
-            "provider {other:?} is not available. Only \"mock\", \"replay\" and \"local\" (a model server on this machine) exist; no provider uses the internet"
+            "provider {other:?} is not available. The free ones are \"mock\", \"replay\" and \"local\" (a model server on this machine). \"anthropic\" and \"openai\" are paid, on your own key, and need --allow-spend"
         ))),
     }
 }
@@ -654,6 +672,7 @@ mod tests {
             record: None,
             pace_ms: 0,
             local: Default::default(),
+            remote: Default::default(),
         };
         assert!(build_provider(&spec("openai")).is_err());
         assert!(build_provider(&spec("mock")).is_err());
@@ -672,6 +691,7 @@ mod tests {
             record: None,
             pace_ms: 5,
             local: Default::default(),
+            remote: Default::default(),
         })
         .err()
         .expect("mock with a pace is refused");

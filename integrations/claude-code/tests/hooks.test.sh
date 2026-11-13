@@ -311,6 +311,9 @@ test_wrapper() {
   assert_contains "refusal message" "$out" "Only --provider mock or --provider replay"
   out=$(RULES_EVOLVE_BIN="$FAKE" "$SCRIPTS/re.sh" mutate --provider=anthropic 2>&1)
   assert_eq "wrapper refuses --provider=other" "$?" 64
+  out=$(RULES_EVOLVE_BIN="$FAKE" "$SCRIPTS/re.sh" run --provider mock --allow-spend 2>&1)
+  assert_eq "wrapper refuses --allow-spend" "$?" 64
+  assert_contains "allow-spend message" "$out" "never allowed from the plugin"
   out=$(RULES_EVOLVE_BIN="$FAKE" FAKE_LOG="$TMP/fake2.log" "$SCRIPTS/re.sh" propose --hypothesis "a b  c" --file p.md 2>&1)
   assert_contains "wrapper keeps spaces in one argument" "$(cat "$TMP/fake2.log")" "a b  c"
   out=$(RULES_EVOLVE_BIN="$TMP/does-not-exist" "$SCRIPTS/re.sh" status 2>&1)

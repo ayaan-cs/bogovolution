@@ -3,8 +3,9 @@
 #
 #   re.sh <rules-evolve arguments...>
 #
-# Free only: --provider must be mock or replay. Anything else is refused here
-# before the binary runs, on top of the binary's own check.
+# Free only: --provider must be mock or replay, and --allow-spend is refused.
+# Anything else is refused here before the binary runs, on top of the
+# binary's own checks.
 . "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 prev=""
@@ -21,6 +22,10 @@ for arg in "$@"; do
       ;;
   esac
   case "$arg" in
+    --allow-spend | --allow-spend=*)
+      echo "rules-evolve plugin: refused. --allow-spend (paid providers) is never allowed from the plugin." >&2
+      exit 64
+      ;;
     --provider=mock | --provider=replay) ;;
     --provider=*)
       echo "rules-evolve plugin: refused. Only --provider mock or --provider replay are allowed from the plugin (got '${arg#--provider=}')." >&2

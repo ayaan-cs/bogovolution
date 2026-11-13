@@ -49,9 +49,39 @@ struct Cli {
 #[derive(Args, Clone)]
 struct ProviderArgs {
     /// Model provider: `mock`, `replay` or `local` (a model server on this
-    /// machine, localhost only). No provider uses the internet
+    /// machine, localhost only) are free. `anthropic` and `openai` are PAID on
+    /// your own key and need --allow-spend and --api-model
     #[arg(long, default_value = "mock")]
     provider: String,
+    /// Confirm that `--provider anthropic` or `--provider openai` may spend
+    /// money on your own key. Every task attempt and mutation is a billed call
+    #[arg(long)]
+    allow_spend: bool,
+    /// Model id for a paid provider, for example the one your account uses.
+    /// There is no default
+    #[arg(long, value_name = "MODEL")]
+    api_model: Option<String>,
+    /// Base URL for a paid provider. Defaults to https://api.anthropic.com or
+    /// https://api.openai.com/v1. Any OpenAI compatible https URL works with
+    /// `openai`. Plain http only for localhost
+    #[arg(long, value_name = "URL")]
+    api_url: Option<String>,
+    /// Name of the environment variable that holds the key (default
+    /// ANTHROPIC_API_KEY or OPENAI_API_KEY). The key itself is never a flag
+    #[arg(long, value_name = "VAR")]
+    api_key_env: Option<String>,
+    /// Sampling temperature for a paid provider (0 to 2, Anthropic caps at 1)
+    #[arg(long, default_value_t = 0.7, value_name = "T")]
+    api_temperature: f64,
+    /// Most tokens a paid model may write per call
+    #[arg(long, default_value_t = 1024, value_name = "N")]
+    api_max_new_tokens: u64,
+    /// Time limit for one paid call, in seconds
+    #[arg(long, default_value_t = 300, value_name = "SECS")]
+    api_timeout: u64,
+    /// Append every raw paid model reply to this JSONL file (never the key)
+    #[arg(long, value_name = "FILE")]
+    api_transcript: Option<PathBuf>,
     /// Base URL of the local model server. Only for `--provider local`. The host
     /// must be localhost, 127.0.0.1 or [::1]
     #[arg(long, default_value = rules_evolve_core::local::DEFAULT_URL, value_name = "URL")]
@@ -108,15 +138,24 @@ impl ProviderArgs {
                 dir.join(p)
             }
         };
-        if self.provider == "local" {
+        let paid = matches!(self.provider.as_str(), "anthropic" | "openai");
+        if !paid && (self.allow_spend || self.api_model.is_some() || self.api_url.is_some()) {
+            return Err(rules_evolve_core::Error::Input(format!(
+                "--allow-spend, --api-model and --api-url only apply to --provider anthropic or openai, not {:?}",
+                self.provider
+            ))
+            .into());
+        }
+        if self.provider == "local" || paid {
             for (flag, p) in [
                 ("--record", self.record.as_ref()),
                 ("--local-transcript", self.local_transcript.as_ref()),
+                ("--api-transcript", self.api_transcript.as_ref()),
             ] {
                 if let Some(p) = p {
                     if model_can_see(dir, &rel(p)) {
                         return Err(rules_evolve_core::Error::Input(format!(
-                            "{flag} {} is inside the repo, where the local model would read it as a project file on the next task. Put it outside the repo or under .rules-evolve/",
+                            "{flag} {} is inside the repo, where the model would read it as a project file on the next task. Put it outside the repo or under .rules-evolve/",
                             p.display()
                         ))
                         .into());
@@ -136,6 +175,16 @@ impl ProviderArgs {
                 max_new_tokens: self.local_max_new_tokens,
                 timeout_secs: self.local_timeout,
                 transcript: self.local_transcript.as_ref().map(rel),
+            },
+            remote: rules_evolve_core::remote::RemoteSettings {
+                url: self.api_url.clone().unwrap_or_default(),
+                model: self.api_model.clone().unwrap_or_default(),
+                key_env: self.api_key_env.clone().unwrap_or_default(),
+                allow_spend: self.allow_spend,
+                temperature: self.api_temperature,
+                max_new_tokens: self.api_max_new_tokens,
+                timeout_secs: self.api_timeout,
+                transcript: self.api_transcript.as_ref().map(rel),
             },
         })?)
     }

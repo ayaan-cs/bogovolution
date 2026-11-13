@@ -504,7 +504,7 @@ pub fn task_messages(req: &ModelRequest) -> (String, String) {
     (system, user)
 }
 
-const MUTATE_SYSTEM: &str = "You improve the agent rules file of a software project. \
+pub(crate) const MUTATE_SYSTEM: &str = "You improve the agent rules file of a software project. \
 Reply in exactly this format and nothing else:\n\
 HYPOTHESIS: <one or two plain sentences saying why the change should help>\n\
 RULES:\n\
@@ -1141,6 +1141,7 @@ mod tests {
                 url: url.into(),
                 ..Default::default()
             },
+            remote: Default::default(),
         };
         let e = build_provider(&spec("https://api.openai.com", 0))
             .err()
@@ -1152,9 +1153,9 @@ mod tests {
         assert!(e.to_string().contains("--pace"));
         // unknown names still fail, and the message names the three providers
         let mut s = spec("http://127.0.0.1:8080", 0);
-        s.name = "openai".into();
+        s.name = "gemini".into();
         let e = build_provider(&s).err().unwrap();
-        assert!(e.to_string().contains("no provider uses the internet"));
+        assert!(e.to_string().contains("need --allow-spend"));
     }
 
     #[test]
@@ -1173,6 +1174,7 @@ mod tests {
             record: Some(rec.clone()),
             pace_ms: 0,
             local: settings(f.port),
+            remote: Default::default(),
         })
         .unwrap();
         assert_eq!(model.kind(), ProviderKind::LocalModel);

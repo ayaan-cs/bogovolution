@@ -24,12 +24,14 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: v2.4.0
+## Status: v2.5.0
 
 The default is a deterministic **mock model**, so nothing costs money or touches
-the network. Since v2.1.0 there is one real provider, `local`: a model server
-on your own machine (for example llama.cpp), localhost only, free. No paid or
-remote provider exists.
+the network. Since v2.1.0 there is a free real provider, `local`: a model server
+on your own machine (for example llama.cpp), localhost only. Since v2.5.0 there
+are two paid providers, `anthropic` and `openai`, which **cost money on your own
+API key** and only run with `--allow-spend`. They have only been tested against
+a fake local server.
 
 Done in Phase 1:
 
@@ -202,8 +204,12 @@ Done in v2.4.0:
   `--force`, never writes outside the repo or through a symlink, and records an
   `applied` event in the log. The plugin has `/rules-evolve:apply`.
 
-Planned later (not built yet): real bring-your-own-key providers. See the
-roadmap below.
+Done in v2.5.0:
+
+- Bring your own key providers `anthropic` and `openai` (any OpenAI compatible
+  endpoint). **They cost money on your own key**, need `--allow-spend` and
+  `--api-model`, read the key only from an environment variable, never write
+  it anywhere, and require isolation. Tested only against a fake local server.
 
 ## Roadmap and remaining gaps
 
@@ -228,9 +234,10 @@ missing before a real provider that runs tools or code is switched on:
   fix in plain words (see "Shadow warnings"), but they are not prevented.
   List folders, not files, in `hidden` where you can.
 
-Other planned work: the real bring-your-own-key providers. No remote provider
-exists in the code, and none should be added before the first bullet above is
-done. The `local` provider (v2.1.0) only talks to loopback and has no tools: it
+The paid providers (v2.5.0) have no tools either: like `local`, they return
+file contents, which the harness writes and the isolated check runs. So the
+first bullet above is still open only for a future provider that runs tools.
+The `local` provider (v2.1.0) only talks to loopback and has no tools: it
 returns file contents, which the harness writes and the isolated check runs. (The Claude Code plugin shipped in v2.0.0 and only allows `mock` and
 `replay`.)
 
@@ -635,9 +642,10 @@ one character.
 
 A provider is anything that implements the `Model` trait in `crates/core`: it
 answers tasks and proposes mutations, and reports an estimate of its token use.
-The harness uses nothing else, so real bring-your-own-key providers can be added
-later without changing it. **No provider leaves this machine:** `mock` and
-`replay` make no calls, and `local` only talks to a server on loopback.
+The harness uses nothing else. The free providers never leave this machine:
+`mock` and `replay` make no calls, and `local` only talks to a server on
+loopback. Since v2.5.0 there are two paid ones, `anthropic` and `openai`, which
+call a remote API on your own key (see "Paid providers (your own key)" below).
 
 Options shared by `run`, `mutate` and `evolve`:
 
@@ -653,6 +661,15 @@ Options shared by `run`, `mutate` and `evolve`:
 | `--local-max-new-tokens N` | Most tokens per reply, default 1024 |
 | `--local-timeout SECS` | Time limit per call, default 600 |
 | `--local-transcript FILE` | Append every raw reply to this JSON Lines file |
+| `--provider anthropic\|openai` | PAID, on your own key. Needs `--allow-spend` and `--api-model` |
+| `--allow-spend` | Confirms a paid provider may bill your key. Never set by a config file |
+| `--api-model MODEL` | Model id sent to the API. No default |
+| `--api-url URL` | Default `https://api.anthropic.com` or `https://api.openai.com/v1`. Must be `https`, or `http` to localhost only |
+| `--api-key-env VAR` | Environment variable holding the key, default `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` |
+| `--api-temperature T` | 0 to 2, default 0.7 (sent as at most 1 to Anthropic) |
+| `--api-max-new-tokens N` | Most tokens per reply, default 1024 |
+| `--api-timeout SECS` | Time limit per call, default 300 |
+| `--api-transcript FILE` | Append every raw reply to this JSON Lines file (the key is never in it) |
 
 **Recording.** `--record` works with any provider that makes calls (the mock now,
 real providers later). Each call is stored in a replay file, which is JSON Lines.
@@ -680,6 +697,57 @@ which says `replay`). If the file has no answer for a request, the command stops
 with a `replay miss` error that names the task, rules version and seed, and
 nothing from that run is written. Record the file again with `--record` if you change the model
 name, tasks, prompts, rules or seeds.
+
+### Paid providers (your own key)
+
+**Using these costs real money, billed to your own API account.** Every task
+attempt is one call and every mutation is one call. A default `evolve` with 8
+tasks, 5 repeats and 3 generations makes up to 40 + 3 x (1 + 40) = 163 calls
+(40 runs of the root, then one mutation and 40 runs of each child; the 7B
+local run 1 made exactly 163), and each task call sends the rules and the repo
+files the model may read. The 7B local runs used about 1,200 to 2,000 tokens
+per call. Check your
+provider's prices before you start, and set a spending limit in your provider
+account. The per run token cap (`max_tokens_per_run`, default 200000) stops a
+run, but it is not a money limit. rules-evolve has never been run against a
+paid endpoint by its author: the code is tested only against a fake server on
+127.0.0.1.
+
+- `anthropic` speaks the Messages API (`POST /v1/messages`, `x-api-key` and
+  `anthropic-version: 2023-06-01` headers).
+- `openai` speaks chat completions (`POST {url}/chat/completions`, a Bearer
+  token). Any OpenAI compatible service works through `--api-url`. It sends
+  `max_tokens`, `temperature` and `seed`; a service that refuses one of these
+  answers with an HTTP error, which stops the run.
+
+Example (bills your key):
+
+```sh
+export ANTHROPIC_API_KEY=...   # in your shell, never in a file in the repo
+rules-evolve evolve --generations 3 --provider anthropic \
+  --api-model <model id> --allow-spend --isolation bwrap
+```
+
+Safety rules, enforced in code and tested:
+
+- Nothing is sent unless `--allow-spend` and `--api-model` are on the command
+  line and the key variable is set. These checks run before any connection.
+- The key is read only from the environment. There is no flag or config
+  setting for the key itself, and a value that looks like a key in
+  `--api-key-env` is refused. It is never written to the log, replay files,
+  transcripts, JSON output or error messages (error text from the server is
+  scrubbed of it), and the provider's debug form shows `<redacted>`.
+- `https` only, except `http` to localhost (for a local proxy, and for the
+  tests). Redirects are not followed and proxy settings in the environment are
+  ignored.
+- The provider kind is `Real`, so a run is refused without an isolation
+  backend, exactly as before. The model's files are still written by the
+  harness and checked in isolation; the provider runs no tools.
+- The Claude Code plugin never runs these: its wrapper refuses any provider
+  but `mock` and `replay`, and refuses `--allow-spend`.
+
+Record a paid run with `--record` (outside the repo or under `.rules-evolve/`)
+and you can replay it later for free with `--provider replay`.
 
 ## Local model test
 
@@ -1623,9 +1691,17 @@ engine runs the same checks before it appends a new event.
 
 Apache License 2.0. See the `LICENSE` file.
 
+Since v2.5.0 the paid providers use `ureq` (MIT or Apache-2.0) with `rustls`
+(Apache-2.0, ISC or MIT), `ring` (Apache-2.0 and ISC) and `webpki-roots`
+(CDLA-Permissive-2.0, Mozilla's root certificate list) for HTTPS.
+
 ## Cost
 
 Phases 1 to 4 make no network calls and cost nothing to run. The providers are
 the mock and replay. The `local` provider (v2.1.0) calls only a model server on
-loopback, so it costs nothing beyond your own CPU time. Later phases will use your own API key, and the per run token cap
-(default 200000, enforced since Phase 2) is part of the config from the start.
+loopback, so it costs nothing beyond your own CPU time.
+
+The `anthropic` and `openai` providers (v2.5.0) cost money on your own key.
+They only run with `--allow-spend`, and nothing in this repo uses them: the
+tests run them against a fake local server. See "Paid providers (your own
+key)". The per run token cap (default 200000) applies to them too.

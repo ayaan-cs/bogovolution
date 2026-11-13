@@ -19,6 +19,7 @@ pub mod local;
 pub mod log;
 pub mod model;
 pub mod mutate;
+pub mod remote;
 pub mod replay;
 pub mod repo;
 pub mod sandbox;
