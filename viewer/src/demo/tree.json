@@ -3,7 +3,7 @@
   "version": 1,
   "generator": {
     "tool": "rules-evolve",
-    "version": "0.1.0"
+    "version": "2.6.0"
   },
   "project": {
     "rules_file": "AGENTS.md",
@@ -13,7 +13,7 @@
     "valid": true,
     "events": 64,
     "head_seq": 63,
-    "head_hash": "8647e67bda54c0d37ac64d09764d409585570caaa32baf8d0d37d5b5270206ae"
+    "head_hash": "1dfd31f8e4ccfcd7acdfa1675ef30ba8f7a9a90d3e0846323c3e125113dc6a91"
   },
   "config": {
     "repeats": 5,

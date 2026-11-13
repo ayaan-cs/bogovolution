@@ -18,6 +18,61 @@ The idea:
 
 It runs locally. Nothing is uploaded anywhere.
 
+## Install from source
+
+You need Rust (stable; tested with 1.100.0, from https://rustup.rs) and, on Linux,
+`bwrap` (bubblewrap) for isolated checks. There are no published packages: you
+build it yourself.
+
+```sh
+git clone <this repo> rules-evolve
+cd rules-evolve
+cargo install --path crates/cli --locked   # puts rules-evolve in ~/.cargo/bin
+rules-evolve --version
+```
+
+Or run it from the build folder with `cargo build --release` and
+`target/release/rules-evolve`. The viewer is optional and needs Node.js (see
+"Viewer").
+
+## Quickstart (free, about a minute)
+
+The demo replays a recorded ten generation lineage. No model, no key, no
+network:
+
+```sh
+examples/demo/demo.sh
+```
+
+It prints each generation, then `status` and `verify-log`: 2 accepted, 5
+rejected, 1 noise and 2 refused mutations, and an intact log. Then look around
+the folder it printed:
+
+```sh
+rules-evolve -C <folder> digest            # what worked, what failed, what to try
+rules-evolve -C <folder> log --limit 5     # the newest events of the log
+rules-evolve -C <folder> apply             # diff of the best version (dry run)
+rules-evolve -C <folder> export --out tree.json
+```
+
+Open `tree.json` in the viewer (`cd viewer && npm ci && npm run dev`) to see the
+lineage as a graph. On your own repo, start with `rules-evolve init --model
+<name>`, write tasks in `.rules-evolve/tasks.toml`, and run `evolve` with the
+free `local` provider (see "Local model test").
+
+## What the real model runs found
+
+With a free 7B model (Qwen2.5 Coder 7B Instruct, CPU only) on 8 tasks taken
+from more-itertools, the loop accepted a rule the model wrote: "Import the
+`islice` function from the `itertools` module". It took the median pass rate
+from 50% to 75%, 5 of 5 paired wins, twice in a row. On 8 held out tasks the
+model never saw, that same rule scored 37.5% against 50% for the starting
+rules: it had fitted the benchmark, not taught a general lesson. A hand written
+general rule ("import everything you use") gained on both sets (+25 on train,
++12.5 on held out). Since v2.3.0 the tool can hold tasks out and calls such a
+result **overfit** instead of accepting it. Details and caveats (8 tasks, so
+one task is 12.5 points; one small model) are in "Local model test".
+
 ## Inspiration
 
 This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
