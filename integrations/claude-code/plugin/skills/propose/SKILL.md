@@ -24,6 +24,6 @@ ${CLAUDE_PLUGIN_ROOT}/scripts/re.sh propose --file .rules-evolve/scratch/proposa
 
 Exit code 0 means the child version was recorded (`data.child`, `data.change_bytes`). Exit code 3 means the change was refused and the refusal was logged (`data.reason`): show the reason and offer a smaller change. Exit code 1 is an error: show it.
 
-6. Report the child short hash (12 characters), the size of the change, and the hypothesis. Say it is not benchmarked yet. Next steps are `rules-evolve run` and `verify` for that child, or `/rules-evolve:evolve` for the automatic loop. Mention that the plugin does not apply a version to the real rules file.
+6. Report the child short hash (12 characters), the size of the change, and the hypothesis. Say it is not benchmarked yet. Next steps are `rules-evolve run` and `verify` for that child, or `/rules-evolve:evolve` for the automatic loop. Once a version is accepted, `/rules-evolve:apply` writes it to the real rules file after the user confirms.
 
 Do not call any model. Do not pass any provider option.

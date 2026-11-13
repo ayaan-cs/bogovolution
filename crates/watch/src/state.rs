@@ -442,6 +442,12 @@ fn describe_last(events: &[Event], cfg: &ConfigView) -> Option<Activity> {
             short7(&p.child),
             p.verdict.as_str().to_uppercase()
         ),
+        Payload::Applied(p) => format!(
+            "applied {} to {}{}",
+            short7(&p.version),
+            p.rules_file,
+            if p.forced { " (forced)" } else { "" }
+        ),
     };
     Some(Activity { seq: e.seq, text })
 }

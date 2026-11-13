@@ -4,6 +4,7 @@
 
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
+use rules_evolve_core::apply::{apply, ApplyOptions};
 use rules_evolve_core::bench::{propose, run_version, verify_child, RunOptions};
 use rules_evolve_core::digest::{build_digest, render_markdown};
 use rules_evolve_core::event::{Event, EventKind, Payload};
@@ -240,6 +241,19 @@ enum Command {
         /// With --snapshot, which version to select: current, root, or a hash prefix
         #[arg(long, value_name = "VERSION", requires = "snapshot")]
         select: Option<String>,
+    },
+    /// Write a version into the repo's rules file. A dry run (diff only) unless
+    /// --yes is given. Only accepted versions, unless --force. No model is called
+    Apply {
+        /// current (the default), root, a hash, or a unique hash prefix
+        #[arg(long, default_value = "current")]
+        version: String,
+        /// Write the file. Without it nothing is written
+        #[arg(long)]
+        yes: bool,
+        /// Allow a version that was not accepted (root, pending, rejected, noise, overfit)
+        #[arg(long)]
+        force: bool,
     },
     /// Plain English brief of the lineage: what worked, what failed, what is
     /// noise, what is pending, and directions not tried yet. No model is called
@@ -831,6 +845,55 @@ fn run(cli: &Cli) -> Result<Output> {
                 exit: 0,
             })
         }
+        Command::Apply {
+            version,
+            yes,
+            force,
+        } => {
+            let repo = Repo::open(&cli.dir)?;
+            if !repo.verify()?.valid {
+                anyhow::bail!(
+                    "the log fails verification, so nothing is applied. Run `verify-log` for details"
+                );
+            }
+            let o = apply(
+                &repo,
+                &ApplyOptions {
+                    version: version.clone(),
+                    yes: *yes,
+                    force: *force,
+                },
+            )?;
+            let head = format!(
+                "Version {} ({}{}) for {}\n",
+                short(&o.version),
+                o.status,
+                if o.forced { ", forced" } else { "" },
+                o.rules_file
+            );
+            let text = match o.outcome.as_str() {
+                "unchanged" => format!(
+                    "{head}{} already holds this version. Nothing to do.\n",
+                    o.rules_file
+                ),
+                "dry_run" => format!(
+                    "{head}{}\nDry run: nothing was written. Run again with --yes to write {}.\n",
+                    o.diff, o.rules_file
+                ),
+                _ => format!(
+                    "{head}{}\nWrote {} and recorded it in the log (event {}).\n",
+                    o.diff,
+                    o.rules_file,
+                    o.event_seq.unwrap_or_default()
+                ),
+            };
+            Ok(Output {
+                command: "apply",
+                data: serde_json::to_value(&o)?,
+                text,
+                exit: 0,
+            })
+        }
         Command::Digest => {
             let repo = Repo::open(&cli.dir)?;
             let v = repo.verify()?;
@@ -984,6 +1047,13 @@ fn event_summary(e: &Event) -> String {
             short(&p.parent),
             short(&p.child),
             p.verdict.as_str()
+        ),
+        Ok(Payload::Applied(p)) => format!(
+            "{} written to {} ({}{})",
+            short(&p.version),
+            p.rules_file,
+            p.status,
+            if p.forced { ", forced" } else { "" }
         ),
         Err(_) => "(unreadable payload)".to_string(),
     }

@@ -30,7 +30,7 @@ summary="rules-evolve: log ${log:-unknown}"
 [ -n "$mutations" ] && summary="$summary; mutations $mutations"
 [ -n "$current" ] && summary="$summary; current $current"
 
-context="This repo uses rules-evolve (lineage in .rules-evolve/). Status: ${summary#rules-evolve: }. Slash commands: /rules-evolve:status, /rules-evolve:digest, /rules-evolve:verify-log, /rules-evolve:propose, /rules-evolve:evolve, /rules-evolve:export. The rules file is changed through rules-evolve propose, not by editing it directly."
+context="This repo uses rules-evolve (lineage in .rules-evolve/). Status: ${summary#rules-evolve: }. Slash commands: /rules-evolve:status, /rules-evolve:digest, /rules-evolve:verify-log, /rules-evolve:propose, /rules-evolve:evolve, /rules-evolve:export, /rules-evolve:apply. The rules file is changed through rules-evolve propose and apply, not by editing it directly."
 if [ "$code" = "2" ]; then
   context="$context The log failed verification: do not edit files under .rules-evolve/ by hand, and run /rules-evolve:verify-log."
   summary="$summary. Run /rules-evolve:verify-log."

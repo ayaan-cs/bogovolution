@@ -24,7 +24,7 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: v2.3.0
+## Status: v2.4.0
 
 The default is a deterministic **mock model**, so nothing costs money or touches
 the network. Since v2.1.0 there is one real provider, `local`: a model server
@@ -195,6 +195,13 @@ Done in v2.3.0 (held out tasks):
 - `examples/local-model/` has 8 held out functions next to the 8 train ones.
   See "Local model test" for what the 7B model did under the new rule.
 
+Done in v2.4.0:
+
+- `apply`: writes an accepted version into the repo's rules file. A dry run
+  with a diff unless `--yes`, refuses versions that were not accepted unless
+  `--force`, never writes outside the repo or through a symlink, and records an
+  `applied` event in the log. The plugin has `/rules-evolve:apply`.
+
 Planned later (not built yet): real bring-your-own-key providers. See the
 roadmap below.
 
@@ -326,7 +333,8 @@ verification, the tree is not shown.
 ### `log [--limit N] [--kind KIND]`
 
 Lists events in order. `--limit N` shows the newest N. `--kind` is one of
-`init`, `mutation_proposed`, `mutation_refused`, `run_recorded`, `verdict`.
+`init`, `mutation_proposed`, `mutation_refused`, `run_recorded`, `verdict`,
+`applied`.
 
 ### `verify-log`
 
@@ -511,6 +519,36 @@ Current version: `cd28eb296938` (root `8e28956afd69`). Median pass rate moved fr
 - Skipping tests will make the agent faster (`ec12bc56d472`, -41.7 points). child median 0.500 is not above parent median 0.917
 ...
 ```
+
+### `apply [--version <VERSION>] [--yes] [--force]`
+
+Copies a version from `.rules-evolve/blobs/<hash>` into the rules file named
+in `config.toml` (`AGENTS.md`, `CLAUDE.md` or the file under `.cursor/rules`).
+No model is called. `--version` is `current` (the default, the newest accepted
+version), `root`, a full hash or a unique hash prefix.
+
+- **Dry run by default.** Without `--yes` it prints a unified diff from the
+  file on disk to the version and writes nothing. With `--yes` it writes the
+  same change.
+- **Accepted versions only.** A version that is root, pending, rejected, noise
+  or overfit is refused (exit code 1, nothing written) unless `--force` is
+  given. `current` is root when nothing has been accepted yet, so it needs
+  `--force` too.
+- **Checked before writing.** The log must verify, and the stored text must
+  still match its hash.
+- **Inside the repo only.** The rules file path must be relative, without
+  `..`, outside `.rules-evolve/` and `.git/`, and no part of it may be a
+  symlink. The parent folder must already exist. The file is written to a
+  temporary file next to it and renamed into place.
+- **Logged.** A write appends an `applied` event (version, rules file, the
+  sha256 of the text it replaced, the version's status, and whether `--force`
+  was used). If the file already holds that version, nothing is written and
+  nothing is logged.
+
+`applied` events do not change `current` or any verdict: they only record that
+a version was put on disk. A log with an `applied` event cannot be read by
+binaries older than v2.4.0, which reject unknown event kinds. Commit the rules
+file and `.rules-evolve/` together after an apply.
 
 ### `export --out <PATH>`
 
@@ -973,17 +1011,20 @@ Nothing is hosted and nothing is pushed anywhere. To remove it:
 | `/rules-evolve:propose <what to change and why>` | Drafts one small change, writes it to `.rules-evolve/scratch/` and records it as a child version with `propose` (refusals are logged and explained) | appends to the log |
 | `/rules-evolve:evolve [generations] [--seed N] [--replay-file PATH]` | Runs the loop on the mock model (default 3 generations) or a replay file, then summarizes each generation | appends to the log |
 | `/rules-evolve:init <model-name>` | Sets up `.rules-evolve/` | creates files |
+| `/rules-evolve:apply [version]` | Shows the diff of an accepted version (default `current`) against the rules file, asks you to confirm, then writes it with `apply --yes` | writes the rules file, appends to the log |
 
 The read only commands may also be used by Claude on its own when you ask about
 the lineage. The commands that change anything (`export`, `propose`, `evolve`,
-`init`) only run when you type them (`disable-model-invocation: true`). Each command
+`init`, `apply`) only run when you type them (`disable-model-invocation: true`). Each command
 pre approves only the one wrapper script, so nothing else is allowed without a
 prompt. `watch` is a terminal screen, so it has no command: run `rules-evolve
 watch` in another terminal.
 
-The plugin does not copy a version into your real `AGENTS.md` or `CLAUDE.md`.
-An accepted version is stored as `.rules-evolve/blobs/<hash>`, and applying it
-stays your decision.
+The plugin copies a version into your real `AGENTS.md` or `CLAUDE.md` only
+through `/rules-evolve:apply`, which you type yourself, which shows the diff
+first, and which writes only after you confirm. It runs `apply`, which calls
+no model, so it fits the plugin's no provider rule. It never passes `--force`
+unless you ask for it.
 
 ### Hooks
 
@@ -1486,6 +1527,9 @@ without a bump. Object keys are sorted.
   are also `held_out_accept_threshold_pp`, `held_out_min_paired_wins` and
   `decision.held_out`: `parent_median`, `child_median`, `gain_pp`,
   `paired_wins`, `pairs` and `passed` (whether the gate passed).
+- `apply`: `version` (full hash), `rules_file`, `status`, `outcome`
+  (`dry_run`, `written` or `unchanged`), `forced`, `diff` (unified diff, empty
+  when unchanged), `previous_sha256` and `event_seq` (null unless written).
 - `verify-log`: `valid`, `chain`, `blob_problems`. `chain` has `valid`,
   `events`, `head_seq`, `head_hash`, `problems`. A problem has `code`, `seq`,
   `line`, `message`. Codes: `invalid_line`, `bad_seq`, `bad_prev_hash`,
@@ -1544,10 +1588,11 @@ Event kinds (names are stable):
 | `mutation_proposed` | `parent`, `child`, `hypothesis`, and optional `seed`, `provider`, `tokens_used` | A child version of a parent version. The optional fields are set when a model wrote it. |
 | `mutation_refused` | `parent`, `hypothesis` (optional), `reason`, and optional `seed`, `provider`, `tokens_used` | A change that was not allowed, for example too large |
 | `run_recorded` | `node`, `run_index`, `passed`, `total`, `tokens_used`, `seed`, `provider`, `budget_exhausted`, `tasks`, `isolation` | One benchmark run of one version over all tasks. `tasks` is a list of `id`, `status`, `tokens_used`, and, for failed attempts since v2.2.0, `detail` (a failure note of at most 600 bytes, see `mutate`). `isolation` is the backend the checks ran with. The last five fields are optional when reading older logs, and `isolation` is left out of the line when absent, so old lines keep their bytes. Since v2.3.0, with held out tasks, `passed` and `total` count train tasks only, the optional `held_out_passed` and `held_out_total` count held out tasks, and held out entries in `tasks` have `held_out: true`. Without held out tasks none of these appear. |
+| `applied` | `version`, `rules_file`, `previous_sha256` (null if the file did not exist), `status`, `forced` | Since v2.4.0. `apply --yes` wrote this version to the rules file. Does not change `current`. |
 | `verdict` | `parent`, `child`, `verdict`, `parent_median`, `child_median`, `paired_wins`, `repeats`, `note`, and optional `held_out_parent_median`, `held_out_child_median`, `held_out_paired_wins` | `verdict` is `accepted`, `rejected`, `noise`, or (since v2.3.0, only with held out tasks) `overfit`. The medians and wins are train numbers when there are held out tasks. |
 
 `init` is written by `init`, `mutation_proposed` and `mutation_refused` by
-`propose`, `mutate` and `evolve`, `run_recorded` by `run`, and `verdict` by `verify`. In the log, `seed`
+`propose`, `mutate` and `evolve`, `run_recorded` by `run`, `verdict` by `verify`, and `applied` by `apply --yes`. In the log, `seed`
 is below 2^48 so it is safe in any JSON reader.
 
 ### What the checks catch

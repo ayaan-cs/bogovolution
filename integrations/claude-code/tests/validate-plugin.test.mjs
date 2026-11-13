@@ -36,7 +36,7 @@ const SKILL_FIELDS = new Set([
   "name", "description", "argument-hint", "disable-model-invocation", "user-invocable",
   "allowed-tools", "disallowed-tools", "when_to_use", "arguments", "model", "context", "paths",
 ]);
-const EXPECTED_SKILLS = ["digest", "evolve", "export", "init", "propose", "status", "verify-log"];
+const EXPECTED_SKILLS = ["apply", "digest", "evolve", "export", "init", "propose", "status", "verify-log"];
 
 function frontmatter(file) {
   const text = read(file);
@@ -69,7 +69,7 @@ test("plugin.json: required fields, kebab-case name, only documented keys", () =
   assert.match(manifest.name, /^[a-z0-9]+(-[a-z0-9]+)*$/);
   // reserved names: claude-, anthropic-, official..., or the bare words
   assert.doesNotMatch(manifest.name, /^(claude|anthropic|anthropics|cc-plugin)(-|$)|official/i);
-  assert.equal(manifest.version, "2.0.0");
+  assert.equal(manifest.version, "2.1.0");
   assert.ok(manifest.description.length > 20);
   assert.ok(manifest.author && typeof manifest.author.name === "string");
   for (const k of Object.keys(manifest)) assert.ok(MANIFEST_KEYS.has(k), `unknown plugin.json key: ${k}`);
@@ -119,7 +119,7 @@ test("skills: one folder per slash command, valid frontmatter", () => {
 });
 
 test("skills: commands that change state are not model invocable; read only ones may be", () => {
-  const mutating = ["evolve", "propose", "init", "export"];
+  const mutating = ["apply", "evolve", "propose", "init", "export"];
   for (const d of mutating) {
     const { fields } = frontmatter(path.join(pluginDir, "skills", d, "SKILL.md"));
     assert.equal(fields["disable-model-invocation"], "true", `${d} must be user invoked only`);
@@ -137,6 +137,11 @@ test("skills: evolve and propose never allow a paid provider or direct rules edi
   assert.doesNotMatch(evolve, /--provider (openai|anthropic|real)/);
   const propose = frontmatter(path.join(pluginDir, "skills/propose/SKILL.md")).body;
   assert.match(propose, /Never edit the rules file/);
+  const apply = frontmatter(path.join(pluginDir, "skills/apply/SKILL.md")).body;
+  assert.match(apply, /re\.sh apply --version <version or current> --json/);
+  assert.match(apply, /ask them to confirm/);
+  assert.match(apply, /Do not pass any provider option/);
+  assert.doesNotMatch(apply, /--provider/);
 });
 
 test("skills: every subcommand they call exists in the CLI", () => {
@@ -160,6 +165,7 @@ test("skills: flags they use exist in the CLI help (when a binary is built)", (t
   const wanted = {
     evolve: ["--generations", "--seed", "--provider", "--replay-file", "--json"],
     propose: ["--file", "--hypothesis", "--json"],
+    apply: ["--version", "--yes", "--force", "--json"],
     init: ["--model", "--rules-file", "--json"],
     export: ["--out", "--json"],
     status: ["--json"],

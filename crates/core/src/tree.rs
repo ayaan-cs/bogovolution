@@ -94,6 +94,14 @@ fn is_zero(n: &usize) -> bool {
     *n == 0
 }
 
+/// One `apply` of a version to the rules file.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct Applied {
+    pub seq: u64,
+    pub version: String,
+    pub forced: bool,
+}
+
 /// Counts for the status command.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct TreeSummary {
@@ -126,6 +134,10 @@ pub struct Tree {
     /// Edges in the order they were proposed.
     pub edges: Vec<Edge>,
     pub refused: Vec<Refusal>,
+    /// Versions written into the rules file by `apply`, oldest first. Left
+    /// out of JSON when empty.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub applied: Vec<Applied>,
     #[serde(skip)]
     node_index: HashMap<String, usize>,
     #[serde(skip)]
@@ -189,6 +201,7 @@ impl Tree {
             nodes: vec![root],
             edges: Vec::new(),
             refused: Vec::new(),
+            applied: Vec::new(),
             node_index,
             edge_index: HashMap::new(),
         }
@@ -203,6 +216,20 @@ impl Tree {
             Payload::MutationRefused(p) => self.apply_refused(seq, p),
             Payload::RunRecorded(p) => self.apply_run(seq, p),
             Payload::Verdict(p) => self.apply_verdict(seq, p),
+            Payload::Applied(p) => {
+                if !self.node_index.contains_key(&p.version) {
+                    return Err(bad(format!(
+                        "apply of unknown version {}",
+                        short(&p.version)
+                    )));
+                }
+                self.applied.push(Applied {
+                    seq,
+                    version: p.version.clone(),
+                    forced: p.forced,
+                });
+                Ok(())
+            }
         }
     }
 

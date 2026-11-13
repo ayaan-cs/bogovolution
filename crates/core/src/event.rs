@@ -13,6 +13,8 @@ pub enum EventKind {
     MutationRefused,
     RunRecorded,
     Verdict,
+    /// A version was written into the real rules file by `apply` (v2.4.0).
+    Applied,
 }
 
 impl EventKind {
@@ -23,6 +25,7 @@ impl EventKind {
             EventKind::MutationRefused => "mutation_refused",
             EventKind::RunRecorded => "run_recorded",
             EventKind::Verdict => "verdict",
+            EventKind::Applied => "applied",
         }
     }
 
@@ -33,6 +36,7 @@ impl EventKind {
             "mutation_refused" => Some(EventKind::MutationRefused),
             "run_recorded" => Some(EventKind::RunRecorded),
             "verdict" => Some(EventKind::Verdict),
+            "applied" => Some(EventKind::Applied),
             _ => None,
         }
     }
@@ -226,6 +230,23 @@ pub enum Payload {
     MutationRefused(MutationRefusedPayload),
     RunRecorded(RunRecordedPayload),
     Verdict(VerdictPayload),
+    Applied(AppliedPayload),
+}
+
+/// `apply` wrote a version into the rules file of the repo.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AppliedPayload {
+    /// The version written (its content hash).
+    pub version: String,
+    /// Rules file path, relative to the repo root.
+    pub rules_file: String,
+    /// SHA-256 of the file before it was overwritten, or `None` if it did not exist.
+    pub previous_sha256: Option<String>,
+    /// The version's verdict when it was applied: `accepted`, or for a
+    /// forced apply `root`, `pending`, `rejected`, `noise` or `overfit`.
+    pub status: String,
+    /// True when `--force` was needed (the version was not accepted).
+    pub forced: bool,
 }
 
 impl Payload {
@@ -236,6 +257,7 @@ impl Payload {
             Payload::MutationRefused(_) => EventKind::MutationRefused,
             Payload::RunRecorded(_) => EventKind::RunRecorded,
             Payload::Verdict(_) => EventKind::Verdict,
+            Payload::Applied(_) => EventKind::Applied,
         }
     }
 
@@ -246,6 +268,7 @@ impl Payload {
             Payload::MutationRefused(p) => serde_json::to_value(p),
             Payload::RunRecorded(p) => serde_json::to_value(p),
             Payload::Verdict(p) => serde_json::to_value(p),
+            Payload::Applied(p) => serde_json::to_value(p),
         };
         result.expect("payload structs always encode")
     }
@@ -259,6 +282,7 @@ impl Payload {
             EventKind::MutationRefused => Payload::MutationRefused(serde_json::from_value(v)?),
             EventKind::RunRecorded => Payload::RunRecorded(serde_json::from_value(v)?),
             EventKind::Verdict => Payload::Verdict(serde_json::from_value(v)?),
+            EventKind::Applied => Payload::Applied(serde_json::from_value(v)?),
         })
     }
 }

@@ -1750,3 +1750,67 @@ fn held_out_gate_through_the_cli_and_export() {
     let dg = String::from_utf8_lossy(&run(d, &["digest"]).stdout).to_string();
     assert!(dg.contains("### Overfit"), "{dg}");
 }
+
+#[test]
+fn apply_is_a_dry_run_until_yes_and_needs_force_for_non_accepted() {
+    let dir = evolved_demo();
+    let d = dir.path();
+    let before = std::fs::read_to_string(d.join("AGENTS.md")).unwrap();
+    let v = ok_json(d, &["apply"]);
+    assert_eq!(v["command"], "apply");
+    assert_eq!(v["data"]["outcome"], "dry_run");
+    assert_eq!(v["data"]["status"], "accepted");
+    assert!(v["data"]["diff"]
+        .as_str()
+        .unwrap()
+        .starts_with("diff --git a/AGENTS.md"));
+    assert_eq!(
+        std::fs::read_to_string(d.join("AGENTS.md")).unwrap(),
+        before
+    );
+
+    let text = String::from_utf8_lossy(&run(d, &["apply"]).stdout).to_string();
+    assert!(text.contains("Dry run: nothing was written"), "{text}");
+
+    let v = ok_json(d, &["apply", "--yes"]);
+    assert_eq!(v["data"]["outcome"], "written");
+    let status = ok_json(d, &["status"]);
+    let current = status["data"]["tree"]["current"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let blob = std::fs::read(d.join(".rules-evolve/blobs").join(&current)).unwrap();
+    assert_eq!(std::fs::read(d.join("AGENTS.md")).unwrap(), blob);
+    assert_eq!(
+        status["data"]["tree"]["applied"][0]["version"],
+        current.as_str()
+    );
+    let log = ok_json(d, &["log", "--kind", "applied"]);
+    assert_eq!(log["data"]["events"].as_array().unwrap().len(), 1);
+    assert_eq!(ok_json(d, &["verify-log"])["data"]["valid"], true);
+    // the export still validates with an applied event in the log
+    let out = d.join("t.json");
+    ok_json(d, &["export", "--out", out.to_str().unwrap()]);
+    assert_valid(&schema_validator(), &read_json(&out));
+
+    // a rejected version is refused without --force, and nothing changes
+    let rejected = status["data"]["tree"]["edges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|e| e["verdict"] == "rejected")
+        .unwrap()["child"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let out = run(d, &["apply", "--version", &rejected, "--yes"]);
+    assert_ne!(out.status.code(), Some(0));
+    assert!(String::from_utf8_lossy(&out.stderr).contains("--force"));
+    assert_eq!(std::fs::read(d.join("AGENTS.md")).unwrap(), blob);
+    let v = ok_json(
+        d,
+        &["apply", "--version", &rejected[..8], "--yes", "--force"],
+    );
+    assert_eq!(v["data"]["forced"], true);
+    assert_eq!(v["data"]["status"], "rejected");
+}
