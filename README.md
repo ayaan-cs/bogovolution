@@ -24,7 +24,7 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: v2.5.0
+## Status: v2.6.0
 
 The default is a deterministic **mock model**, so nothing costs money or touches
 the network. Since v2.1.0 there is a free real provider, `local`: a model server
@@ -211,6 +211,12 @@ Done in v2.5.0:
   `--api-model`, read the key only from an environment variable, never write
   it anywhere, and require isolation. Tested only against a fake local server.
 
+Done in v2.6.0:
+
+- The `docker` and `podman` backends ran the full escape and hidden file test
+  suites for the first time and pass. The podman run found that rootless
+  podman can silently ignore its process and memory caps; fixed with ulimits.
+
 ## Roadmap and remaining gaps
 
 **Isolation: built in v1.2, with gaps that matter.** The check command now runs
@@ -222,10 +228,11 @@ missing before a real provider that runs tools or code is switched on:
   yet, because no provider has tools. Only the check command is isolated today.
   The policy gate is in place so a new provider has to declare itself, but the
   provider's tools must also be run through the same `Runner`.
-- The container backends (`docker`, `podman`) have unit tests for their
-  arguments but could not be run in the environment this was built in. Run
-  `cargo test -p rules-evolve-core --test isolation_escape -- --nocapture` on a
-  machine that has them and read the output (see below).
+- The container backends (`docker`, `podman`) were run for real in v2.6.0
+  (Docker 29.9.3 rootful, Podman 6.2.0 rootless) and pass both escape test
+  files. They were run on one Debian 13 machine only. Run
+  `cargo test -p rules-evolve-core --test isolation_escape -- --nocapture` on
+  your machine and read the output (see below).
 - No seccomp filter and no cgroup limits for `bwrap`. See the list of gaps in
   "Sandbox and threat model".
 - Files next to a hidden file, and non-hidden config the check reads, can still
@@ -1269,7 +1276,7 @@ ro_binds = []           # extra host folders mounted read only, e.g. a toolchain
 | Backend | What it is |
 | --- | --- |
 | `bwrap` | Bubblewrap, Linux, no daemon. New user, pid, net, ipc and uts namespaces. `/usr`, `/bin`, `/lib*`, `/opt` and a few `/etc` entries mounted read only, and nothing else of your machine. The worktree is the only writable bind (at `/work`). `/tmp` is a 256 MiB tmpfs. Root is remounted read only. Cleared environment with a fixed `PATH` and `HOME=/work`. `--die-with-parent`, `--new-session`, all capabilities dropped. Limits (`prlimit`) on processes, address space and file size are set inside the new user namespace. |
-| `docker`, `podman` | `--network none`, `--read-only` root, tmpfs `/tmp`, a non-root user (your uid, or `nobody` if the worktree is owned by root), `--cap-drop ALL`, `--security-opt no-new-privileges`, `--ipc none`, `--pids-limit`, `--memory` (swap off), `--cpus`, `--ulimit` for open files, file size and core dumps, `--pull never`. Only the worktree is mounted (plus any `ro_binds`, read only). Podman also uses `--userns keep-id` so the worktree is writable. On a timeout the container is removed with `rm -f`. |
+| `docker`, `podman` | `--network none`, `--read-only` root, tmpfs `/tmp`, a non-root user (your uid, or `nobody` if the worktree is owned by root), `--cap-drop ALL`, `--security-opt no-new-privileges`, `--ipc none`, `--pids-limit`, `--memory` (swap off), `--cpus`, `--ulimit` for open files, file size and core dumps, `--pull never`. Only the worktree is mounted (plus any `ro_binds`, read only). Podman also uses `--userns keep-id` so the worktree is writable, and `--ulimit nproc` and `--ulimit data` so the process and memory caps hold where rootless podman ignores cgroup limits. On a timeout the container is removed with `rm -f`. |
 | `none` | The old behavior: `sh -c` in the worktree with a cleared environment. **Unsafe.** No namespaces, no mounts, no limits. Kept for development and for the mock and replay providers. It is always printed as `none (UNSAFE: no operating system isolation)`. |
 | `auto` | The first of `bwrap`, `podman`, `docker` that really starts here (it runs `true` in each). If none starts: `none` for mock and replay, an error for a real provider. This is the decided policy. |
 
@@ -1349,10 +1356,17 @@ Be honest with yourself about these:
   usually root, and being in the `docker` group is root on the machine. Rootless
   `podman` is the safer choice. A container is only as good as its image, and
   `run` never pulls: build or pull the image first.
-- **`docker` and `podman` were not run in the environment this was built in.**
-  Their arguments are unit tested, and the escape test file runs the same
-  attacks against them when they are installed, but that has not happened here.
-  Treat them as untested until you have run it.
+- **`docker` and `podman` were run on one machine only** (v2.6.0, see
+  "Escape tests" below). On another setup, run the escape tests yourself.
+- **Rootless `podman` may ignore cgroup limits.** Without cgroup delegation
+  (no systemd user session, for example inside a container or a CI runner),
+  rootless podman silently drops `--pids-limit`, `--memory` and `--cpus`. The
+  first podman escape test run found exactly this: 200 processes started under
+  a cap of 64, and a 1 GiB buffer was allowed under 256 MiB. Since v2.6.0
+  podman also gets `--ulimit nproc` and `--ulimit data` (per process heap and
+  private mappings), which hold without cgroups, and the test passes. There is
+  still no CPU limit in that case, and the memory cap is per process, like
+  `bwrap`.
 - **Only the check command is isolated.** A future real provider that runs
   tools or code of its own will need those tools run through the same
   `Runner`. Nothing does that yet because no provider has tools.
@@ -1466,8 +1480,18 @@ mount arguments of every backend. Removing either the read only mounts or the
 folder pins from the code makes the `bwrap` test fail.
 
 Where this was built, `bwrap` ran all of them and passed, for both test files.
-`docker` and `podman` were skipped because the programs are not installed there, and they could not
-be installed: the package repository was unreachable from that machine.
+In v2.6.0 `docker` and `podman` ran them too, with
+`RULES_EVOLVE_REQUIRE_BACKENDS=bwrap,docker,podman` so that a skip would fail:
+all 5 escape tests and all 4 hidden file tests passed for all three backends.
+
+How they were installed, since the machine's package repository was not
+reachable: Podman 6.2.0 from the static build at
+`github.com/mgoltzsche/podman-static`, rootless, with `newuidmap` and
+`newgidmap` from Debian's `uidmap` package and a vfs storage driver; Docker
+29.9.3 from the static binaries at `download.docker.com`, `dockerd` run as root
+with `--iptables=false --bridge=none` (checks use `--network none` anyway).
+The first podman run failed the process and memory limit checks, see "Rootless
+`podman` may ignore cgroup limits" above.
 
 ## The verdict rule
 

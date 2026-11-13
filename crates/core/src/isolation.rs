@@ -458,6 +458,17 @@ pub fn build_command(backend: Backend, s: &SandboxSettings, req: &CheckRequest) 
                 // Rootless podman maps your user to root unless told to keep
                 // the id, and then the worktree would not be writable.
                 push(&["--userns", "keep-id"]);
+                // Rootless podman without cgroup delegation (no systemd user
+                // session, for example in a container) silently drops
+                // --pids-limit, --memory and --cpus. Resource limits still
+                // hold there, as with bwrap: RLIMIT_NPROC counts per user
+                // namespace, which rootless podman always creates, and
+                // RLIMIT_DATA caps each process's heap and private mappings
+                // (podman has no `as` ulimit). Found by the escape test in
+                // v2.6.0. CPU has no such fallback.
+                let nproc = format!("nproc={0}:{0}", s.max_processes);
+                let data = format!("data={0}:{0}", mib(s.memory_mb));
+                push(&["--ulimit", &nproc, "--ulimit", &data]);
             }
             push(&["--user", &user]);
             let pids = s.max_processes.to_string();
@@ -1178,12 +1189,18 @@ mod tests {
     fn docker_arguments_follow_the_policy() {
         let c = container_checks(Backend::Docker);
         assert!(!c.args.iter().any(|x| x == "--userns"));
+        // rootful docker shares the host user's process count, so no nproc
+        assert!(!c.args.iter().any(|x| x.starts_with("nproc=")));
     }
 
     #[test]
     fn podman_arguments_follow_the_policy_and_keep_the_user_id() {
         let c = container_checks(Backend::Podman);
         assert!(has_pair(&c.args, "--userns", "keep-id"));
+        // the process cap also holds where rootless podman drops cgroup limits
+        assert!(has_pair(&c.args, "--ulimit", "nproc=99:99"));
+        let mem = mib(512);
+        assert!(has_pair(&c.args, "--ulimit", &format!("data={mem}:{mem}")));
     }
 
     #[test]
