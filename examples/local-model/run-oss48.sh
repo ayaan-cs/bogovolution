@@ -20,8 +20,15 @@
 # tokens), so start the model server with a 16384 token context (-c 16384).
 # Nothing leaves this machine: the local provider refuses non-localhost URLs.
 #
+# LATER_REPEATS (default: unset, keep config.toml) runs the oracle, islice and
+# evolve stages with fewer runs, to save time: it sets `repeats` in both
+# experiment configs and sets `min_paired_wins` and `held_out_min_paired_wins`
+# to that number (every paired run must win). The verdict then compares runs
+# 0 to LATER_REPEATS - 1 of child and root. The root keeps all its runs.
+# This changes only the two throwaway projects, never the defaults.
+#
 # Environment: OUT and WORK (both required, keep them for reruns),
-# GENERATIONS, SEED (default 7), LOCAL_URL, RULES_EVOLVE.
+# GENERATIONS, SEED (default 7), LATER_REPEATS, LOCAL_URL, RULES_EVOLVE.
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
@@ -70,6 +77,16 @@ if ! is_done root; then
   rm -rf "$WE"
   cp -a "$WM" "$WE"
   done_ root
+fi
+
+if [ -n "${LATER_REPEATS:-}" ] && ! is_done later-repeats; then
+  for p in "$WM" "$WE"; do
+    sed -i -e "s/^repeats = .*/repeats = $LATER_REPEATS/" \
+      -e "s/^min_paired_wins = .*/min_paired_wins = $LATER_REPEATS/" \
+      -e "s/^held_out_min_paired_wins = .*/held_out_min_paired_wins = $LATER_REPEATS/" \
+      "$p/.rules-evolve/config.toml"
+  done
+  done_ later-repeats
 fi
 
 stage() { # name, rules file, hypothesis

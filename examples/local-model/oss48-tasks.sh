@@ -1,4 +1,4 @@
-# The 48 task more-itertools set (v2.7.0): 24 train, 24 held out.
+# The 48 task more-itertools set: 24 train, 24 held out.
 # Sourced by run-oss48.sh and replay.sh. The first 8 of each list are the
 # 16 tasks of v2.3.0, with the same splits. The 32 new ones are spread by
 # difficulty: 12 short (one loop or one itertools call), 14 medium (edge

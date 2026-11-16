@@ -70,9 +70,13 @@ model never saw, that same rule scored 37.5% against 50% for the starting
 rules: it had fitted the benchmark, not taught a general lesson. A hand written
 general rule ("import everything you use") gained on both sets (+25 on train,
 +12.5 on held out). Since v2.3.0 the tool can hold tasks out and calls such a
-result **overfit** instead of accepting it. Details and caveats (8 tasks, so
-one task is 12.5 points; one small model) are in "Local model test" and, in plain words, in
-[`docs/writeup.md`](docs/writeup.md).
+result **overfit** instead of accepting it. On a bigger set of 48 tasks (24
+train, 24 held out, one task about 4.2 points) nothing cleared the bar: the
+hand written rule gained 6.2 points on train and none on held out, the
+`islice` rule lost 4.2 on train, and a new 7B evolve proposed another generic
+import rule that was rejected. Those later runs used 2 repeats instead of 5 to
+fit the time, so they are weaker evidence. Details and caveats are in
+"Local model test" and, in plain words, in [`docs/writeup.md`](docs/writeup.md).
 
 ## Inspiration
 

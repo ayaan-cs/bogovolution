@@ -115,6 +115,78 @@ model saw 16 stubs instead of 8 and different failure notes, and llama.cpp
 does not give identical answers across runs anyway. No overfit verdict came
 up, because nothing passed the train gate.
 
+## Round 5: 48 tasks, and nothing moved
+
+8 tasks per set made every result one or two tasks wide, so the set grew to
+48 more-itertools functions: 24 train and 24 held out. The 16 earlier tasks
+keep their splits. The 32 new ones come from `recipes.py` and `more.py` and
+mix short functions (`ilen`, `mark_ends`), medium ones with edge cases and
+keyword arguments (`split_at`, `windowed`, `zip_offset`) and hard ones
+(`nth_combination`, `sort_together`, `chunked_even`). Each hidden test was
+checked to pass on the upstream code and fail on the stub. Now one task is
+about 4.2 points.
+
+Every task prompt shows all 48 stubs, about 9,700 tokens, so the server ran
+with a 16,384 token context and each project's token cap per run was raised
+from 200,000 to 1,000,000. At about 40 s of generation per call, 5 runs of
+every version would have taken about 13 hours. So the root got its 5 runs,
+and the oracle, the old `islice` rule and the evolved child got **2 runs
+each**, judged on the root's runs 0 and 1 with the same 10 point bars and
+every pair required to win (2 of 2). Nov 15 to 16, 10:55 PM to 5:52 AM CT,
+529 calls, 5,222,336 tokens:
+
+| Version | Rules | Train runs (of 24) | Train median | Held out runs (of 24) | Held out median | Verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| root | none | 8, 7, 9, 8, 9 | 33.3% (31.2% on runs 0 and 1) | 6, 5, 8, 6, 5 | 25.0% (22.9%) | |
+| control | hand written: import everything you use | 11, 7 | 37.5% | 7, 4 | 22.9% | noise, +6.2 points, 1 of 2 wins; held out +0.0, 1 of 2 |
+| old rule | the `islice` rule from round 2 | 8, 5 | 27.1% | 5, 9 | 29.2% | rejected, -4.2 points, 0 of 2 wins; held out +6.2, 1 of 2 |
+| evolve gen 1 | "Import common Python functions and utilities at the beginning of each file to avoid frequent import errors." | 9, 6 | 31.2% | 5, 4 | 18.8% | rejected, 0.0 points, 1 of 2 wins; held out -4.2, 0 of 2 |
+
+Nothing generalized, and nothing was accepted. The hand written rule that
+gained on both 8 task sets gained 6.2 points on train here and nothing on
+held out. The `islice` rule fixed `take` in one of two runs, as before, and
+gained on a few held out tasks, but lost `partition` and `exactly_n` and
+broke `ncycles` again (2 of 2 to 0 of 2), as it did in round 3. The evolved
+rule was once more a generic import rule, and once more it changed nothing.
+
+The root itself moved: on the 8 original train tasks it passed 5 of 8 in 4
+of 5 runs, against mostly 4 of 8 when those tasks came with 8 or 16 stubs. More
+context changed the answers, so these numbers do not compare one to one with
+rounds 2 to 4. 27 of the 48 tasks were never solved by the root in 5 runs,
+and 11 always were, so only 10 tasks carry any run to run noise.
+
+## The verdict bar on bigger sets
+
+The bars are in points, so they mean different things at different sizes.
+With 8 tasks, 10 points is any one task. With 24 tasks it is 3 tasks (2 tasks
+is 8.3 points). That is stricter in tasks but closer to what the rule was
+meant to say: a real, repeatable gain.
+
+To see whether the bars still fit, `examples/local-model/verdict-noise.py`
+simulated the verdict from the root's measured per task pass rates,
+20,000 times per case. A rule either changes nothing, fixes 3 train tasks
+the root never solves and nothing else (overfit), or fixes 3 train and 2 or
+3 held out tasks (general):
+
+| Rule | Child equals root | Overfit, 3 train tasks | General, 3 + 3 | General, 3 + 2 |
+| --- | --- | --- | --- | --- |
+| default: 10 points, 4 of 5; held out 10 points, 3 of 5 | 0.0% accepted | 0.3% | 61.5% | 24.8% |
+| as run here: 2 runs, 10 points, 2 of 2 on both | 0.0% | 2.0% | 62.8% | 34.5% |
+| held out bar 5 points, 3 of 5 | 0.0% | 3.7% | 80.6% | 60.6% |
+
+The train bar is fine: with this little noise a do nothing child is never
+accepted. The held out bar is the one that bites. A held out gain of 10
+points on 24 tasks needs 3 extra tasks, and a general rule that fixes 3
+train tasks usually transfers to fewer, so the default turns most such rules
+away. A 5 point held out bar (2 of 24 tasks) with 3 of 5 wins would accept a
+3 + 2 rule 61% of the time instead of 25%, at the price of letting a pure
+overfit through 3.7% of the time instead of 0.3%. The held out gate's job is
+to catch rules that do not transfer, not to demand that they transfer as
+strongly as they fit, so a lower held out bar is worth considering for sets
+of 20 or more held out tasks. It is a proposal only: the defaults did not
+change, and the simulation assumes tasks are independent and that a rule
+only lifts tasks the root never solves.
+
 ## What this suggests
 
 - A loop that only measures the tasks it tunes on will happily accept a rule
@@ -123,14 +195,21 @@ up, because nothing passed the train gate.
   made the 7B useful, and also what made its rule narrow.
 - A model has to be able to follow rules before rules can help it. The 3B
   could not, the 7B could.
-- The general rule a person wrote from the same failure notes transferred.
-  The model did not find it on its own in these runs.
+- The general rule a person wrote from the same failure notes transferred on
+  the 8 task sets. On 48 tasks it did not clear the bar (+6.2 train, +0.0
+  held out, 2 runs), so even that result was partly small set luck.
+- Bigger sets make each verdict cheaper to trust and much more expensive to
+  get: 48 tasks with all stubs in the prompt cost about 3 hours per 5 runs on
+  this CPU.
 
 ## Caveats
 
-- **8 tasks per set.** One task moves a score by 12.5 points. The hand
-  written rule's +12.5 on held out tasks is one task's worth, just above the
-  bar.
+- **8 tasks per set** in rounds 1 to 4. One task moves a score by 12.5
+  points. The hand written rule's +12.5 on held out tasks is one task's
+  worth, just above the bar.
+- **Round 5 used 2 runs** for everything but the root, to fit the time. That
+  weakens those verdicts: a median of 2 runs is their mean, and 2 of 2 wins is
+  easy to miss by one tie.
 - **Small models, one machine.** Qwen2.5 Coder 3B and 7B, quantized, on CPU.
   Bigger models may behave differently.
 - **Runs are samples.** Even with a fixed seed, llama.cpp did not give
@@ -159,6 +238,13 @@ examples/local-model/replay.sh held-out-eval /path/to/more-itertools \
   examples/local-model/replays/qwen2.5-coder-7b/held-out-eval-replay.jsonl
 examples/local-model/replay.sh oss-held-out /path/to/more-itertools \
   examples/local-model/replays/qwen2.5-coder-7b/oss-held-out-replay.jsonl
+```
+
+Round 5 (about 20 minutes, the checks still run and time out where they did):
+
+```sh
+GENERATIONS=1 LATER_REPEATS=2 examples/local-model/replay.sh oss48 /path/to/more-itertools \
+  examples/local-model/replays/qwen2.5-coder-7b/oss48
 ```
 
 The more-itertools checkout must be at commit

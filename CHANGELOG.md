@@ -5,6 +5,17 @@ been published: every version below exists only as a local git commit.
 
 ## Unreleased
 
+- A 48 task more-itertools set (24 train, 24 held out; the 16 earlier tasks
+  keep their splits). `make-oss-fixture.py` reads `recipes.py` and `more.py`,
+  `validate-oss-fixture.sh` checks each task passes on upstream code and
+  fails on the stub, `oss48-tasks.sh` lists the set.
+- `run-oss48.sh`: root, control, the old `islice` rule and a combined
+  `evolve` as restartable stages with done markers, and `LATER_REPEATS` to
+  run the later stages with fewer runs. `replay.sh oss48` replays it.
+- 7B results on the 48 task set (root 5 runs, the rest 2 runs): nothing
+  accepted, nothing generalized. Replays in `replays/qwen2.5-coder-7b/oss48/`.
+- `verdict-noise.py` and a written proposal (not applied) for a lower held
+  out bar on sets of 20 or more held out tasks.
 - README: install from source, a one minute quickstart with the replay demo,
   and a short summary of what the real model runs found.
 - `docs/writeup.md`: the story and the numbers of the real model runs.

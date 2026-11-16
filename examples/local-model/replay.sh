@@ -16,7 +16,8 @@
 #
 # oss48 replays run-oss48.sh: the 48 task set (oss48-tasks.sh), the root, the
 # oracle and the islice rule measured, then a combined evolve from a copy that
-# already holds the root runs. GENERATIONS must match the recorded run (default 1).
+# already holds the root runs. GENERATIONS and LATER_REPEATS must match the
+# recorded run (the committed oss48 recording: GENERATIONS=1 LATER_REPEATS=2).
 #
 # The checks still run (under bwrap), so the oss replay needs python3 and bwrap.
 # This script does not ship recorded model answers.
@@ -110,6 +111,14 @@ case "${1:-}" in
     sed -i 's/^max_tokens_per_run = 200000$/max_tokens_per_run = 1000000/' "$WM/.rules-evolve/config.toml"
     "$BIN" -C "$WM" run --version root --seed 7 --provider replay --replay-file "$RD/root-replay.jsonl"
     cp -a "$WM" "$WORK/evolve"
+    if [ -n "${LATER_REPEATS:-}" ]; then
+      for p in "$WM" "$WORK/evolve"; do
+        sed -i -e "s/^repeats = .*/repeats = $LATER_REPEATS/" \
+          -e "s/^min_paired_wins = .*/min_paired_wins = $LATER_REPEATS/" \
+          -e "s/^held_out_min_paired_wins = .*/held_out_min_paired_wins = $LATER_REPEATS/" \
+          "$p/.rules-evolve/config.toml"
+      done
+    fi
     prop() {
       "$BIN" -C "$WM" propose --parent root --file "$1" --hypothesis "$2" --json \
         | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"]["child"])'

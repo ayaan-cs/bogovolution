@@ -12,8 +12,12 @@ machine: the `local` provider refuses any URL that is not `localhost`,
 | `run-local-test.sh` | Sets up a throwaway project and runs `evolve` with `--provider local`, recording a replay file and a raw transcript |
 | `make-oss-fixture.py` | Builds a small task set derived from [more-itertools](https://github.com/more-itertools/more-itertools) (MIT): one stub per function (upstream signature and docstring) and the upstream unit tests as hidden checks. It is derived from a real project, not the whole project. The more-itertools code is not copied into this repo |
 | `oracle-rules.md` | A hand written rules change used as a control (see results) |
+| `oss48-tasks.sh` | The 48 task set: 24 train and 24 held out functions |
+| `validate-oss-fixture.sh` | Checks every task `make-oss-fixture.py` knows: the hidden check passes on the upstream code and fails on the stub |
+| `run-oss48.sh` | The 48 task run in restartable stages: root, control, the old `islice` rule, then a combined `evolve` |
+| `verdict-noise.py` | Simulates how often the verdict rule accepts, from a root's measured runs |
 | `replay.sh` | Replays a recorded run, with no model server |
-| `replays/qwen2.5-coder-7b/` | The recorded answers of the Qwen2.5 Coder 7B Instruct runs below (Apache 2.0 model). `oss-replay.jsonl` is the 3 generation `evolve`, `oss-oracle-replay.jsonl` the hand written control, `held-out-eval-replay.jsonl` the held out check (v2.3.0), with the two model written rules it used as `rules-*.md` |
+| `replays/qwen2.5-coder-7b/` | The recorded answers of the Qwen2.5 Coder 7B Instruct runs below (Apache 2.0 model). `oss-replay.jsonl` is the 3 generation `evolve`, `oss-oracle-replay.jsonl` the hand written control, `held-out-eval-replay.jsonl` the held out check (v2.3.0), with the two model written rules it used as `rules-*.md`, `oss-held-out-replay.jsonl` the combined run of v2.6.0, and `oss48/` the 48 task run (root, control, `islice` rule, evolve, and the rule the evolve wrote) |
 
 ## 1. Get a model server (free)
 
@@ -36,6 +40,7 @@ curl -L -o qwen2.5-coder-7b-instruct-q4_k_m.gguf \
 ./llama-b12292/llama-server -m qwen2.5-coder-7b-instruct-q4_k_m.gguf \
   --host 127.0.0.1 --port 8080 -c 8192 -t 8 --parallel 1 --no-webui
 # smaller and faster, also Apache 2.0: bartowski/Qwen2.5-Coder-1.5B-Instruct-GGUF
+# For the 48 task set use -c 16384: every task prompt is about 9,700 tokens.
 ```
 
 Any OpenAI compatible server that serves `/v1/models` and
@@ -81,6 +86,94 @@ test, because that model's weights use the Qwen Research license.
 No model server is needed. The checks still run, so the `oss` replay needs
 `python3` and `bwrap`. A replay gives the same pass rates, tokens, hypotheses
 and verdicts as the recorded run.
+
+## 48 tasks: 24 train, 24 held out
+
+Nov 15 to 16, 2026, Qwen2.5 Coder 7B Instruct Q4_K_M, llama.cpp b12292 with
+`-c 16384 -t 8 --parallel 1`, seed 7, bwrap. With 8 tasks per set one task is
+12.5 points; with 24 it is about 4.2.
+
+**The set.** The 16 tasks above keep their splits. 32 more come from
+`recipes.py` (`dotproduct`, `iter_except`, `polynomial_derivative`,
+`grouper`, `subslices`, `sliding_window`, `nth_combination`,
+`polynomial_from_roots` for train; `repeatfunc`, `triplewise`,
+`before_and_after`, `transpose`, `reshape`, `totient` held out) and from
+`more.py` (`ilen`, `duplicates_justseen`, `exactly_n`, `split_at`,
+`distribute`, `consecutive_groups`, `stagger`, `sort_together` for train;
+`mark_ends`, `longest_common_prefix`, `interleave_longest`,
+`circular_shifts`, `intersperse`, `windowed`, `chunked`, `locate`,
+`zip_offset`, `chunked_even` held out). Per split: 6 short, 7 medium and 3
+hard new tasks. `make-oss-fixture.py` now reads both upstream files; stubs
+are still signature and docstring only, and `--reference` (local validation
+only) fills them with the whole upstream module. `validate-oss-fixture.sh`
+accepts a task only if its hidden check passes on upstream code, fails on
+the stub, and uses no other more-itertools name. 59 tasks pass; 10
+candidates were dropped: their tests call other library functions
+(`mi.take`, `mi.ilen`, ...), a test only helper or the package itself, or
+did not pass on the upstream code in this layout.
+
+**What it costs.** Every task prompt shows all 48 stubs (about 9,700
+tokens), so the server needs `-c 16384`, and the project's
+`max_tokens_per_run` must be raised from 200,000 (one run uses about 475,000;
+the first attempt stopped after 20 tasks per run because of it). Generation
+ran at about 6 tokens per second, about 40 s per call, so 5 runs of one
+version (240 calls) took 3 h 17 min.
+
+**What was cut.** Root, control, `islice` rule and a 1 generation `evolve` at
+5 runs each would have been about 960 calls, around 13 hours, against a
+budget of about 6. The root got its 5 runs; the later stages ran with
+`LATER_REPEATS=2`: 2 runs each, judged on the root's runs 0 and 1 with the
+same 10 point bars and 2 of 2 paired wins on train and held out. That makes
+these verdicts weaker than the 5 run ones above.
+
+| Version | Train runs (of 24) | Train median | Held out runs (of 24) | Held out median | Verdict | Calls, tokens, time |
+| --- | --- | --- | --- | --- | --- | --- |
+| root | 8, 7, 9, 8, 9 | 33.3% (31.2% on runs 0, 1) | 6, 5, 8, 6, 5 | 25.0% (22.9%) | | 240, 2,368,963, 3 h 17 min |
+| control (`oracle-rules.md`) | 11, 7 | 37.5% | 7, 4 | 22.9% | noise: +6.2, 1 of 2 wins; held out +0.0, 1 of 2 | 96, 951,929, 1 h 12 min |
+| `islice` rule (round 2) | 8, 5 | 27.1% | 5, 9 | 29.2% | rejected: -4.2, 0 of 2; held out +6.2, 1 of 2 | 96, 950,122, 1 h 13 min |
+| evolve gen 1 | 9, 6 | 31.2% | 5, 4 | 18.8% | rejected: 0.0, 1 of 2; held out -4.2, 0 of 2 | 97, 951,322, 1 h 15 min |
+
+The evolve ran from a copy of the project that already held the root runs,
+so it did not run the root again. Its one change: "Import common Python
+functions and utilities at the beginning of each file to avoid frequent
+import errors." (`oss48/rules-gen1-8456ab49.md`). In all, 529 calls and
+5,222,336 tokens, Nov 15 10:55 PM to Nov 16 5:52 AM CT.
+
+Nothing was accepted and no rule generalized. Per task, passes in runs 0
+and 1 against the root's: the control gained `take` (0 to 1), `iter_except`
+(0 to 2), `duplicates_justseen`, `iter_index` and `interleave_longest` (0 to
+1 each) and lost one pass each on `exactly_n`, `first_true` and
+`repeatfunc`. The `islice` rule gained `take`, `unique_justseen`,
+`iter_except`, `roundrobin` (0 to 1 each), `iter_index` and
+`interleave_longest` (0 to 2), but lost `tail` (1 to 0), `partition` and
+`exactly_n` (2 to 0 each), and again broke `ncycles` (2 to 0), as in the
+v2.3.0 check. 27 of the 48 tasks were never
+solved by the root and 11 always were; only 10 carry run to run noise.
+
+**The verdict bar.** `verdict-noise.py` simulates the rule from the root's
+per task pass rates (20,000 pairs per case). With this root, a child that
+changes nothing is never accepted, under the default or the 2 run setup. A
+rule that fixes 3 train tasks and nothing held out passes 0.3% of the time
+(default) and 2.0% (2 runs). A general rule that fixes 3 train and 3 held out
+tasks passes about 62% of the time either way, and one that fixes 3 train
+and 2 held out tasks only 25% (default). A 5 point held out bar with 3 of 5
+wins would lift that to 61% and let a pure overfit through 3.7% of the time.
+`docs/writeup.md` has the reasoning. The defaults did not change.
+
+Replay it (about 20 minutes, the checks still run; it reproduced every number above):
+
+```sh
+GENERATIONS=1 LATER_REPEATS=2 examples/local-model/replay.sh oss48 /tmp/more-itertools \
+  examples/local-model/replays/qwen2.5-coder-7b/oss48
+```
+
+Run it yourself, restartable after a crash or reboot (finished stages are
+skipped; runs already in the log are not run again):
+
+```sh
+OUT=~/oss48-out WORK=~/oss48-work LATER_REPEATS=2 \
+  examples/local-model/run-oss48.sh /tmp/more-itertools
+```
 
 ## Held out check of the 7B result (v2.3.0)
 
