@@ -6,12 +6,17 @@
 #   replay.sh oss <checkout> <oss-replay.jsonl> <oss-oracle-replay.jsonl>
 #   replay.sh oss-held-out <checkout> <oss-held-out-replay.jsonl>
 #   replay.sh held-out-eval <checkout> <held-out-eval-replay.jsonl>
+#   replay.sh oss48 <checkout> <folder with root-, oracle-, islice- and evolve-replay.jsonl>
 #
 # held-out-eval runs the 8 held out functions alone against the root, the two
 # rules the 7B model wrote in the v2.2.0 run, and oracle-rules.md.
 #
 # oss uses the 8 train tasks of v2.2.0. oss-held-out adds the 8 held out tasks
 # of v2.3.0 (the run-local-test.sh default), so the held out gate applies.
+#
+# oss48 replays run-oss48.sh: the 48 task set (oss48-tasks.sh), the root, the
+# oracle and the islice rule measured, then a combined evolve from a copy that
+# already holds the root runs. GENERATIONS must match the recorded run (default 1).
 #
 # The checks still run (under bwrap), so the oss replay needs python3 and bwrap.
 # This script does not ship recorded model answers.
@@ -90,11 +95,42 @@ case "${1:-}" in
     done
     for v in "$G" "$I" "$O"; do "$BIN" -C "$WORK" verify --child "$v" || true; done
     ;;
+  oss48)
+    SRC=${2:?usage: replay.sh oss48 <more-itertools checkout> <replay folder>}
+    RD=$(abs "${3:?usage: replay.sh oss48 <more-itertools checkout> <replay folder>}")
+    . "$HERE/oss48-tasks.sh"
+    WM=$WORK/measure
+    TASKS=$(mktemp)
+    python3 "$HERE/make-oss-fixture.py" "$SRC" "$WM" "$OSS48_TRAIN" \
+      --held-out="$OSS48_HELD_OUT" --tasks-out="$TASKS"
+    "$BIN" -C "$WM" init --model local-model >/dev/null
+    mv "$TASKS" "$WM/.rules-evolve/tasks.toml"
+    # Every task prompt is about 10,000 tokens, so 48 tasks need more than the
+    # default cap of 200,000 tokens per run.
+    sed -i 's/^max_tokens_per_run = 200000$/max_tokens_per_run = 1000000/' "$WM/.rules-evolve/config.toml"
+    "$BIN" -C "$WM" run --version root --seed 7 --provider replay --replay-file "$RD/root-replay.jsonl"
+    cp -a "$WM" "$WORK/evolve"
+    prop() {
+      "$BIN" -C "$WM" propose --parent root --file "$1" --hypothesis "$2" --json \
+        | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"]["child"])'
+    }
+    I=$(prop "$HERE/replays/qwen2.5-coder-7b/rules-islice-4e7baaad.md" "7B run 2 gen 2 (accepted on the 8 task train set): import islice")
+    O=$(prop "$HERE/oracle-rules.md" "Hand written control: import everything used")
+    "$BIN" -C "$WM" run --version "$O" --seed 7 --provider replay --replay-file "$RD/oracle-replay.jsonl"
+    "$BIN" -C "$WM" verify --child "$O" || true
+    "$BIN" -C "$WM" run --version "$I" --seed 7 --provider replay --replay-file "$RD/islice-replay.jsonl"
+    "$BIN" -C "$WM" verify --child "$I" || true
+    "$BIN" -C "$WM" verify-log
+    "$BIN" -C "$WORK/evolve" evolve --generations "${GENERATIONS:-1}" --seed 7 --provider replay \
+      --replay-file "$RD/evolve-replay.jsonl"
+    WORK=$WORK/evolve
+    ;;
   *)
     echo "usage: replay.sh demo <demo-replay.jsonl>" >&2
     echo "       replay.sh oss <more-itertools checkout> <oss-replay.jsonl> [oracle-replay.jsonl]" >&2
     echo "       replay.sh oss-held-out <more-itertools checkout> <oss-held-out-replay.jsonl>" >&2
     echo "       replay.sh held-out-eval <more-itertools checkout> <held-out-eval-replay.jsonl>" >&2
+    echo "       replay.sh oss48 <more-itertools checkout> <replay folder>" >&2
     exit 1
     ;;
 esac
