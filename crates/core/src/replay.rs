@@ -311,7 +311,7 @@ impl Model for RecordingModel {
         self.record(
             KIND_TASK,
             req.model,
-            req.prompt,
+            &req.key_prompt(),
             req.rules_hash,
             req.task_id,
             req.seed,
@@ -433,7 +433,7 @@ impl Model for ReplayModel {
         let key = self.key(
             KIND_TASK,
             req.model,
-            req.prompt,
+            &req.key_prompt(),
             req.rules_hash,
             req.task_id,
             req.seed,
@@ -449,7 +449,7 @@ impl Model for ReplayModel {
         let key = self.key(
             KIND_TASK,
             req.model,
-            req.prompt,
+            &req.key_prompt(),
             req.rules_hash,
             req.task_id,
             req.seed,
@@ -550,6 +550,7 @@ mod tests {
             seed,
             run_index: 0,
             max_tokens: 1_000_000,
+            context: &[],
         }
     }
 
@@ -637,6 +638,32 @@ mod tests {
             Err(Error::ReplayMiss(_))
         ));
         assert_eq!(rep.counters().replayed, 0);
+    }
+
+    #[test]
+    fn a_task_context_is_part_of_the_key() {
+        let d = tempdir().unwrap();
+        let path = d.path().join("r.jsonl");
+        let rec = RecordingModel::new(mock(), &path).unwrap();
+        let ctx = vec!["a.txt".to_string()];
+        let with = ModelRequest {
+            context: &ctx,
+            ..treq(3, d.path())
+        };
+        let a = rec.complete(&with).unwrap();
+        let rep = ReplayModel::load(&path).unwrap();
+        assert_eq!(rep.complete(&with).unwrap(), a);
+        // the same call without context was never recorded
+        assert!(matches!(
+            rep.complete(&treq(3, d.path())),
+            Err(Error::ReplayMiss(_))
+        ));
+        // and a call without context keeps the old key
+        let (old, _) = call_key("task", "mock", "m", "p", "rh", "t", 3);
+        let rec2 = RecordingModel::new(mock(), &d.path().join("r2.jsonl")).unwrap();
+        rec2.complete(&treq(3, d.path())).unwrap();
+        let text = std::fs::read_to_string(d.path().join("r2.jsonl")).unwrap();
+        assert!(text.contains(&old), "{text}");
     }
 
     #[test]

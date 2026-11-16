@@ -13,10 +13,15 @@ from a real open source project (MIT licensed), not the whole project.
 
   make-oss-fixture.py <more-itertools checkout> <destination> [fn,fn,...]
                      [--held-out=fn,fn,...] [--reference] [--tasks-out=PATH]
+                     [--short-context]
 
 --held-out adds more functions as held out tasks (split = "held_out" in
 tasks.toml): rules-evolve runs and scores them, but never shows them to the
 model that writes the rules, and accepts a change only if it also gains on them.
+
+--short-context gives every task `context = ["solve/<name>.py"]`, so the model
+is shown only that task's stub instead of every stub (rules-evolve 2.7.0 and
+later). Without it the task file is the same as before.
 
 --tasks-out writes tasks.toml somewhere else (default: <destination>/tasks.toml).
 Put it in <destination>/.rules-evolve/ after `rules-evolve init`, so the model
@@ -106,6 +111,7 @@ RULES = "# Project rules\n\nWrite clear code and keep changes small.\n"
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     reference = "--reference" in sys.argv
+    short_context = "--short-context" in sys.argv
     tasks_out = next(
         (a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--tasks-out=")),
         None,
@@ -202,6 +208,8 @@ def main():
             f'check = "python3 -B -m unittest checks.test_{name}"',
             "timeout_secs = 60",
         ]
+        if short_context:
+            out.append(f'context = ["solve/{name}.py"]')
         if name in held_out:
             out.append('split = "held_out"')
         out.append("")

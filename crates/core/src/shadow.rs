@@ -392,6 +392,7 @@ mod tests {
             check: check.into(),
             timeout_secs: None,
             split: Default::default(),
+            context: Vec::new(),
         }
     }
 

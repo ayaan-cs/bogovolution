@@ -3,8 +3,20 @@
 All notable changes, newest first. Dates are in America/Chicago. Nothing has
 been published: every version below exists only as a local git commit.
 
-## Unreleased
+## 2.7.0 (2026-11-16)
 
+- `context` per task in `tasks.toml`: the files (or folders ending in `/`)
+  the model is shown for that task. Without it the prompt and the replay key
+  are exactly as before, so older recordings replay unchanged; with it the
+  list is part of the replay key. `make-oss-fixture.py --short-context` and
+  `SHORT_CONTEXT=1` for `run-oss48.sh` and `replay.sh oss48` use it.
+- Held out gate for large sets: with at least `held_out_large_set_tasks`
+  (default 20) held out tasks, the held out gain needed is
+  `held_out_large_set_threshold_pp` (default 5) instead of
+  `held_out_accept_threshold_pp` (10). 3 of 5 wins still needed. Configs
+  without the keys get the defaults. `verify` and the export show the bar
+  that applied.
+- `run-oss48.sh` runs the islice stage last, after the evolve.
 - A 48 task more-itertools set (24 train, 24 held out; the 16 earlier tasks
   keep their splits). `make-oss-fixture.py` reads `recipes.py` and `more.py`,
   `validate-oss-fixture.sh` checks each task passes on upstream code and
@@ -14,8 +26,8 @@ been published: every version below exists only as a local git commit.
   run the later stages with fewer runs. `replay.sh oss48` replays it.
 - 7B results on the 48 task set (root 5 runs, the rest 2 runs): nothing
   accepted, nothing generalized. Replays in `replays/qwen2.5-coder-7b/oss48/`.
-- `verdict-noise.py` and a written proposal (not applied) for a lower held
-  out bar on sets of 20 or more held out tasks.
+- `verdict-noise.py`, which simulates the verdict rule from a root's
+  measured runs; it is the basis of the large set held out bar above.
 - README: install from source, a one minute quickstart with the replay demo,
   and a short summary of what the real model runs found.
 - `docs/writeup.md`: the story and the numbers of the real model runs.

@@ -10,11 +10,12 @@
 #   fixture  build the task repo in WORK/measure (24 train, 24 held out tasks)
 #   root     measure the root (REPEATS runs, default from config.toml: 5)
 #   oracle   measure oracle-rules.md and verify it against the root
-#   islice   measure the islice rule from the 7B run of v2.2.0 and verify it
 #   evolve   a combined evolve (GENERATIONS, default 1) in WORK/evolve, a copy
 #            of the project made right after the root stage, so the root is not
 #            run twice. If one generation was cut off after its mutation was
 #            logged, the rerun finishes that child with `run` and `verify`.
+#   islice   measure the islice rule from the 7B run of v2.2.0 and verify it
+#            (last, so a long run can be stopped after the evolve)
 #
 # All 48 stubs are shown to the model in every task prompt (about 9,700
 # tokens), so start the model server with a 16384 token context (-c 16384).
@@ -27,8 +28,13 @@
 # 0 to LATER_REPEATS - 1 of child and root. The root keeps all its runs.
 # This changes only the two throwaway projects, never the defaults.
 #
+# SHORT_CONTEXT=1 shows the model only the task's own stub (`context` in
+# tasks.toml, rules-evolve 2.7.0 and later). Prompts drop from about 9,700 to
+# about 600 tokens, so the server's default context is plenty.
+#
 # Environment: OUT and WORK (both required, keep them for reruns),
-# GENERATIONS, SEED (default 7), LATER_REPEATS, LOCAL_URL, RULES_EVOLVE.
+# GENERATIONS, SEED (default 7), LATER_REPEATS, SHORT_CONTEXT, LOCAL_URL,
+# RULES_EVOLVE.
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
@@ -59,8 +65,10 @@ child_of() {
 
 if ! is_done fixture; then
   rm -rf "$WM"
+  SC=""
+  [ -n "${SHORT_CONTEXT:-}" ] && SC=--short-context
   python3 "$HERE/make-oss-fixture.py" "$SRC" "$WM" "$OSS48_TRAIN" \
-    --held-out="$OSS48_HELD_OUT" --tasks-out="$OUT/tasks.toml"
+    --held-out="$OSS48_HELD_OUT" --tasks-out="$OUT/tasks.toml" $SC
   "$BIN" -C "$WM" init --model local-model >/dev/null
   mv "$OUT/tasks.toml" "$WM/.rules-evolve/tasks.toml"
   # Every task prompt is about 10,000 tokens, so 48 tasks need more than the
@@ -103,8 +111,6 @@ stage() { # name, rules file, hypothesis
   done_ "$1"
 }
 stage oracle "$HERE/oracle-rules.md" "Hand written control: import everything used"
-stage islice "$HERE/replays/qwen2.5-coder-7b/rules-islice-4e7baaad.md" \
-  "7B run 2 gen 2 (accepted on the 8 task train set): import islice"
 
 if ! is_done evolve; then
   echo "stage evolve start $(ts)"
@@ -134,6 +140,9 @@ PY
   fi
   done_ evolve
 fi
+stage islice "$HERE/replays/qwen2.5-coder-7b/rules-islice-4e7baaad.md" \
+  "7B run 2 gen 2 (accepted on the 8 task train set): import islice"
+
 "$BIN" -C "$WM" verify-log
 "$BIN" -C "$WE" verify-log
 "$BIN" -C "$WE" export --out "$OUT/evolve-export.json" >/dev/null

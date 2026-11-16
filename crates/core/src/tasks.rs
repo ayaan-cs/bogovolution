@@ -25,6 +25,12 @@ pub struct Task {
     /// gains on them (see "The verdict rule").
     #[serde(default, skip_serializing_if = "Split::is_train")]
     pub split: Split,
+    /// Repo files (or folders, ending in `/`) the model is shown for this
+    /// task, relative to the repo root. Empty (the default) shows every
+    /// readable file, as before. A short list keeps the prompt small when the
+    /// repo holds many unrelated files.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub context: Vec<String>,
 }
 
 /// Which part of the task set a task belongs to.
@@ -142,6 +148,14 @@ impl TasksFile {
             }
             if t.timeout_secs == Some(0) {
                 return Err(format!("task {} has timeout_secs = 0", t.id));
+            }
+            for p in &t.context {
+                if bad_pattern(p) {
+                    return Err(format!(
+                        "task {}: context path {p:?} must be relative to the repo root and must not contain ..",
+                        t.id
+                    ));
+                }
             }
         }
         if !self.task.is_empty() && self.task.iter().all(|t| t.split == Split::HeldOut) {
@@ -280,5 +294,25 @@ mod tests {
         assert!(t("[sandbox]\nhidden=[\"../x\"]\n"));
         assert!(t("[sandbox]\nhidden=[\"/etc\"]\n"));
         assert!(t("[sandbox]\ndefault_timeout_secs=0\n"));
+        assert!(t(
+            "[[task]]\nid=\"a\"\nprompt=\"p\"\ncheck=\"c\"\ncontext=[\"../x.py\"]\n"
+        ));
+        assert!(t(
+            "[[task]]\nid=\"a\"\nprompt=\"p\"\ncheck=\"c\"\ncontext=[\"/etc/passwd\"]\n"
+        ));
+        assert!(t(
+            "[[task]]\nid=\"a\"\nprompt=\"p\"\ncheck=\"c\"\ncontext=[\"\"]\n"
+        ));
+    }
+
+    #[test]
+    fn context_defaults_to_empty_and_parses() {
+        let f = TasksFile::parse(
+            "[[task]]\nid=\"a\"\nprompt=\"p\"\ncheck=\"c\"\n\
+             [[task]]\nid=\"b\"\nprompt=\"p\"\ncheck=\"c\"\ncontext=[\"solve/b.py\", \"lib/\"]\n",
+        )
+        .unwrap();
+        assert!(f.task[0].context.is_empty());
+        assert_eq!(f.task[1].context, vec!["solve/b.py", "lib/"]);
     }
 }

@@ -84,7 +84,7 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: v2.6.0
+## Status: v2.7.0
 
 The default is a deterministic **mock model**, so nothing costs money or touches
 the network. Since v2.1.0 there is a free real provider, `local`: a model server
@@ -383,6 +383,8 @@ as `defaults_confirmed = true`):
 | `min_paired_wins` | 4 | And win at least 4 of the 5 paired runs, otherwise it is noise |
 | `held_out_accept_threshold_pp` | 10 | Only with held out tasks: the child must also gain 10 points of held out median pass rate |
 | `held_out_min_paired_wins` | 3 | And win at least 3 of the 5 held out pairs, otherwise it is overfit |
+| `held_out_large_set_tasks` | 20 | With at least this many held out tasks (0 turns it off), use the next bar instead of 10 points (v2.7.0) |
+| `held_out_large_set_threshold_pp` | 5 | Held out gain needed for a large held out set |
 | `max_tokens_per_run` | 200000 | Token cap for one run |
 | `max_change_bytes` | 1000 | Largest allowed change for `propose` (under `[mutation]`) |
 | `isolation` | `auto` | How check commands are isolated (under `[sandbox]`, see "Sandbox and threat model") |
@@ -673,7 +675,18 @@ prompt = "The date parser fails on leap days. Fix it."
 check = "sh tests/run.sh fix-parser-bug"   # exit 0 means pass
 timeout_secs = 120             # optional, overrides default_timeout_secs
 split = "train"                # optional: "train" (default) or "held_out"
+context = ["src/date.rs", "src/parse/"]   # optional (v2.7.0): the only files shown
 ```
+
+**Context (v2.7.0).** By default the model is shown every readable file in
+the repo (up to 48 KB). `context` limits one task's prompt to the listed
+files, and to everything under a listed folder (a path ending in `/`). Paths
+are relative to the repo root and may not contain `..`. Use it when the repo
+holds many files a task does not need: on the 48 task more-itertools set it
+cut each task prompt from about 9,700 to about 600 tokens. A task without
+`context` gets exactly the prompt it got before, and its replay key is
+unchanged, so older recordings still replay. The list is part of the replay
+key when it is set.
 
 **Held out tasks (v2.3.0).** Mark a task `split = "held_out"` to keep it out
 of the model's sight while the rules are written. Held out tasks are run with
@@ -1618,6 +1631,33 @@ fairly often. Both numbers are in `config.toml` if your project wants a
 stricter or looser gate; `verify` refuses a `held_out_min_paired_wins` above
 `repeats`. The gate is a pure function (`verdict::decide_with_held_out`) and
 unit tested.
+
+**Large held out sets (v2.7.0).** With at least `held_out_large_set_tasks`
+(20) held out tasks, the held out gain needed is
+`held_out_large_set_threshold_pp` (5) instead of 10 points; the 3 of 5 wins
+stay. Set `held_out_large_set_tasks = 0` to always use the 10 point bar.
+Configs written before v2.7.0 get these defaults, so a project with 20 or
+more held out tasks is judged by the 5 point bar after an upgrade.
+
+Why. The held out gate exists to catch rules that do not transfer, not to
+demand that a rule transfers as strongly as it fits the tasks it was tuned
+on. With 24 held out tasks one task is about 4.2 points, so 10 points means
+3 more held out tasks, and a general rule that fixes 3 train tasks often
+fixes fewer of the held out ones. `examples/local-model/verdict-noise.py`
+simulated the rule from a measured 7B root on the 48 task set (24 train, 24
+held out), 20,000 pairs per case:
+
+| Child | 10 points held out | 5 points held out (large set) |
+| --- | --- | --- |
+| same as the root | 0.0% accepted | 0.0% accepted |
+| pure overfit: fixes 3 train tasks, nothing held out | 0.3% | 3.7% |
+| general: fixes 3 train and 3 held out tasks | 61.5% | 80.6% |
+| general: fixes 3 train and 2 held out tasks | 24.8% | 60.6% |
+
+The price is a little more room for an overfit rule; the train bar is
+unchanged, so a child that changes nothing is still never accepted. Below 20
+held out tasks a single task is a big step (12.5 points with 8), and the 10
+point bar stays.
 ## JSON output
 
 With `--json`, every command prints one JSON object to stdout.
@@ -1689,7 +1729,8 @@ without a bump. Object keys are sorted.
   `event_seq`, and `decision`: `verdict`, `parent_median`, `child_median`,
   `gain_pp`, `paired_wins`, `repeats`, `reason`, and `pairs` (each with
   `run_index`, `parent_rate`, `child_rate`, `win`). With held out tasks there
-  are also `held_out_accept_threshold_pp`, `held_out_min_paired_wins` and
+  are also `held_out_accept_threshold_pp` (the bar that applied, 10 or the
+  large set bar), `held_out_min_paired_wins` and
   `decision.held_out`: `parent_median`, `child_median`, `gain_pp`,
   `paired_wins`, `pairs` and `passed` (whether the gate passed).
 - `apply`: `version` (full hash), `rules_file`, `status`, `outcome`

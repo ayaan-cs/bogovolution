@@ -258,6 +258,7 @@ fn execute_run(
             seed,
             run_index,
             max_tokens: remaining,
+            context: &task.context,
         };
         // Stop before going over the cap.
         if model.estimate_tokens(&request) > remaining {
@@ -378,6 +379,7 @@ pub fn verify_child(repo: &Repo, child_spec: &str) -> Result<VerifyOutcome> {
     let mut held_parent = Vec::new();
     let mut held_child = Vec::new();
     let mut runs_have_held_out = Vec::new();
+    let mut held_out_tasks = 0u32;
     for run_index in 0..repeats {
         let find = |hash: &str| {
             tree.node(hash)
@@ -418,6 +420,7 @@ pub fn verify_child(repo: &Repo, child_spec: &str) -> Result<VerifyOutcome> {
             c.held_out_total,
         ) {
             if pt > 0 && pt == ct {
+                held_out_tasks = held_out_tasks.max(pt);
                 held_parent.push(pass_rate(pp, pt));
                 held_child.push(pass_rate(cp, ct));
             }
@@ -436,7 +439,7 @@ pub fn verify_child(repo: &Repo, child_spec: &str) -> Result<VerifyOutcome> {
         min_paired_wins: config.evaluation.min_paired_wins,
     };
     let gate = HeldOutRule {
-        accept_threshold_pp: config.evaluation.held_out_accept_threshold_pp,
+        accept_threshold_pp: config.evaluation.held_out_threshold_for(held_out_tasks),
         min_paired_wins: config.evaluation.held_out_min_paired_wins,
     };
     let decision = if all_held && !held_parent.is_empty() {

@@ -542,6 +542,7 @@ mod tests {
             seed: 42,
             run_index: 0,
             max_tokens: 100_000,
+            context: &[],
         }
     }
 

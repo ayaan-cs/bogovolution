@@ -38,6 +38,26 @@ pub struct ModelRequest<'a> {
     pub run_index: u32,
     /// Tokens left in this run's budget. The model must not use more.
     pub max_tokens: u64,
+    /// The task's `context` list: the only repo files shown to the model.
+    /// Empty shows every readable file.
+    pub context: &'a [String],
+}
+
+impl ModelRequest<'_> {
+    /// The text a replay key is built from. Equal to the task prompt when the
+    /// task has no `context`, so files recorded before `context` existed still
+    /// match; otherwise the context list is part of it.
+    pub fn key_prompt(&self) -> std::borrow::Cow<'_, str> {
+        if self.context.is_empty() {
+            std::borrow::Cow::Borrowed(self.prompt)
+        } else {
+            std::borrow::Cow::Owned(format!(
+                "{}\n\u{0}context:{}",
+                self.prompt,
+                self.context.join("\u{0}")
+            ))
+        }
+    }
 }
 
 /// What the model gave back for a task.
@@ -492,6 +512,37 @@ pub fn build_provider(spec: &ProviderSpec) -> Result<Box<dyn Model>> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn key_prompt_is_the_prompt_without_context_and_changes_with_it() {
+        let dir = std::path::Path::new(".");
+        let ctx = vec!["solve/a.py".to_string()];
+        let other = vec!["solve/b.py".to_string()];
+        let base = ModelRequest {
+            model: "m",
+            task_id: "t",
+            prompt: "do it",
+            rules: "r",
+            rules_hash: "h",
+            workdir: dir,
+            seed: 1,
+            run_index: 0,
+            max_tokens: 10,
+            context: &[],
+        };
+        assert_eq!(base.key_prompt(), "do it");
+        let a = ModelRequest {
+            context: &ctx,
+            ..base
+        };
+        let b = ModelRequest {
+            context: &other,
+            ..base
+        };
+        assert_ne!(a.key_prompt(), "do it");
+        assert_ne!(a.key_prompt(), b.key_prompt());
+        assert!(a.key_prompt().starts_with("do it"));
+    }
     use super::*;
 
     fn cfg(base: f64) -> MockConfig {
@@ -539,6 +590,7 @@ mod tests {
             seed: 7,
             run_index: run,
             max_tokens: 1_000_000,
+            context: &[],
         }
     }
 

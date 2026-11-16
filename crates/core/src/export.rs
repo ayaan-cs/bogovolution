@@ -340,6 +340,14 @@ pub fn build_export(repo: &Repo) -> Result<Export> {
         .nodes
         .iter()
         .any(|n| n.runs.iter().any(|r| r.held_out_total.is_some()));
+    // The gate that applies, which depends on the size of the held out set.
+    let held_out_tasks = tree
+        .nodes
+        .iter()
+        .flat_map(|n| n.runs.iter())
+        .filter_map(|r| r.held_out_total)
+        .max()
+        .unwrap_or(0);
     let mut contents = std::collections::HashMap::new();
     for n in &tree.nodes {
         let bytes = repo.store().get_blob(&n.hash)?;
@@ -469,7 +477,7 @@ pub fn build_export(repo: &Repo) -> Result<Export> {
             max_tokens_per_run: config.budget.max_tokens_per_run,
             max_change_bytes: config.mutation.max_change_bytes,
             held_out_accept_threshold_pp: has_held_out
-                .then_some(config.evaluation.held_out_accept_threshold_pp),
+                .then_some(config.evaluation.held_out_threshold_for(held_out_tasks)),
             held_out_min_paired_wins: has_held_out
                 .then_some(config.evaluation.held_out_min_paired_wins),
         },

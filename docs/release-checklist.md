@@ -47,6 +47,6 @@ where marked. No remote exists, nothing is pushed or published.
 ## Release steps (only after the decisions above)
 
 - [ ] Create the remote and push `main` (needs the owner).
-- [ ] Tag `v2.6.0` (or the chosen first public version) on the release commit.
+- [ ] Tag `v2.7.0` (or the chosen first public version) on the release commit.
 - [ ] Attach no binaries at first; build from source only.
 - [ ] Post the announcement and credit Petri (needs the owner).

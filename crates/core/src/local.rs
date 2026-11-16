@@ -421,7 +421,7 @@ fn decode_chunked(mut body: &[u8]) -> std::result::Result<Vec<u8>, String> {
 
 /// Text files in the working folder the model may read, as a prompt section.
 /// Skips hidden folders, build output, big files and the rules file itself.
-pub fn snapshot_files(workdir: &Path, rules: &str) -> String {
+pub fn snapshot_files(workdir: &Path, rules: &str, only: &[String]) -> String {
     let mut files: Vec<(String, String)> = Vec::new();
     fn walk(root: &Path, dir: &Path, out: &mut Vec<(String, String)>, rules: &str) {
         let Ok(rd) = std::fs::read_dir(dir) else {
@@ -467,6 +467,14 @@ pub fn snapshot_files(workdir: &Path, rules: &str) -> String {
         }
     }
     walk(workdir, workdir, &mut files, rules);
+    if !only.is_empty() {
+        files.retain(|(rel, _)| {
+            only.iter().any(|o| {
+                let o = o.trim_end_matches('/');
+                rel == o || rel.starts_with(&format!("{o}/"))
+            })
+        });
+    }
     let mut out = String::new();
     let mut used = 0usize;
     for (rel, text) in files {
@@ -498,7 +506,7 @@ pub fn task_messages(req: &ModelRequest) -> (String, String) {
     let system = format!("{TASK_SYSTEM}\n\n## Project rules\n{}\n", req.rules);
     let user = format!(
         "## Repository files\n{}## Task\n{}\n",
-        snapshot_files(req.workdir, req.rules),
+        snapshot_files(req.workdir, req.rules, req.context),
         req.prompt
     );
     (system, user)
@@ -792,6 +800,7 @@ mod tests {
             seed: 42,
             run_index: 0,
             max_tokens: 100_000,
+            context: &[],
         }
     }
 
@@ -1112,7 +1121,7 @@ mod tests {
         .unwrap();
         std::fs::write(dir.path().join("a.txt"), "small").unwrap();
         std::fs::write(dir.path().join("bin.dat"), [0xff, 0xfe, 0x00]).unwrap();
-        let s = snapshot_files(dir.path(), "");
+        let s = snapshot_files(dir.path(), "", &[]);
         assert!(s.contains("FILE: a.txt"));
         assert!(!s.contains("big.txt"));
         assert!(!s.contains("bin.dat"));
@@ -1123,9 +1132,41 @@ mod tests {
             )
             .unwrap();
         }
-        let s = snapshot_files(dir.path(), "");
+        let s = snapshot_files(dir.path(), "", &[]);
         assert!(s.contains("not shown: too much to show"));
         assert!(s.len() < MAX_SNAPSHOT_BYTES + 4096);
+    }
+
+    #[test]
+    fn snapshot_shows_only_the_context_files_when_given() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("solve")).unwrap();
+        std::fs::create_dir_all(dir.path().join("lib/sub")).unwrap();
+        std::fs::write(dir.path().join("solve/a.py"), "A").unwrap();
+        std::fs::write(dir.path().join("solve/ab.py"), "AB").unwrap();
+        std::fs::write(dir.path().join("solve/b.py"), "B").unwrap();
+        std::fs::write(dir.path().join("lib/sub/c.py"), "C").unwrap();
+        std::fs::write(dir.path().join("README.md"), "R").unwrap();
+        let all = snapshot_files(dir.path(), "", &[]);
+        for f in [
+            "solve/a.py",
+            "solve/ab.py",
+            "solve/b.py",
+            "lib/sub/c.py",
+            "README.md",
+        ] {
+            assert!(all.contains(&format!("FILE: {f}\n")), "{f}");
+        }
+        let only = vec!["solve/a.py".to_string(), "lib/".to_string()];
+        let s = snapshot_files(dir.path(), "", &only);
+        assert!(s.contains("FILE: solve/a.py\n"));
+        assert!(s.contains("FILE: lib/sub/c.py\n"));
+        // an exact path does not match a longer name with the same start
+        assert!(!s.contains("solve/ab.py"));
+        assert!(!s.contains("solve/b.py"));
+        assert!(!s.contains("README.md"));
+        let none = snapshot_files(dir.path(), "", &["missing.py".to_string()]);
+        assert!(none.contains("no readable files"));
     }
 
     #[test]

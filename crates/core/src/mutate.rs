@@ -1190,6 +1190,51 @@ mod tests {
     }
 
     #[test]
+    fn a_large_held_out_set_uses_the_large_set_bar() {
+        // The fixture has 3 held out tasks: below the default of 20, so the
+        // usual 10 points apply.
+        let (_d, repo) = held_out_fixture();
+        let narrow = mutate(&repo, &fixed("base rules\nNARROW\n", "narrow"), &opts(1)).unwrap();
+        let child = narrow.result.child.clone().unwrap();
+        run_all(&repo, &["root".to_string(), child.clone()]);
+        let v = verify_child(&repo, &child).unwrap();
+        assert_eq!(v.held_out_accept_threshold_pp, Some(10.0));
+        assert_eq!(v.decision.verdict, VerdictKind::Overfit);
+
+        // Count 3 held out tasks as a large set, with a large set bar of 0
+        // points and a win count of 0: now the flat held out result passes,
+        // which it could not under the 10 point bar.
+        let (_d2, repo2) = held_out_fixture();
+        let cfg_path = repo2.store().root().join("config.toml");
+        let cfg = std::fs::read_to_string(&cfg_path)
+            .unwrap()
+            .replace(
+                "held_out_large_set_tasks = 20",
+                "held_out_large_set_tasks = 3",
+            )
+            .replace(
+                "held_out_large_set_threshold_pp = 5.0",
+                "held_out_large_set_threshold_pp = 0.0",
+            )
+            .replace(
+                "held_out_min_paired_wins = 3",
+                "held_out_min_paired_wins = 0",
+            );
+        std::fs::write(&cfg_path, cfg).unwrap();
+        let narrow = mutate(&repo2, &fixed("base rules\nNARROW\n", "narrow"), &opts(1)).unwrap();
+        let child = narrow.result.child.clone().unwrap();
+        run_all(&repo2, &["root".to_string(), child.clone()]);
+        let v = verify_child(&repo2, &child).unwrap();
+        assert_eq!(v.held_out_accept_threshold_pp, Some(0.0));
+        assert_eq!(
+            v.decision.verdict,
+            VerdictKind::Accepted,
+            "{}",
+            v.decision.reason
+        );
+    }
+
+    #[test]
     fn adding_held_out_tasks_after_runs_asks_for_a_rerun() {
         let (_d, repo) = fixture(MOCK);
         let good = mutate(&repo, &fixed("base rules\nGOOD\n", "good"), &opts(1)).unwrap();

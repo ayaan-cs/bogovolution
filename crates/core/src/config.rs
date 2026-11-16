@@ -26,10 +26,38 @@ pub struct EvaluationConfig {
     /// ...and win at least this many paired runs on the held out tasks.
     #[serde(default = "default_held_out_wins")]
     pub held_out_min_paired_wins: u32,
+    /// With at least this many held out tasks (0 turns it off), the held out
+    /// gain needed is `held_out_large_set_threshold_pp` instead. With many
+    /// held out tasks a run is less noisy, and a general rule rarely moves as
+    /// many held out tasks as train tasks.
+    #[serde(default = "default_held_out_large_set_tasks")]
+    pub held_out_large_set_tasks: u32,
+    #[serde(default = "default_held_out_large_set_threshold")]
+    pub held_out_large_set_threshold_pp: f64,
+}
+
+impl EvaluationConfig {
+    /// The held out gain needed for a task set with `held_out_tasks` held out
+    /// tasks.
+    pub fn held_out_threshold_for(&self, held_out_tasks: u32) -> f64 {
+        if self.held_out_large_set_tasks > 0 && held_out_tasks >= self.held_out_large_set_tasks {
+            self.held_out_large_set_threshold_pp
+        } else {
+            self.held_out_accept_threshold_pp
+        }
+    }
 }
 
 fn default_held_out_threshold() -> f64 {
     10.0
+}
+
+fn default_held_out_large_set_tasks() -> u32 {
+    20
+}
+
+fn default_held_out_large_set_threshold() -> f64 {
+    5.0
 }
 
 fn default_held_out_wins() -> u32 {
@@ -91,6 +119,8 @@ impl Config {
                 min_paired_wins: 4,
                 held_out_accept_threshold_pp: default_held_out_threshold(),
                 held_out_min_paired_wins: default_held_out_wins(),
+                held_out_large_set_tasks: default_held_out_large_set_tasks(),
+                held_out_large_set_threshold_pp: default_held_out_large_set_threshold(),
             },
             budget: BudgetConfig {
                 max_tokens_per_run: 200_000,
@@ -128,6 +158,10 @@ impl Config {
              held_out_accept_threshold_pp = {ho_threshold:?}\n\
              # ...and win this many held out pairs. Otherwise the verdict is overfit.\n\
              held_out_min_paired_wins = {ho_wins}\n\
+             # With at least this many held out tasks (0 turns it off) the held out gain\n\
+             # needed is held_out_large_set_threshold_pp instead of held_out_accept_threshold_pp.\n\
+             held_out_large_set_tasks = {ho_large}\n\
+             held_out_large_set_threshold_pp = {ho_large_threshold:?}\n\
              \n\
              [budget]\n\
              # Token cap for one run.\n\
@@ -162,6 +196,8 @@ impl Config {
             repeats = self.evaluation.repeats,
             ho_threshold = self.evaluation.held_out_accept_threshold_pp,
             ho_wins = self.evaluation.held_out_min_paired_wins,
+            ho_large = self.evaluation.held_out_large_set_tasks,
+            ho_large_threshold = self.evaluation.held_out_large_set_threshold_pp,
             threshold = self.evaluation.accept_threshold_pp,
             wins = self.evaluation.min_paired_wins,
             tokens = self.budget.max_tokens_per_run,
@@ -198,6 +234,42 @@ impl Config {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn held_out_bar_depends_on_the_held_out_set_size() {
+        let c = Config::with_defaults("AGENTS.md", "m");
+        let e = &c.evaluation;
+        assert_eq!(e.held_out_large_set_tasks, 20);
+        assert_eq!(e.held_out_threshold_for(8), 10.0);
+        assert_eq!(e.held_out_threshold_for(19), 10.0);
+        assert_eq!(e.held_out_threshold_for(20), 5.0);
+        assert_eq!(e.held_out_threshold_for(24), 5.0);
+        let mut off = e.clone();
+        off.held_out_large_set_tasks = 0;
+        assert_eq!(off.held_out_threshold_for(100), 10.0);
+        // the template carries both keys and reads back the same
+        let text = c.to_toml_template();
+        assert!(text.contains("held_out_large_set_tasks = 20"), "{text}");
+        assert!(
+            text.contains("held_out_large_set_threshold_pp = 5.0"),
+            "{text}"
+        );
+        let back: Config = toml::from_str(&text).unwrap();
+        assert_eq!(back, c);
+    }
+
+    #[test]
+    fn an_old_config_without_the_large_set_keys_gets_the_defaults() {
+        let text = Config::with_defaults("AGENTS.md", "m")
+            .to_toml_template()
+            .lines()
+            .filter(|l| !l.starts_with("held_out_large_set"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let c: Config = toml::from_str(&text).unwrap();
+        assert_eq!(c.evaluation.held_out_large_set_tasks, 20);
+        assert_eq!(c.evaluation.held_out_large_set_threshold_pp, 5.0);
+    }
     use super::*;
 
     #[test]

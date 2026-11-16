@@ -22,7 +22,9 @@
 //! and the rates above count train tasks only, and held out tasks are scored
 //! the same way on their own (held out medians, gain and paired wins over the
 //! same paired runs). A child that rule 1 accepts is then kept only if also
-//! `held_out_gain_pp >= held_out_accept_threshold_pp` (default 10) AND
+//! `held_out_gain_pp >= held_out_accept_threshold_pp` (default 10, or
+//! `held_out_large_set_threshold_pp`, default 5, with 20 or more held out
+//! tasks; see `EvaluationConfig::held_out_threshold_for`) AND
 //! `held_out_paired_wins >= held_out_min_paired_wins` (default 3 of 5).
 //! Otherwise the verdict is `overfit`, and `current` does not move. Rejected
 //! and noise are decided by the train rule alone, as before. A task set with

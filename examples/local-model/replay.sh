@@ -18,6 +18,7 @@
 # oracle and the islice rule measured, then a combined evolve from a copy that
 # already holds the root runs. GENERATIONS and LATER_REPEATS must match the
 # recorded run (the committed oss48 recording: GENERATIONS=1 LATER_REPEATS=2).
+# SHORT_CONTEXT=1 replays a run recorded with short prompts (oss48-short).
 #
 # The checks still run (under bwrap), so the oss replay needs python3 and bwrap.
 # This script does not ship recorded model answers.
@@ -102,8 +103,10 @@ case "${1:-}" in
     . "$HERE/oss48-tasks.sh"
     WM=$WORK/measure
     TASKS=$(mktemp)
+    SC=""
+    [ -n "${SHORT_CONTEXT:-}" ] && SC=--short-context
     python3 "$HERE/make-oss-fixture.py" "$SRC" "$WM" "$OSS48_TRAIN" \
-      --held-out="$OSS48_HELD_OUT" --tasks-out="$TASKS"
+      --held-out="$OSS48_HELD_OUT" --tasks-out="$TASKS" $SC
     "$BIN" -C "$WM" init --model local-model >/dev/null
     mv "$TASKS" "$WM/.rules-evolve/tasks.toml"
     # Every task prompt is about 10,000 tokens, so 48 tasks need more than the
