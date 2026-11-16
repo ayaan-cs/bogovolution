@@ -306,6 +306,35 @@ mod tests {
     }
 
     #[test]
+    fn medians_that_are_not_short_decimals_still_verify() {
+        // 10 of 24 is 0.4166666666666667, which only reads back to the
+        // same f64 with serde_json's float_roundtrip feature (v2.7.1).
+        let dir = tempdir().unwrap();
+        let log = Log::new(dir.path());
+        log.append_at(&init_payload(), "2026-01-01T00:00:00Z")
+            .unwrap();
+        let verdict = Payload::Verdict(crate::event::VerdictPayload {
+            parent: "a".repeat(64),
+            child: "b".repeat(64),
+            verdict: crate::event::VerdictKind::Noise,
+            parent_median: Some(9.0 / 24.0),
+            child_median: Some(10.0 / 24.0),
+            paired_wins: Some(3),
+            repeats: Some(5),
+            note: None,
+            held_out_parent_median: Some(6.0 / 24.0),
+            held_out_child_median: Some(5.0 / 24.0),
+            held_out_paired_wins: Some(1),
+        });
+        log.append_at(&verdict, "2026-01-01T00:00:01Z").unwrap();
+        log.append_at(&refused("after"), "2026-01-01T00:00:02Z")
+            .unwrap();
+        let (report, _) = log.verify().unwrap();
+        assert!(report.valid, "{report:?}");
+        assert_eq!(report.events, 3);
+    }
+
+    #[test]
     fn edited_event_is_detected() {
         let (_d, log) = build_log(3);
         let text = std::fs::read_to_string(log.path()).unwrap();

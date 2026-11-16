@@ -18,7 +18,11 @@
 # oracle and the islice rule measured, then a combined evolve from a copy that
 # already holds the root runs. GENERATIONS and LATER_REPEATS must match the
 # recorded run (the committed oss48 recording: GENERATIONS=1 LATER_REPEATS=2).
-# SHORT_CONTEXT=1 replays a run recorded with short prompts (oss48-short).
+# SHORT_CONTEXT=1 replays a run recorded with short prompts (the oss48-short
+# folder: SHORT_CONTEXT=1 GENERATIONS=2 NEXT_REPLAY=evolve-gen3-replay.jsonl,
+# default 5 repeats, no islice stage). Its first generation 3 lost the model
+# server, so the calls it never made are not in evolve-replay.jsonl and
+# GENERATIONS=3 stops there with a replay miss; the rerun is NEXT_REPLAY.
 #
 # The checks still run (under bwrap), so the oss replay needs python3 and bwrap.
 # This script does not ship recorded model answers.
@@ -126,15 +130,27 @@ case "${1:-}" in
       "$BIN" -C "$WM" propose --parent root --file "$1" --hypothesis "$2" --json \
         | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"]["child"])'
     }
-    I=$(prop "$HERE/replays/qwen2.5-coder-7b/rules-islice-4e7baaad.md" "7B run 2 gen 2 (accepted on the 8 task train set): import islice")
     O=$(prop "$HERE/oracle-rules.md" "Hand written control: import everything used")
     "$BIN" -C "$WM" run --version "$O" --seed 7 --provider replay --replay-file "$RD/oracle-replay.jsonl"
     "$BIN" -C "$WM" verify --child "$O" || true
-    "$BIN" -C "$WM" run --version "$I" --seed 7 --provider replay --replay-file "$RD/islice-replay.jsonl"
-    "$BIN" -C "$WM" verify --child "$I" || true
+    # The islice stage was deferred in the short prompt round, so its folder
+    # has no islice recording.
+    if [ -f "$RD/islice-replay.jsonl" ]; then
+      I=$(prop "$HERE/replays/qwen2.5-coder-7b/rules-islice-4e7baaad.md" "7B run 2 gen 2 (accepted on the 8 task train set): import islice")
+      "$BIN" -C "$WM" run --version "$I" --seed 7 --provider replay --replay-file "$RD/islice-replay.jsonl"
+      "$BIN" -C "$WM" verify --child "$I" || true
+    fi
     "$BIN" -C "$WM" verify-log
     "$BIN" -C "$WORK/evolve" evolve --generations "${GENERATIONS:-1}" --seed 7 --provider replay \
       --replay-file "$RD/evolve-replay.jsonl"
+    # NEXT_REPLAY names a recording, in the same folder, of one more
+    # generation run later on top of the first GENERATIONS (oss48-short:
+    # GENERATIONS=2 NEXT_REPLAY=evolve-gen3-replay.jsonl, the rerun of a
+    # generation 3 whose model server died).
+    if [ -n "${NEXT_REPLAY:-}" ]; then
+      "$BIN" -C "$WORK/evolve" evolve --generations 1 --seed 7 --provider replay \
+        --replay-file "$RD/$NEXT_REPLAY"
+    fi
     WORK=$WORK/evolve
     ;;
   *)

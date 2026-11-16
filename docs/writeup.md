@@ -182,10 +182,62 @@ away. A 5 point held out bar (2 of 24 tasks) with 3 of 5 wins would accept a
 3 + 2 rule 61% of the time instead of 25%, at the price of letting a pure
 overfit through 3.7% of the time instead of 0.3%. The held out gate's job is
 to catch rules that do not transfer, not to demand that they transfer as
-strongly as they fit, so a lower held out bar is worth considering for sets
-of 20 or more held out tasks. It is a proposal only: the defaults did not
-change, and the simulation assumes tasks are independent and that a rule
-only lifts tasks the root never solves.
+strongly as they fit.
+
+v2.7.0 adopted this as a setting: with 20 or more held out tasks
+(`held_out_large_set_tasks`) the held out bar is
+`held_out_large_set_threshold_pp`, 5 points, still with 3 of 5 wins. Smaller
+sets keep 10 points. The simulation assumes tasks are independent and that a
+rule only lifts tasks the root never solves. Run again on the round 6 root
+below (37.5% train, 25.0% held out): a do nothing child 0.0% under both bars,
+a pure overfit 0.3% (10 points) and 3.8% (5 points), a 3 + 3 general rule
+55.3% and 73.8%, a 3 + 2 general rule 22.8% and 55.1%.
+
+## Round 6: short prompts and 5 runs, still nothing general
+
+Round 5 was slow because every task prompt carried all 48 stubs. From
+v2.7.0 a task in `tasks.toml` can list `context`, the only files the model is
+shown for it, and `make-oss-fixture.py --short-context` gives each task only
+its own stub. A task prompt fell from about 9,700 tokens to about 600, and 5
+runs of one version from 2,368,963 tokens to 143,564 (16 times fewer). The
+server went back to an 8,192 token context. A call took about 27 s instead
+of about 49 s (5 runs of the root: 1 h 47 min instead of 3 h 17 min). Most of
+the saving is the long prompt, which no longer has to be read; generation
+also ran faster with the shorter context (about 10.5 tokens per second
+instead of about 6).
+
+That made the full plan fit: every version got the default 5 runs and the
+standard bars (train: 10 points and 4 of 5 wins; held out, with 24 tasks:
+5 points and 3 of 5 wins). The old `islice` rule was put off to keep the run
+under about 10 hours. Nov 16, 8:04 AM to 3:27 PM CT, 984 calls, 611,790
+tokens:
+
+| Version | Rules | Train runs (of 24) | Train median | Held out runs (of 24) | Held out median | Verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| root | none | 9, 10, 9, 9, 9 | 37.5% | 8, 6, 5, 5, 7 | 25.0% | |
+| control | hand written: import everything you use | 9, 9, 12, 11, 10 | 41.7% | 6, 4, 5, 6, 4 | 20.8% | noise, +4.2 points, 3 of 5 wins; held out -4.2, 1 of 5 |
+| evolve gen 1 | "Always import necessary Python libraries at the beginning of the file." | 9, 10, 8, 9, 8 | 37.5% | 6, 5, 6, 6, 5 | 25.0% | rejected, 0.0 points, 0 of 5 wins; held out 0.0, 2 of 5 |
+| evolve gen 2 | "Import common Python libraries at the beginning of each file where they are needed." | 10, 9, 8, 9, 9 | 37.5% | 6, 6, 6, 6, 6 | 25.0% | rejected, 0.0 points, 1 of 5 wins; held out 0.0, 2 of 5 |
+| evolve gen 3 | "Import common Python libraries at the beginning of each file." | | | | | not measured: the model server died (see below) |
+
+Nothing was accepted and nothing generalized. The hand written rule did
+exactly what it was written for: `take` went from 0 to 4 passes of 5 and
+`nth` from 0 to 3, the two tasks that need the `islice` import. It also lost
+`exactly_n` (4 to 2) on train and `triplewise` (3 to 0), `mark_ends` (3 to 1)
+and `interleave_longest` (3 to 1) on held out, so the net was +4.2 on train
+and -4.2 on held out. The model proposed the generic import rule three times
+again. Neither measured version fixed `take` or `nth`; both lost
+`unique_justseen` (5 to 2) and gained `nth_combination` (0 to 2 or 3) and
+`repeatfunc` (1 to 3 or 4), which cancels out.
+
+Generation 3 has no result. llama.cpp keeps a cache of past prompts in RAM,
+up to 8 GiB by default (`--cache-ram`). Over the long run the server grew to
+about 12 GB, and at 3:27 PM CT the kernel killed it for memory, 22 calls into
+generation 3. rules-evolve kept going: every later call failed to connect,
+was logged as a model error, and the generation was logged as rejected at
+-37.5 points. That verdict says nothing about the rule. Starting the server
+with `--cache-ram 1024` should cap it near 6 GB (not yet tried on a full
+run).
 
 ## What this suggests
 
@@ -198,9 +250,12 @@ only lifts tasks the root never solves.
 - The general rule a person wrote from the same failure notes transferred on
   the 8 task sets. On 48 tasks it did not clear the bar (+6.2 train, +0.0
   held out, 2 runs), so even that result was partly small set luck.
-- Bigger sets make each verdict cheaper to trust and much more expensive to
-  get: 48 tasks with all stubs in the prompt cost about 3 hours per 5 runs on
-  this CPU.
+- Bigger sets make each verdict cheaper to trust and more expensive to get.
+  Showing each task only its own file cut the cost on this CPU from about
+  3 h 17 min to 1 h 47 min per 5 runs of 48 tasks.
+- With 5 runs on 48 tasks the hand written rule fixed its two target tasks
+  and broke about as many others. A rule that helps one kind of failure can
+  still cost elsewhere, and only a set this size shows it.
 
 ## Caveats
 
@@ -209,7 +264,14 @@ only lifts tasks the root never solves.
   worth, just above the bar.
 - **Round 5 used 2 runs** for everything but the root, to fit the time. That
   weakens those verdicts: a median of 2 runs is their mean, and 2 of 2 wins is
-  easy to miss by one tie.
+  easy to miss by one tie. Round 6 used 5 runs throughout.
+- **Rounds 5 and 6 do not compare one to one.** The prompts differ (all 48
+  stubs against one), and the root's train median moved from 33.3% to 37.5%.
+- **Round 6 has 2 evolve generations, not 3.** The third lost its model
+  server (see above), and the `islice` rule was not measured in round 6.
+- **A model error counts as a failed task.** rules-evolve does not stop when
+  the server goes away, so a dead server reads as a very bad rule. Check the
+  task outcomes (`model_error`) before trusting a large drop.
 - **Small models, one machine.** Qwen2.5 Coder 3B and 7B, quantized, on CPU.
   Bigger models may behave differently.
 - **Runs are samples.** Even with a fixed seed, llama.cpp did not give
@@ -245,6 +307,14 @@ Round 5 (about 20 minutes, the checks still run and time out where they did):
 ```sh
 GENERATIONS=1 LATER_REPEATS=2 examples/local-model/replay.sh oss48 /path/to/more-itertools \
   examples/local-model/replays/qwen2.5-coder-7b/oss48
+```
+
+Round 6 (short prompts, 5 runs, about 1 hour; generation 3 is left out
+because its calls were never made):
+
+```sh
+SHORT_CONTEXT=1 GENERATIONS=2 examples/local-model/replay.sh oss48 /path/to/more-itertools \
+  examples/local-model/replays/qwen2.5-coder-7b/oss48-short
 ```
 
 The more-itertools checkout must be at commit

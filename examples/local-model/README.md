@@ -17,7 +17,7 @@ machine: the `local` provider refuses any URL that is not `localhost`,
 | `run-oss48.sh` | The 48 task run in restartable stages: root, control, the old `islice` rule, then a combined `evolve` |
 | `verdict-noise.py` | Simulates how often the verdict rule accepts, from a root's measured runs |
 | `replay.sh` | Replays a recorded run, with no model server |
-| `replays/qwen2.5-coder-7b/` | The recorded answers of the Qwen2.5 Coder 7B Instruct runs below (Apache 2.0 model). `oss-replay.jsonl` is the 3 generation `evolve`, `oss-oracle-replay.jsonl` the hand written control, `held-out-eval-replay.jsonl` the held out check (v2.3.0), with the two model written rules it used as `rules-*.md`, `oss-held-out-replay.jsonl` the combined run of v2.6.0, and `oss48/` the 48 task run (root, control, `islice` rule, evolve, and the rule the evolve wrote) |
+| `replays/qwen2.5-coder-7b/` | The recorded answers of the Qwen2.5 Coder 7B Instruct runs below (Apache 2.0 model). `oss-replay.jsonl` is the 3 generation `evolve`, `oss-oracle-replay.jsonl` the hand written control, `held-out-eval-replay.jsonl` the held out check (v2.3.0), with the two model written rules it used as `rules-*.md`, `oss-held-out-replay.jsonl` the combined run of v2.6.0, `oss48/` the 48 task run (root, control, `islice` rule, evolve, and the rule the evolve wrote), and `oss48-short/` the 5 run rerun with short prompts (root, control, evolve) |
 
 ## 1. Get a model server (free)
 
@@ -40,7 +40,10 @@ curl -L -o qwen2.5-coder-7b-instruct-q4_k_m.gguf \
 ./llama-b12292/llama-server -m qwen2.5-coder-7b-instruct-q4_k_m.gguf \
   --host 127.0.0.1 --port 8080 -c 8192 -t 8 --parallel 1 --no-webui
 # smaller and faster, also Apache 2.0: bartowski/Qwen2.5-Coder-1.5B-Instruct-GGUF
-# For the 48 task set use -c 16384: every task prompt is about 9,700 tokens.
+# For the 48 task set with every stub in the prompt (about 9,700 tokens) use
+# -c 16384. With SHORT_CONTEXT=1 (about 600 tokens) -c 8192 is enough.
+# Long runs: add --cache-ram 1024. The default prompt cache (8 GiB) grew the
+# server to about 12 GB and got it killed for memory on a 16 GB machine.
 ```
 
 Any OpenAI compatible server that serves `/v1/models` and
@@ -172,6 +175,74 @@ skipped; runs already in the log are not run again):
 
 ```sh
 OUT=~/oss48-out WORK=~/oss48-work LATER_REPEATS=2 \
+  examples/local-model/run-oss48.sh /tmp/more-itertools
+```
+
+### 48 tasks again: short prompts, 5 runs each (v2.7.0)
+
+Nov 16, 2026, same model and seed, llama.cpp b12292 with `-c 8192 -t 8
+--parallel 1`, bwrap, `SHORT_CONTEXT=1`: each task's `context` is its own
+stub, so a task prompt is about 600 tokens instead of about 9,700.
+
+**Speed.** 5 runs of the root took 1 h 47 min and 143,564 tokens, against
+3 h 17 min and 2,368,963 tokens with every stub shown: about 27 s per call
+instead of about 49 s, and 16 times fewer tokens. Generation also ran faster
+(about 10.5 against 6 tokens per second).
+
+**Plan.** Root, control and a 3 generation `evolve` at the default 5 runs,
+with the standard bars: train 10 points and 4 of 5 wins, held out (24 tasks,
+so the v2.7.0 large set bar) 5 points and 3 of 5 wins. The `islice` rule was
+put off (marker `islice.done`) to keep the run under about 10 hours.
+
+| Version | Train runs (of 24) | Train median | Held out runs (of 24) | Held out median | Verdict | Calls, tokens, time |
+| --- | --- | --- | --- | --- | --- | --- |
+| root | 9, 10, 9, 9, 9 | 37.5% | 8, 6, 5, 5, 7 | 25.0% | | 240, 143,564, 1 h 47 min |
+| control (`oracle-rules.md`) | 9, 9, 12, 11, 10 | 41.7% | 6, 4, 5, 6, 4 | 20.8% | noise: +4.2, 3 of 5 wins; held out -4.2, 1 of 5 | 240, 156,108, 1 h 48 min |
+| evolve gen 1 | 9, 10, 8, 9, 8 | 37.5% | 6, 5, 6, 6, 5 | 25.0% | rejected: 0.0, 0 of 5; held out 0.0, 2 of 5 | 241, 147,836, 1 h 49 min |
+| evolve gen 2 | 10, 9, 8, 9, 9 | 37.5% | 6, 6, 6, 6, 6 | 25.0% | rejected: 0.0, 1 of 5; held out 0.0, 2 of 5 | 241, 151,265, 1 h 50 min |
+| evolve gen 3 | 8, 0, 0, 0, 0 | | 0, 0, 0, 0, 0 | | logged rejected (-37.5), but invalid: the server was killed | 22, 13,017, 9 min |
+
+The evolve's three changes were all generic import rules:
+"Always import necessary Python libraries at the beginning of the file.",
+"Import common Python libraries at the beginning of each file where they
+are needed. This will prevent errors related to unimported functions or
+classes." and "Import common Python libraries at the beginning of each
+file." (`oss48-short/rules-gen*.md`). In all 984 calls and 611,790 tokens,
+Nov 16 8:04 AM to 3:27 PM CT.
+
+Per task, passes of 5 against the root's: the control fixed `take` (0 to 4)
+and `nth` (0 to 3), the `islice` tasks it was written for, and lost
+`exactly_n` (4 to 2), `triplewise` (3 to 0), `mark_ends` (3 to 1) and
+`interleave_longest` (3 to 1). Gen 1 and 2 did not fix `take` or `nth`; both
+lost `unique_justseen` (5 to 2) and gained `nth_combination` (0 to 2, 3) and
+`repeatfunc` (1 to 3, 4). Nothing was accepted and nothing generalized.
+
+**Generation 3 is not a result.** llama.cpp's prompt cache (`--cache-ram`,
+8 GiB by default) grew the server to about 12 GB, and at 3:27 PM CT the
+kernel killed it, 22 calls into generation 3. rules-evolve logged every
+later call as a model error, so 27 of 48 tasks in run 0 and all of runs 1 to
+4 failed, and the generation was logged as rejected at -37.5 points.
+
+**The verdict bar, on this root.** `verdict-noise.py`, 20,000 pairs per
+case: a child that changes nothing is accepted 0.0% of the time under both
+held out bars. A pure overfit (3 train tasks, nothing held out) passes 0.3%
+with a 10 point held out bar and 3.8% with 5. A general rule that fixes 3
+train and 3 held out tasks passes 55.3% and 73.8%; one that fixes 3 and 2,
+22.8% and 55.1%.
+
+Replay it (about 1 hour, the checks still run). It reproduced the root,
+the control and generations 1 and 2 exactly. The calls generation 3 never
+made are not in the file, so `GENERATIONS=3` stops there with a replay miss.
+
+```sh
+SHORT_CONTEXT=1 GENERATIONS=2 examples/local-model/replay.sh oss48 /tmp/more-itertools \
+  examples/local-model/replays/qwen2.5-coder-7b/oss48-short
+```
+
+Run it yourself (restartable; add `--cache-ram 1024` to the server):
+
+```sh
+OUT=~/oss48-out WORK=~/oss48-work SHORT_CONTEXT=1 GENERATIONS=3 \
   examples/local-model/run-oss48.sh /tmp/more-itertools
 ```
 

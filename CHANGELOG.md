@@ -3,6 +3,24 @@
 All notable changes, newest first. Dates are in America/Chicago. Nothing has
 been published: every version below exists only as a local git commit.
 
+## 2.7.1 (2026-11-16)
+
+- Fix: `verify-log` called a valid log edited when a median had a long
+  decimal (10 of 24 is 0.4166666666666667). serde_json read such a number
+  back as a slightly different float, so the recomputed hash differed, and
+  appending to that log was refused. serde_json now uses `float_roundtrip`;
+  no log format change, and logs that failed this way now verify. Found when
+  the control's verdict on the 48 task set failed `verify-log`.
+- 7B rerun on the 48 task set with short prompts (`SHORT_CONTEXT=1`), 5 runs
+  for every version: root, control and a 3 generation evolve. About 16 times
+  fewer tokens and about 1.8 times faster per call than with every stub in
+  the prompt. Nothing accepted, nothing generalized; the control fixed its
+  two target tasks and lost about as many (noise). The server was killed for
+  memory 22 calls into generation 3, so that verdict is invalid. Replays in
+  `replays/qwen2.5-coder-7b/oss48-short/`.
+- `replay.sh oss48` skips the `islice` stage when the folder has no
+  `islice-replay.jsonl`.
+
 ## 2.7.0 (2026-11-16)
 
 - `context` per task in `tasks.toml`: the files (or folders ending in `/`)

@@ -74,8 +74,11 @@ result **overfit** instead of accepting it. On a bigger set of 48 tasks (24
 train, 24 held out, one task about 4.2 points) nothing cleared the bar: the
 hand written rule gained 6.2 points on train and none on held out, the
 `islice` rule lost 4.2 on train, and a new 7B evolve proposed another generic
-import rule that was rejected. Those later runs used 2 repeats instead of 5 to
-fit the time, so they are weaker evidence. Details and caveats are in
+import rule that was rejected. Those runs used 2 repeats instead of 5 to fit
+the time. A rerun with short prompts (each task sees only its own file, about
+16 times fewer tokens) gave every version 5 runs: the hand written rule fixed
+the two `islice` tasks but lost others (+4.2 train, -4.2 held out, noise),
+and two evolved generic import rules changed nothing (0.0, rejected). Details and caveats are in
 "Local model test" and, in plain words, in [`docs/writeup.md`](docs/writeup.md).
 
 ## Inspiration
@@ -84,7 +87,7 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: v2.7.0
+## Status: v2.7.1
 
 The default is a deterministic **mock model**, so nothing costs money or touches
 the network. Since v2.1.0 there is a free real provider, `local`: a model server
