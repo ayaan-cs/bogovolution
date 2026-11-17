@@ -77,6 +77,14 @@ pub struct RunReport {
     pub skipped_existing: Vec<u32>,
     pub runs: Vec<RunDetail>,
     pub total_tokens: u64,
+    /// Set when a run stopped at the token cap (v2.7.2): what happened and
+    /// what to do. The capped run is recorded, but no further runs are
+    /// started, and `verify` will not compare it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stopped_at_token_cap: Option<String>,
+    /// What was repaired when the last write to the log had been cut off.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recovered_log: Option<String>,
 }
 
 pub(crate) fn pass_rate(passed: u32, total: u32) -> f64 {
@@ -91,6 +99,7 @@ pub(crate) fn pass_rate(passed: u32, total: u32) -> f64 {
 /// each run. Runs that are already in the log are skipped, so an interrupted
 /// command can be started again.
 pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<RunReport> {
+    let recovered_log = repo.recover_interrupted_write()?;
     let config = repo.config()?;
     let tasks = repo.tasks()?;
     if tasks.task.is_empty() {
@@ -139,6 +148,8 @@ pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<
         skipped_existing: Vec::new(),
         runs: Vec::new(),
         total_tokens: 0,
+        stopped_at_token_cap: None,
+        recovered_log,
     };
 
     for run_index in 0..repeats {
@@ -163,6 +174,7 @@ pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<
             run_index,
             seed,
             cap,
+            config.evaluation.max_model_errors_per_run,
         )?;
         let count = |held: bool| {
             let of_split = outcome.tasks.iter().filter(|t| t.held_out == held);
@@ -205,8 +217,40 @@ pub fn run_version(repo: &Repo, model: &dyn Model, opts: &RunOptions) -> Result<
             tasks: outcome.tasks,
             event_seq: event.seq,
         });
+        if outcome.budget_exhausted {
+            report.stopped_at_token_cap = Some(token_cap_note(
+                run_index,
+                &version,
+                &report.runs[report.runs.len() - 1].tasks,
+                outcome.tokens_used,
+                cap,
+            ));
+            break;
+        }
     }
     Ok(report)
+}
+
+/// What a run that hit the token cap means, and what to do about it.
+fn token_cap_note(
+    run_index: u32,
+    version: &str,
+    tasks: &[TaskOutcome],
+    used: u64,
+    cap: u64,
+) -> String {
+    let skipped = tasks
+        .iter()
+        .filter(|t| matches!(t.status, TaskStatus::SkippedBudget | TaskStatus::OverBudget))
+        .count();
+    format!(
+        "run {run_index} of version {} hit the token cap (budget.max_tokens_per_run = {cap}, used {used}): \
+         {skipped} of {} tasks were not done and count as failed. No more runs were started, and verify \
+         will not compare a capped run. Raise budget.max_tokens_per_run above what one full run needs \
+         and record the versions again in a fresh project.",
+        &version[..version.len().min(12)],
+        tasks.len()
+    )
 }
 
 struct RunOutcome {
@@ -228,8 +272,10 @@ fn execute_run(
     run_index: u32,
     seed: u64,
     cap: u64,
+    max_model_errors: u32,
 ) -> Result<RunOutcome> {
     let mut used: u64 = 0;
+    let mut model_errors: u32 = 0;
     let mut exhausted = false;
     let mut outcomes = Vec::with_capacity(tasks.task.len());
 
@@ -273,6 +319,20 @@ fn execute_run(
             // whole run is invalid, so stop and say so.
             Err(e @ Error::ReplayMiss(_)) => return Err(e),
             Err(e) => {
+                model_errors += 1;
+                if model_errors > max_model_errors {
+                    // A dead or broken server is not a bad rules file. Throw
+                    // the run away so it is never counted, and stop.
+                    return Err(Error::ModelUnavailable(format!(
+                        "run {run_index} of version {} stopped: the model call for task {} failed ({e}). \
+                         The run was not recorded and nothing was counted. Make the model server \
+                         answer again and run the same command: recorded runs are kept, and evolve \
+                         finishes an unfinished generation first. (evaluation.max_model_errors_per_run \
+                         = {max_model_errors})",
+                        &rules_hash[..rules_hash.len().min(12)],
+                        task.id
+                    )));
+                }
                 outcome.status = TaskStatus::ModelError;
                 outcome.detail = Some(crate::failure::model_error_note(&e.to_string()));
                 outcomes.push(outcome);
@@ -345,6 +405,7 @@ pub struct VerifyOutcome {
 /// Compare a child to its parent with the fixed public rule and record the
 /// verdict. Both need runs `0..repeats` recorded with matching seeds.
 pub fn verify_child(repo: &Repo, child_spec: &str) -> Result<VerifyOutcome> {
+    repo.recover_interrupted_write()?;
     let config = repo.config()?;
     let tree = Tree::from_events(&repo.events()?)?;
     let child = tree.resolve(child_spec)?;
@@ -401,6 +462,18 @@ pub fn verify_child(repo: &Repo, child_spec: &str) -> Result<VerifyOutcome> {
         if p.seed.is_none() || p.seed != c.seed {
             return Err(Error::Input(format!(
                 "run {run_index} was not run with the same seed for parent and child, so the pair is not comparable"
+            )));
+        }
+        if p.budget_exhausted || c.budget_exhausted {
+            let who = if p.budget_exhausted {
+                "parent"
+            } else {
+                "child"
+            };
+            return Err(Error::Input(format!(
+                "run {run_index} of the {who} stopped at the token cap, so tasks it never did would count as \
+                 failures and the pair is not comparable. Raise budget.max_tokens_per_run above what one full \
+                 run needs and record both versions again in a fresh project"
             )));
         }
         if p.total == 0 || c.total == 0 || p.total != c.total {
@@ -522,10 +595,33 @@ pub struct MutationOrigin {
     pub tokens_used: Option<u64>,
 }
 
+/// Text with every run of whitespace turned into one space and the ends
+/// trimmed. Two rules texts with the same normal form say the same thing.
+pub fn whitespace_normal_form(text: &[u8]) -> String {
+    String::from_utf8_lossy(text)
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// The version in the tree whose text equals `content` up to whitespace, if
+/// any (v2.7.2). A small model often answers with the parent or an earlier
+/// version plus a stray newline or two spaces.
+fn same_but_whitespace(repo: &Repo, tree: &Tree, content: &[u8]) -> Result<Option<String>> {
+    let want = whitespace_normal_form(content);
+    for node in &tree.nodes {
+        let bytes = repo.store().get_blob(&node.hash)?;
+        if whitespace_normal_form(&bytes) == want {
+            return Ok(Some(node.hash.clone()));
+        }
+    }
+    Ok(None)
+}
+
 /// Check a proposed change and write either `mutation_proposed` or
 /// `mutation_refused`. Refusal reasons: empty hypothesis, empty rules, the same
-/// text as the parent or as any version already in the tree, or a change over
-/// the size limit.
+/// text as the parent or as any version already in the tree (also when only
+/// whitespace differs, since v2.7.2), or a change over the size limit.
 pub fn record_mutation(
     repo: &Repo,
     config: &Config,
@@ -550,6 +646,15 @@ pub fn record_mutation(
         Some(format!(
             "this content already exists in the tree as {}",
             &child[..12]
+        ))
+    } else if let Some(same) = same_but_whitespace(repo, &tree, content)? {
+        Some(format!(
+            "the new text differs from {} only in whitespace",
+            if same == parent {
+                "the parent".to_string()
+            } else {
+                format!("{} already in the tree", &same[..12])
+            }
         ))
     } else if size > limit {
         Some(format!(
@@ -621,6 +726,7 @@ pub fn propose(
     if std::str::from_utf8(content).is_err() {
         return Err(Error::Input("the rules file must be UTF-8 text".into()));
     }
+    repo.recover_interrupted_write()?;
     let tree = Tree::from_events(&repo.events()?)?;
     let parent = tree.resolve(parent_spec)?;
     record_mutation(

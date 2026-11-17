@@ -311,6 +311,44 @@ fn token_cap_is_enforced_through_the_cli() {
 }
 
 #[test]
+fn a_capped_run_says_why_and_stops_the_version() {
+    let dir = bench_project(5);
+    let d = dir.path();
+    let cfg = d.join(".rules-evolve/config.toml");
+    let text = std::fs::read_to_string(&cfg).unwrap();
+    std::fs::write(&cfg, text.replace("200000", "350")).unwrap();
+    let out = run(d, &["run", "--version", "root", "--repeats", "3"]);
+    assert!(out.status.success());
+    let words = String::from_utf8_lossy(&out.stdout);
+    assert!(words.contains("STOPPED AT THE TOKEN CAP"), "{words}");
+    assert!(words.contains("budget.max_tokens_per_run"), "{words}");
+    // only the capped run was recorded, not three
+    let runs = ok_json(d, &["log", "--kind", "run_recorded"]);
+    assert_eq!(runs["data"]["total"], 1);
+}
+
+#[test]
+fn a_half_written_log_line_is_repaired_and_reported_by_the_next_run() {
+    let dir = bench_project(5);
+    let d = dir.path();
+    ok_json(d, &["run", "--version", "root", "--repeats", "1"]);
+    let log = d.join(".rules-evolve/log.jsonl");
+    let mut text = std::fs::read_to_string(&log).unwrap();
+    text.push_str("{\"seq\":9,\"kind\":\"run_rec");
+    std::fs::write(&log, text).unwrap();
+    let out = run(d, &["run", "--version", "root", "--repeats", "2"]);
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let words = String::from_utf8_lossy(&out.stdout);
+    assert!(words.contains("Log repaired"), "{words}");
+    assert!(d.join(".rules-evolve/log.jsonl.partial").exists());
+    assert_eq!(ok_json(d, &["verify-log"])["data"]["valid"], true);
+}
+
+#[test]
 fn propose_size_limit_exit_code_and_log() {
     let dir = bench_project(5);
     let d = dir.path();

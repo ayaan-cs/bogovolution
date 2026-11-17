@@ -129,6 +129,13 @@ impl Repo {
     }
 
     /// All events, failing if the chain is broken.
+    /// Repair a log write that a crash or kill cut off (see
+    /// [`Log::recover_interrupted_write`]). Commands that write call this
+    /// first; readers never do.
+    pub fn recover_interrupted_write(&self) -> Result<Option<String>> {
+        self.log.recover_interrupted_write()
+    }
+
     pub fn events(&self) -> Result<Vec<Event>> {
         self.log.read_events()
     }

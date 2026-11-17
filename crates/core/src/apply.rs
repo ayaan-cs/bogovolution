@@ -125,6 +125,7 @@ pub fn safe_target(repo_dir: &Path, rules_file: &str) -> Result<PathBuf> {
 }
 
 pub fn apply(repo: &Repo, opts: &ApplyOptions) -> Result<ApplyOutcome> {
+    repo.recover_interrupted_write()?;
     let tree = Tree::from_events(&repo.events()?)?;
     let version = tree.resolve(&opts.version)?;
     let status = status_of(&tree, &version);

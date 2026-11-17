@@ -642,6 +642,12 @@ fn run(cli: &Cli) -> Result<Output> {
                     report.skipped_existing
                 ));
             }
+            if let Some(note) = &report.recovered_log {
+                text.push_str(&format!("Log repaired: {note}\n"));
+            }
+            if let Some(note) = &report.stopped_at_token_cap {
+                text.push_str(&format!("STOPPED AT THE TOKEN CAP: {note}\n"));
+            }
             text.push_str(&format!(
                 "Isolation: {}\n",
                 label_isolation(&report.isolation)
@@ -723,6 +729,9 @@ fn run(cli: &Cli) -> Result<Output> {
                 report.base_seed
             );
             text = format!("{}{}", warnings_text(&report.warnings), text);
+            if let Some(note) = &report.recovered_log {
+                text.push_str(&format!("Log repaired: {note}\n"));
+            }
             for g in &report.generations {
                 let what = match &g.verdict {
                     Some(v) => format!(
@@ -744,9 +753,20 @@ fn run(cli: &Cli) -> Result<Output> {
                         g.mutation.result.reason.clone().unwrap_or_default()
                     ),
                 };
+                for r in &g.refused_attempts {
+                    text.push_str(&format!(
+                        "  gen {}: refused attempt ({r}), asked again with a new seed\n",
+                        g.generation
+                    ));
+                }
                 text.push_str(&format!(
-                    "  gen {}: {}\n    {}\n    current: {}\n",
+                    "  gen {}: {}{}\n    {}\n    current: {}\n",
                     g.generation,
+                    if g.resumed {
+                        "finished an unfinished child from an earlier session: "
+                    } else {
+                        ""
+                    },
                     what,
                     if g.mutation.result.hypothesis.is_empty() {
                         "(no hypothesis)"

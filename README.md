@@ -87,7 +87,7 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: v2.7.1
+## Status: v2.7.2
 
 The default is a deterministic **mock model**, so nothing costs money or touches
 the network. Since v2.1.0 there is a free real provider, `local`: a model server
@@ -389,6 +389,8 @@ as `defaults_confirmed = true`):
 | `held_out_large_set_tasks` | 20 | With at least this many held out tasks (0 turns it off), use the next bar instead of 10 points (v2.7.0) |
 | `held_out_large_set_threshold_pp` | 5 | Held out gain needed for a large held out set |
 | `max_tokens_per_run` | 200000 | Token cap for one run |
+| `max_model_errors_per_run` | 0 | Failed model calls a run tolerates (under `[evaluation]`, v2.7.2). Past it the run stops, is not recorded, and nothing is counted |
+| `retries_on_refusal` | 0 | How many more times `evolve` asks for a mutation, with a new seed, after a refused one such as a repeat (under `[mutation]`, v2.7.2) |
 | `max_change_bytes` | 1000 | Largest allowed change for `propose` (under `[mutation]`) |
 | `isolation` | `auto` | How check commands are isolated (under `[sandbox]`, see "Sandbox and threat model") |
 | `shadow_warnings` | `warn` | `warn`, `error` or `off`: what to do about layouts where model files could shadow hidden tests (under `[sandbox]`, see "Shadow warnings") |
@@ -504,6 +506,8 @@ Checks on the answer, using the same rules as `propose`. Any failure writes a
 - the new rules text is empty;
 - the new text is identical to the parent;
 - the new text already exists as a version in the tree;
+- the new text differs from the parent, or from a version in the tree, only
+  in whitespace (v2.7.2);
 - the change is larger than `[mutation] max_change_bytes` (1000 bytes);
 - the model reports more tokens than `max_tokens_per_run`, or a call would be
   estimated to go over it. The model's answer is then thrown away.
@@ -534,6 +538,35 @@ generations leave it where it was, so later generations keep building on the
 best version so far. The same `--seed`, settings and provider give the same
 lineage, so you can also continue a lineage by running `evolve` again. The
 report lists each generation with its mutation, verdict, and `current`.
+
+What `evolve` does when things go wrong (v2.7.2):
+
+- **A repeated or unusable mutation.** With `[mutation] retries_on_refusal =
+  N`, a refused answer (a repeat of the parent or of any version in the tree,
+  a whitespace only change, an empty or unreadable answer, a change over the
+  size limit) is recorded as refused and the model is asked again with the
+  next seed, up to `N` more times. Token cap refusals are not retried. The
+  default is 0, the behaviour before v2.7.2, so existing replays stay
+  identical. A retry that a replay file never recorded ends the generation
+  with the last refusal instead of failing.
+- **The model server dies.** A failed model call stops the run: it is not
+  recorded and no task is counted as failed, so a dead server can no longer
+  turn into a fake "rejected" verdict. Set `[evaluation]
+  max_model_errors_per_run` to tolerate some failed calls (they count as
+  failed tasks, as before v2.7.2). Run `evolve` again once the server is back.
+- **Resuming.** A child that was proposed but not judged when the last
+  session stopped is finished first (its missing runs and its verdict), with
+  no new mutation call, so an interrupted generation is never duplicated.
+  Runs already in the log are reused.
+- **The token cap.** A run that hits `max_tokens_per_run` is recorded (its
+  tasks not done count as failed), no further run of that version starts,
+  and the output says so with the numbers. `verify` refuses to judge capped
+  runs, and `evolve` stops with the same note.
+- **A half written log.** If a crash left an incomplete last line in
+  `log.jsonl`, the next command that writes moves it to `log.jsonl.partial`.
+  A whole last event without its newline gets one, and a `HEAD` exactly one
+  event behind is brought up to date. Anything else (an edited event, `HEAD`
+  further behind) is left alone and still fails `verify-log`.
 
 ### `isolation`
 

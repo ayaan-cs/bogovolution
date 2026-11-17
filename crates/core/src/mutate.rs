@@ -266,6 +266,10 @@ pub struct MutateOutcome {
     pub provider: String,
     pub seed: u64,
     pub tokens_used: u64,
+    /// Whether a refusal is worth another try with a new seed. Refusals for
+    /// the token cap are not: the next try would hit the same cap.
+    #[serde(skip)]
+    pub retryable: bool,
 }
 
 /// Ask the model for a change to `opts.parent` and record the result.
@@ -273,6 +277,7 @@ pub struct MutateOutcome {
 /// Errors from the model (including a replay miss) are returned and nothing is
 /// written. A model answer that breaks a rule is written as a refusal.
 pub fn mutate(repo: &Repo, model: &dyn Model, opts: &MutateOptions) -> Result<MutateOutcome> {
+    repo.recover_interrupted_write()?;
     let config = repo.config()?;
     // A real provider must not run without isolation. Refuse before any call.
     crate::isolation::check_policy(model.kind(), repo.sandbox_settings()?.isolation)?;
@@ -304,14 +309,14 @@ pub fn mutate(repo: &Repo, model: &dyn Model, opts: &MutateOptions) -> Result<Mu
     if estimate > cap {
         let reason =
             format!("the mutation call would need about {estimate} tokens, over the cap of {cap}");
-        return refuse(repo, &parent, &provider, opts.seed, 0, reason, limit);
+        return refuse(repo, &parent, &provider, opts.seed, 0, reason, limit, false);
     }
     // A model that answers in a form we cannot read is a refused attempt, not
     // a crash: log it with the reason and move on.
     let response = match model.propose_mutation(&request) {
         Ok(r) => r,
         Err(Error::BadReply(why)) => {
-            return refuse(repo, &parent, &provider, opts.seed, 0, why, limit);
+            return refuse(repo, &parent, &provider, opts.seed, 0, why, limit, true);
         }
         Err(e) => return Err(e),
     };
@@ -320,7 +325,9 @@ pub fn mutate(repo: &Repo, model: &dyn Model, opts: &MutateOptions) -> Result<Mu
             "the model reported {} tokens, over the cap of {cap}, so its answer was thrown away",
             response.tokens_used
         );
-        return refuse(repo, &parent, &provider, opts.seed, cap, reason, limit);
+        return refuse(
+            repo, &parent, &provider, opts.seed, cap, reason, limit, false,
+        );
     }
     let result = record_mutation(
         repo,
@@ -334,14 +341,17 @@ pub fn mutate(repo: &Repo, model: &dyn Model, opts: &MutateOptions) -> Result<Mu
             tokens_used: Some(response.tokens_used),
         },
     )?;
+    let retryable = result.child.is_none();
     Ok(MutateOutcome {
         result,
         provider,
         seed: opts.seed,
         tokens_used: response.tokens_used,
+        retryable,
     })
 }
 
+#[allow(clippy::too_many_arguments)]
 fn refuse(
     repo: &Repo,
     parent: &str,
@@ -350,6 +360,7 @@ fn refuse(
     tokens: u64,
     reason: String,
     limit: usize,
+    retryable: bool,
 ) -> Result<MutateOutcome> {
     let event = repo.append(&Payload::MutationRefused(MutationRefusedPayload {
         parent: parent.to_string(),
@@ -373,6 +384,7 @@ fn refuse(
         provider: provider.to_string(),
         seed,
         tokens_used: tokens,
+        retryable,
     })
 }
 
@@ -398,6 +410,15 @@ pub struct Generation {
     /// `current` after this generation.
     pub current: String,
     pub tokens_used: u64,
+    /// True when this generation finished a child that an earlier, cut off
+    /// session proposed but never judged (v2.7.2). No new mutation was asked
+    /// for; `mutation` describes the open child.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub resumed: bool,
+    /// Refused attempts before `mutation`, when `retries_on_refusal` allowed
+    /// more tries (v2.7.2). Each one is in the log as `mutation_refused`.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub refused_attempts: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -421,6 +442,9 @@ pub struct EvolveReport {
     /// Layouts where model-written files could shadow hidden tests.
     pub warnings: Vec<crate::shadow::ShadowWarning>,
     pub generations: Vec<Generation>,
+    /// What was repaired when the last write to the log had been cut off.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recovered_log: Option<String>,
 }
 
 fn is_zero(n: &u32) -> bool {
@@ -430,6 +454,7 @@ fn is_zero(n: &u32) -> bool {
 /// Loop `generations` times: mutate from `current`, run parent and child, and
 /// verify. `current` moves only when a child is accepted.
 pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<EvolveReport> {
+    let recovered_log = repo.recover_interrupted_write()?;
     // Look before anything is recorded, so `error` mode stops the whole loop.
     let warnings = crate::shadow::check_repo(repo)?;
     let first = Tree::from_events(&repo.events()?)?;
@@ -448,6 +473,7 @@ pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<Ev
         isolation: None,
         warnings,
         generations: Vec::new(),
+        recovered_log,
     };
 
     let run_opts = |version: &str| RunOptions {
@@ -455,22 +481,76 @@ pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<Ev
         repeats: None,
         base_seed: opts.base_seed,
     };
+    let retries = repo.config()?.mutation.retries_on_refusal;
     for g in 0..opts.generations {
         let tree = Tree::from_events(&repo.events()?)?;
         let parent = tree.current.clone();
-        let attempt = tree.edges.len() + tree.refused.len();
         // Run the parent first, so the mutation prompt can show how it did.
         // Runs that already exist are not run again.
         let parent_runs = run_version(repo, model, &run_opts(&parent))?;
-        let mutation = mutate(
-            repo,
-            model,
-            &MutateOptions {
-                parent: parent.clone(),
-                seed: mutation_seed(opts.base_seed, attempt),
+        if let Some(note) = &parent_runs.stopped_at_token_cap {
+            return Err(Error::Input(note.clone()));
+        }
+        let mut tokens = parent_runs.total_tokens;
+        let mut refused_attempts = Vec::new();
+        // A child of `current` that was proposed but never judged means an
+        // earlier session was cut off (a dead server, a reboot). Finish it
+        // before asking for anything new.
+        let open = tree
+            .edges
+            .iter()
+            .find(|e| e.parent == parent && e.verdict.is_none())
+            .cloned();
+        let resumed = open.is_some();
+        let mutation = match open {
+            Some(edge) => MutateOutcome {
+                result: crate::bench::ProposeOutcome {
+                    outcome: "resumed".into(),
+                    parent: parent.clone(),
+                    child: Some(edge.child.clone()),
+                    hypothesis: edge.hypothesis.clone(),
+                    change_bytes: 0,
+                    max_change_bytes: repo.config()?.mutation.max_change_bytes,
+                    reason: None,
+                    event_seq: tree.node(&edge.child).map(|n| n.created_seq).unwrap_or(0),
+                },
+                provider: model.name(),
+                seed: 0,
+                tokens_used: 0,
+                retryable: false,
             },
-        )?;
-        let mut tokens = mutation.tokens_used + parent_runs.total_tokens;
+            None => {
+                let mut attempt_no = 0;
+                loop {
+                    let t = Tree::from_events(&repo.events()?)?;
+                    let attempt = t.edges.len() + t.refused.len();
+                    let opts_m = MutateOptions {
+                        parent: parent.clone(),
+                        seed: mutation_seed(opts.base_seed, attempt),
+                    };
+                    let m = match mutate(repo, model, &opts_m) {
+                        Ok(m) => m,
+                        // A replay recorded before retries existed has no
+                        // answer for a retry. The refusal already logged
+                        // stands, as it did when it was recorded.
+                        Err(Error::ReplayMiss(_)) if attempt_no > 0 => {
+                            break refused_attempts
+                                .pop()
+                                .map(|(m, _): (MutateOutcome, String)| m)
+                                .expect("a refused attempt came first")
+                        }
+                        Err(e) => return Err(e),
+                    };
+                    tokens += m.tokens_used;
+                    if m.result.child.is_some() || !m.retryable || attempt_no >= retries {
+                        break m;
+                    }
+                    let reason = m.result.reason.clone().unwrap_or_default();
+                    refused_attempts.push((m, reason));
+                    attempt_no += 1;
+                }
+            }
+        };
         report
             .isolation
             .get_or_insert(parent_runs.isolation.clone());
@@ -483,13 +563,19 @@ pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<Ev
             current: parent.clone(),
             tokens_used: 0,
             mutation,
+            resumed,
+            refused_attempts: refused_attempts.into_iter().map(|(_, r)| r).collect(),
         };
+        report.refused += gen.refused_attempts.len() as u32;
         match gen.mutation.result.child.clone() {
             None => report.refused += 1,
             Some(child) => {
                 let child_runs = run_version(repo, model, &run_opts(&child))?;
                 gen.child_runs_recorded = child_runs.runs.len();
                 tokens += child_runs.total_tokens;
+                if let Some(note) = &child_runs.stopped_at_token_cap {
+                    return Err(Error::Input(note.clone()));
+                }
                 let verdict = verify_child(repo, &child)?;
                 match verdict.decision.verdict {
                     VerdictKind::Accepted => report.accepted += 1,

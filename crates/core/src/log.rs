@@ -196,6 +196,100 @@ impl Log {
         Ok(verify_text(&text, head.as_ref()))
     }
 
+    /// Repair the two marks a write cut off by a crash or a kill can leave
+    /// (v2.7.2), and say what was done. Anything else is left alone, so
+    /// tampering is still reported by `verify`.
+    ///
+    /// - The last line is incomplete (no newline at the end) and everything
+    ///   before it, with HEAD, is valid: the incomplete bytes are moved to
+    ///   `log.jsonl.partial` and the log ends at the last whole event.
+    /// - The log has one whole event more than HEAD says, and HEAD matches the
+    ///   event before it: the event was written but HEAD was not, so HEAD is
+    ///   brought up to date.
+    ///
+    /// Only commands that write call this, never readers such as `watch`, so
+    /// a line that is still being written is never touched.
+    pub fn recover_interrupted_write(&self) -> Result<Option<String>> {
+        let mut text = self.read_text()?;
+        let head = self.read_head()?;
+        let mut done: Option<String> = None;
+        if !text.is_empty() && !text.ends_with('\n') {
+            // A whole event cut off just before its newline: add the newline,
+            // or the next event would be glued onto the same line.
+            let cut = text.rfind('\n').map(|i| i + 1).unwrap_or(0);
+            if serde_json::from_str::<Event>(&text[cut..]).is_ok() {
+                let mut f = OpenOptions::new()
+                    .append(true)
+                    .open(&self.path)
+                    .map_err(io_err(&self.path))?;
+                f.write_all(b"\n").map_err(io_err(&self.path))?;
+                f.sync_all().map_err(io_err(&self.path))?;
+                text.push('\n');
+                done = Some("the last event was missing its newline; it was added".to_string());
+            }
+        }
+        if verify_text(&text, head.as_ref()).0.valid {
+            return Ok(done);
+        }
+        if !text.is_empty() && !text.ends_with('\n') {
+            let cut = text.rfind('\n').map(|i| i + 1).unwrap_or(0);
+            let (whole, partial) = text.split_at(cut);
+            let (report, _) = verify_text(whole, head.as_ref());
+            let head_ok = match (&head, report.head_seq) {
+                (None, None) => true,
+                _ => report.valid,
+            };
+            if head_ok {
+                let side = self.path.with_extension("jsonl.partial");
+                let mut f = OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&side)
+                    .map_err(io_err(&side))?;
+                f.write_all(partial.as_bytes()).map_err(io_err(&side))?;
+                f.write_all(b"\n").map_err(io_err(&side))?;
+                f.sync_all().map_err(io_err(&side))?;
+                let log = OpenOptions::new()
+                    .write(true)
+                    .open(&self.path)
+                    .map_err(io_err(&self.path))?;
+                log.set_len(cut as u64).map_err(io_err(&self.path))?;
+                log.sync_all().map_err(io_err(&self.path))?;
+                return Ok(Some(format!(
+                    "the last write to the log was cut off; {} incomplete bytes were moved to {}",
+                    partial.len(),
+                    side.display()
+                )));
+            }
+            return Ok(done);
+        }
+        if let Some(h) = &head {
+            let (report, events) = verify_text(&text, None);
+            let chain_ok = report.problems.iter().all(|p| p.code == "head_missing");
+            if chain_ok && events.len() >= 2 {
+                let before = &events[events.len() - 2];
+                if h.seq == before.seq && h.hash == before.hash {
+                    let last = &events[events.len() - 1];
+                    let fixed = HeadRecord {
+                        seq: last.seq,
+                        hash: last.hash.clone(),
+                    };
+                    let head_text = serde_json::to_string(&fixed).expect("head encodes");
+                    std::fs::write(&self.head_path, head_text).map_err(io_err(&self.head_path))?;
+                    let note = format!(
+                        "HEAD was one event behind the log (seq {} written, HEAD not updated); HEAD now points at it",
+                        last.seq
+                    );
+                    return Ok(Some(match done {
+                        Some(d) => format!("{d}; {note}"),
+                        None => note,
+                    }));
+                }
+            }
+        }
+        Ok(done)
+    }
+
     /// Read all events, failing if the chain is not valid.
     pub fn read_events(&self) -> Result<Vec<Event>> {
         let (report, events) = self.verify()?;

@@ -34,6 +34,13 @@ pub struct EvaluationConfig {
     pub held_out_large_set_tasks: u32,
     #[serde(default = "default_held_out_large_set_threshold")]
     pub held_out_large_set_threshold_pp: f64,
+    /// Model calls in one run that may fail (server gone, HTTP error) before
+    /// the run is thrown away instead of recorded (v2.7.2). With the default
+    /// 0, one failed call stops the run: nothing is recorded for it, and the
+    /// same command started again resumes. A higher value records the run
+    /// and counts the failed tasks as failures, as before v2.7.2.
+    #[serde(default)]
+    pub max_model_errors_per_run: u32,
 }
 
 impl EvaluationConfig {
@@ -73,12 +80,20 @@ pub struct BudgetConfig {
 pub struct MutationConfig {
     /// Largest allowed change, in bytes, between a parent and a child rules file.
     pub max_change_bytes: usize,
+    /// How many more times `evolve` asks the model, with a new seed, when a
+    /// generation's mutation is refused (a repeat of a version already in the
+    /// tree, an empty or oversized change, an unreadable answer) (v2.7.2).
+    /// Every attempt is logged. 0 keeps the old behaviour: the generation
+    /// ends as refused. Refusals for the token cap are never retried.
+    #[serde(default)]
+    pub retries_on_refusal: u32,
 }
 
 impl Default for MutationConfig {
     fn default() -> Self {
         MutationConfig {
             max_change_bytes: 1000,
+            retries_on_refusal: 0,
         }
     }
 }
@@ -121,6 +136,7 @@ impl Config {
                 held_out_min_paired_wins: default_held_out_wins(),
                 held_out_large_set_tasks: default_held_out_large_set_tasks(),
                 held_out_large_set_threshold_pp: default_held_out_large_set_threshold(),
+                max_model_errors_per_run: 0,
             },
             budget: BudgetConfig {
                 max_tokens_per_run: 200_000,
@@ -162,6 +178,9 @@ impl Config {
              # needed is held_out_large_set_threshold_pp instead of held_out_accept_threshold_pp.\n\
              held_out_large_set_tasks = {ho_large}\n\
              held_out_large_set_threshold_pp = {ho_large_threshold:?}\n\
+             # Failed model calls (server gone, HTTP error) allowed in one run. Past this the\n\
+             # run is not recorded and the command stops; run it again to resume.\n\
+             max_model_errors_per_run = {model_errors}\n\
              \n\
              [budget]\n\
              # Token cap for one run.\n\
@@ -170,6 +189,9 @@ impl Config {
              [mutation]\n\
              # Largest allowed change between parent and child, in bytes.\n\
              max_change_bytes = {max_change}\n\
+             # evolve asks again, with a new seed, this many times when a mutation is refused\n\
+             # (a repeat, an empty or oversized change, an unreadable answer).\n\
+             retries_on_refusal = {retries}\n\
              \n\
              [sandbox]\n\
              # How check commands are isolated: auto, bwrap, docker, podman or none.\n\
@@ -202,6 +224,8 @@ impl Config {
             wins = self.evaluation.min_paired_wins,
             tokens = self.budget.max_tokens_per_run,
             max_change = self.mutation.max_change_bytes,
+            retries = self.mutation.retries_on_refusal,
+            model_errors = self.evaluation.max_model_errors_per_run,
             isolation = toml_string(self.sandbox.isolation.as_str()),
             image = toml_string(&self.sandbox.image),
             memory = self.sandbox.memory_mb,

@@ -3,6 +3,34 @@
 All notable changes, newest first. Dates are in America/Chicago. Nothing has
 been published: every version below exists only as a local git commit.
 
+## 2.7.2 (2026-11-17)
+
+Hardening and tests for the problems the real model runs hit. See
+`docs/dev-notes/2026-11-17-evolve-testing.md`.
+
+- Fix: a failed model call (for example the server killed for memory) was
+  counted as a failed task, so a dead server gave a fake "rejected" verdict.
+  The run now stops with a clear error, is not recorded, and nothing is
+  counted; `evolve` run again resumes. `[evaluation] max_model_errors_per_run`
+  (default 0) tolerates some failed calls the old way.
+- `[mutation] retries_on_refusal` (default 0): `evolve` asks again with the
+  next seed after a refused mutation (repeat, whitespace only change, empty,
+  unreadable or oversized answer). Token cap refusals are not retried. A
+  retry missing from a replay ends the generation with the last refusal.
+- New refusal: a change that differs from the parent or a version in the
+  tree only in whitespace.
+- `evolve` finishes a proposed but unjudged child from an earlier session
+  before asking for a new mutation (reported as "resumed").
+- Token cap: the run that hits the cap is recorded, no further run of that
+  version starts, `run` prints "STOPPED AT THE TOKEN CAP" with the numbers,
+  `verify` refuses to judge capped runs, and `evolve` stops with the note.
+- Log repair before every write: an incomplete last line moves to
+  `log.jsonl.partial`, a missing final newline is added, and a `HEAD` one
+  event behind is updated. Tampering is still never repaired.
+- 22 new tests: 20 in `crates/core/tests/evolve_hardening.rs` (including a
+  positive control: on a deterministic mock a general rule must be accepted
+  and a train only rule must be judged overfit) and 2 CLI tests.
+
 ## 2.7.1 (2026-11-16)
 
 - Fix: `verify-log` called a valid log edited when a median had a long

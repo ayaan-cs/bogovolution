@@ -19,6 +19,10 @@ pub enum Error {
     /// A model answered, but not in a form the harness can use.
     #[error("{0}")]
     BadReply(String),
+    /// Model calls failed during a run (for example the server died), so the
+    /// run was thrown away and nothing was recorded for it (v2.7.2).
+    #[error("{0}")]
+    ModelUnavailable(String),
     #[error("io error at {path}: {source}")]
     Io {
         path: PathBuf,
