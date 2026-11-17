@@ -200,7 +200,8 @@ put off (marker `islice.done`) to keep the run under about 10 hours.
 | control (`oracle-rules.md`) | 9, 9, 12, 11, 10 | 41.7% | 6, 4, 5, 6, 4 | 20.8% | noise: +4.2, 3 of 5 wins; held out -4.2, 1 of 5 | 240, 156,108, 1 h 48 min |
 | evolve gen 1 | 9, 10, 8, 9, 8 | 37.5% | 6, 5, 6, 6, 5 | 25.0% | rejected: 0.0, 0 of 5; held out 0.0, 2 of 5 | 241, 147,836, 1 h 49 min |
 | evolve gen 2 | 10, 9, 8, 9, 9 | 37.5% | 6, 6, 6, 6, 6 | 25.0% | rejected: 0.0, 1 of 5; held out 0.0, 2 of 5 | 241, 151,265, 1 h 50 min |
-| evolve gen 3 | 8, 0, 0, 0, 0 | | 0, 0, 0, 0, 0 | | logged rejected (-37.5), but invalid: the server was killed | 22, 13,017, 9 min |
+| evolve gen 3 (first try) | 8, 0, 0, 0, 0 | | 0, 0, 0, 0, 0 | | logged rejected (-37.5), but invalid and not counted: the server was killed | 22, 13,017, 9 min |
+| evolve gen 3 (rerun) | 9, 7, 7, 8, 10 | 33.3% | 7, 5, 8, 6, 4 | 25.0% | rejected: -4.2, 1 of 5; held out 0.0, 2 of 5 | 241, 147,647, 1 h 57 min |
 
 The evolve's three changes were all generic import rules:
 "Always import necessary Python libraries at the beginning of the file.",
@@ -208,7 +209,9 @@ The evolve's three changes were all generic import rules:
 are needed. This will prevent errors related to unimported functions or
 classes." and "Import common Python libraries at the beginning of each
 file." (`oss48-short/rules-gen*.md`). In all 984 calls and 611,790 tokens,
-Nov 16 8:04 AM to 3:27 PM CT.
+Nov 16 8:04 AM to 3:27 PM CT, then 241 calls and 147,647 tokens for the
+generation 3 rerun, 4:18 to 6:15 PM CT: 1,225 calls, 759,437 tokens and
+9 h 20 min of model time, of which 1,203 calls and 746,420 tokens count.
 
 Per task, passes of 5 against the root's: the control fixed `take` (0 to 4)
 and `nth` (0 to 3), the `islice` tasks it was written for, and lost
@@ -222,6 +225,12 @@ lost `unique_justseen` (5 to 2) and gained `nth_combination` (0 to 2, 3) and
 kernel killed it, 22 calls into generation 3. rules-evolve logged every
 later call as a model error, so 27 of 48 tasks in run 0 and all of runs 1 to
 4 failed, and the generation was logged as rejected at -37.5 points.
+It was rerun alone: a copy of the project replayed generations 1 and 2
+from `evolve-replay.jsonl`, then `evolve --generations 1` ran live with
+`--cache-ram 1024` (server steady at about 6.2 GB) and recorded
+`evolve-gen3-replay.jsonl`. Same mutation seed, same prompt, same rule; it
+lost `tail` (5 to 3), `unique_justseen` (5 to 2), `mark_ends` (3 to 0) and
+`interleave_longest` (3 to 1) and gained a few single passes.
 
 **The verdict bar, on this root.** `verdict-noise.py`, 20,000 pairs per
 case: a child that changes nothing is accepted 0.0% of the time under both
@@ -230,12 +239,15 @@ with a 10 point held out bar and 3.8% with 5. A general rule that fixes 3
 train and 3 held out tasks passes 55.3% and 73.8%; one that fixes 3 and 2,
 22.8% and 55.1%.
 
-Replay it (about 1 hour, the checks still run). It reproduced the root,
-the control and generations 1 and 2 exactly. The calls generation 3 never
-made are not in the file, so `GENERATIONS=3` stops there with a replay miss.
+Replay it (about 1 hour 15 minutes, the checks still run; it reproduced
+every counted number above). The first try's generation 3 cannot be
+replayed, because the calls it never made are not in the file
+(`GENERATIONS=3` stops there with a replay miss); `NEXT_REPLAY` replays the
+rerun instead.
 
 ```sh
-SHORT_CONTEXT=1 GENERATIONS=2 examples/local-model/replay.sh oss48 /tmp/more-itertools \
+SHORT_CONTEXT=1 GENERATIONS=2 NEXT_REPLAY=evolve-gen3-replay.jsonl \
+  examples/local-model/replay.sh oss48 /tmp/more-itertools \
   examples/local-model/replays/qwen2.5-coder-7b/oss48-short
 ```
 

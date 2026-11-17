@@ -16,10 +16,14 @@ been published: every version below exists only as a local git commit.
   fewer tokens and about 1.8 times faster per call than with every stub in
   the prompt. Nothing accepted, nothing generalized; the control fixed its
   two target tasks and lost about as many (noise). The server was killed for
-  memory 22 calls into generation 3, so that verdict is invalid. Replays in
-  `replays/qwen2.5-coder-7b/oss48-short/`.
+  memory 22 calls into generation 3, so that verdict is invalid and not
+  counted. Generation 3 was rerun alone with `--cache-ram 1024`: rejected
+  (-4.2, 1 of 5; held out 0.0, 2 of 5). Replays in
+  `replays/qwen2.5-coder-7b/oss48-short/` (`evolve-gen3-replay.jsonl` is
+  the rerun).
 - `replay.sh oss48` skips the `islice` stage when the folder has no
-  `islice-replay.jsonl`.
+  `islice-replay.jsonl`, and `NEXT_REPLAY` replays one more generation
+  recorded later on top of the first `GENERATIONS`.
 
 ## 2.7.0 (2026-11-16)
 

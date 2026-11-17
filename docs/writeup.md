@@ -210,7 +210,8 @@ That made the full plan fit: every version got the default 5 runs and the
 standard bars (train: 10 points and 4 of 5 wins; held out, with 24 tasks:
 5 points and 3 of 5 wins). The old `islice` rule was put off to keep the run
 under about 10 hours. Nov 16, 8:04 AM to 3:27 PM CT, 984 calls, 611,790
-tokens:
+tokens, plus a rerun of generation 3 from 4:18 to 6:15 PM CT (241 calls,
+147,647 tokens):
 
 | Version | Rules | Train runs (of 24) | Train median | Held out runs (of 24) | Held out median | Verdict |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -218,7 +219,8 @@ tokens:
 | control | hand written: import everything you use | 9, 9, 12, 11, 10 | 41.7% | 6, 4, 5, 6, 4 | 20.8% | noise, +4.2 points, 3 of 5 wins; held out -4.2, 1 of 5 |
 | evolve gen 1 | "Always import necessary Python libraries at the beginning of the file." | 9, 10, 8, 9, 8 | 37.5% | 6, 5, 6, 6, 5 | 25.0% | rejected, 0.0 points, 0 of 5 wins; held out 0.0, 2 of 5 |
 | evolve gen 2 | "Import common Python libraries at the beginning of each file where they are needed." | 10, 9, 8, 9, 9 | 37.5% | 6, 6, 6, 6, 6 | 25.0% | rejected, 0.0 points, 1 of 5 wins; held out 0.0, 2 of 5 |
-| evolve gen 3 | "Import common Python libraries at the beginning of each file." | | | | | not measured: the model server died (see below) |
+| evolve gen 3 (first try) | "Import common Python libraries at the beginning of each file." | | | | | invalid, not counted: the model server died (see below) |
+| evolve gen 3 (rerun) | the same text | 9, 7, 7, 8, 10 | 33.3% | 7, 5, 8, 6, 4 | 25.0% | rejected, -4.2 points, 1 of 5 wins; held out 0.0, 2 of 5 |
 
 Nothing was accepted and nothing generalized. The hand written rule did
 exactly what it was written for: `take` went from 0 to 4 passes of 5 and
@@ -226,18 +228,24 @@ exactly what it was written for: `take` went from 0 to 4 passes of 5 and
 `exactly_n` (4 to 2) on train and `triplewise` (3 to 0), `mark_ends` (3 to 1)
 and `interleave_longest` (3 to 1) on held out, so the net was +4.2 on train
 and -4.2 on held out. The model proposed the generic import rule three times
-again. Neither measured version fixed `take` or `nth`; both lost
+again. None of them fixed `take` or `nth`. Generations 1 and 2 lost
 `unique_justseen` (5 to 2) and gained `nth_combination` (0 to 2 or 3) and
-`repeatfunc` (1 to 3 or 4), which cancels out.
+`repeatfunc` (1 to 3 or 4), which cancels out. Generation 3 also lost
+`unique_justseen`, plus `tail` (5 to 3), `mark_ends` (3 to 0) and
+`interleave_longest` (3 to 1), for -4.2 on train.
 
 Generation 3 has no result. llama.cpp keeps a cache of past prompts in RAM,
 up to 8 GiB by default (`--cache-ram`). Over the long run the server grew to
 about 12 GB, and at 3:27 PM CT the kernel killed it for memory, 22 calls into
 generation 3. rules-evolve kept going: every later call failed to connect,
 was logged as a model error, and the generation was logged as rejected at
--37.5 points. That verdict says nothing about the rule. Starting the server
-with `--cache-ram 1024` should cap it near 6 GB (not yet tried on a full
-run).
+-37.5 points. That verdict says nothing about the rule, so it is not
+counted. Generation 3 was then rerun on its own: a copy of the project
+replayed generations 1 and 2 from the recording, and `evolve --generations
+1` ran live with the server started with `--cache-ram 1024`. The mutation
+seed depends only on the number of earlier attempts, so the model got the
+same prompt and wrote the same rule. The server stayed at about 6.2 GB for
+the whole 2 hours.
 
 ## What this suggests
 
@@ -267,8 +275,10 @@ run).
   easy to miss by one tie. Round 6 used 5 runs throughout.
 - **Rounds 5 and 6 do not compare one to one.** The prompts differ (all 48
   stubs against one), and the root's train median moved from 33.3% to 37.5%.
-- **Round 6 has 2 evolve generations, not 3.** The third lost its model
-  server (see above), and the `islice` rule was not measured in round 6.
+- **Round 6's generation 3 is a rerun.** The first try lost its model
+  server (see above). The rerun replayed generations 1 and 2 instead of
+  running them live; it got the same prompt but is a separate live session.
+  The `islice` rule was not measured in round 6.
 - **A model error counts as a failed task.** rules-evolve does not stop when
   the server goes away, so a dead server reads as a very bad rule. Check the
   task outcomes (`model_error`) before trusting a large drop.
@@ -309,11 +319,12 @@ GENERATIONS=1 LATER_REPEATS=2 examples/local-model/replay.sh oss48 /path/to/more
   examples/local-model/replays/qwen2.5-coder-7b/oss48
 ```
 
-Round 6 (short prompts, 5 runs, about 1 hour; generation 3 is left out
-because its calls were never made):
+Round 6 (short prompts, 5 runs, about 1 hour 15 minutes; generation 3 is
+the rerun, because the first try's calls were never made):
 
 ```sh
-SHORT_CONTEXT=1 GENERATIONS=2 examples/local-model/replay.sh oss48 /path/to/more-itertools \
+SHORT_CONTEXT=1 GENERATIONS=2 NEXT_REPLAY=evolve-gen3-replay.jsonl \
+  examples/local-model/replay.sh oss48 /path/to/more-itertools \
   examples/local-model/replays/qwen2.5-coder-7b/oss48-short
 ```
 

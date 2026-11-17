@@ -78,7 +78,7 @@ import rule that was rejected. Those runs used 2 repeats instead of 5 to fit
 the time. A rerun with short prompts (each task sees only its own file, about
 16 times fewer tokens) gave every version 5 runs: the hand written rule fixed
 the two `islice` tasks but lost others (+4.2 train, -4.2 held out, noise),
-and two evolved generic import rules changed nothing (0.0, rejected). Details and caveats are in
+and three evolved generic import rules were rejected (0.0, 0.0, -4.2). Details and caveats are in
 "Local model test" and, in plain words, in [`docs/writeup.md`](docs/writeup.md).
 
 ## Inspiration
