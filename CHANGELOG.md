@@ -3,6 +3,20 @@
 All notable changes, newest first. Dates are in America/Chicago. Nothing has
 been published: every version below exists only as a local git commit.
 
+## Unreleased (after 2.7.2)
+
+- Windows build: `packaging/windows/build.sh` cross compiles
+  `rules-evolve.exe` (x86_64-pc-windows-gnu) and packs it with the viewer,
+  the replay demo, `demo.ps1` and `WINDOWS-SETUP.md`.
+- Windows fixes, no change on Linux: process groups and Unix file owners
+  only on Unix; a timed out check is stopped with `taskkill /T /F` on
+  Windows; `PATH` lookups use the platform separator and `.exe`; bubblewrap
+  reports "runs only on Linux"; Windows system variables such as
+  `SystemRoot` are kept for check commands and container runtimes.
+- When no isolation backend works, the error says what to install for the
+  platform (on Windows: Docker Desktop, Podman Desktop or WSL2). On Windows
+  a missing `sh` points to Git for Windows or WSL2.
+
 ## 2.7.2 (2026-11-17)
 
 Hardening and tests for the problems the real model runs hit. See

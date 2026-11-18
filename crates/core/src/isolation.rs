@@ -526,10 +526,16 @@ pub fn build_command(backend: Backend, s: &SandboxSettings, req: &CheckRequest) 
 
 /// Does a program exist on `PATH`?
 fn find_in_path(name: &str, path: Option<&str>) -> Option<PathBuf> {
-    path?
-        .split(':')
-        .filter(|d| !d.is_empty())
-        .map(|d| Path::new(d).join(name))
+    // `split_paths` uses `:` on Unix and `;` on Windows, where programs also
+    // end in `.exe`.
+    let names: Vec<String> = if cfg!(windows) {
+        vec![format!("{name}.exe"), name.to_string()]
+    } else {
+        vec![name.to_string()]
+    };
+    std::env::split_paths(path?)
+        .filter(|d| !d.as_os_str().is_empty())
+        .flat_map(|d| names.iter().map(move |n| d.join(n)))
         .find(|p| p.is_file())
 }
 
@@ -554,10 +560,58 @@ fn kill_all(spec: &CommandSpec, child: &mut std::process::Child) {
     }
     // The child leads its own process group, so this reaches what it forked.
     // `kill -9 -PGID` works in dash and bash; dash rejects `kill -KILL -- -PGID`.
-    let group = format!("kill -9 -{} 2>/dev/null; true", child.id());
-    let _ = quiet(Command::new("sh").arg("-c").arg(group)).status();
+    #[cfg(unix)]
+    {
+        let group = format!("kill -9 -{} 2>/dev/null; true", child.id());
+        let _ = quiet(Command::new("sh").arg("-c").arg(group)).status();
+    }
+    // Windows has no process groups here: stop the whole process tree.
+    #[cfg(windows)]
+    {
+        let pid = child.id().to_string();
+        let _ = quiet(Command::new("taskkill").args(["/T", "/F", "/PID", &pid])).status();
+    }
     let _ = child.kill();
     let _ = child.wait();
+}
+
+/// The child leads its own process group, so a timeout can stop all of it.
+#[cfg(unix)]
+fn own_process_group(cmd: &mut Command) {
+    use std::os::unix::process::CommandExt;
+    cmd.process_group(0);
+}
+
+#[cfg(not(unix))]
+fn own_process_group(_cmd: &mut Command) {}
+
+/// The environment is cleared for every command. On Windows a few system
+/// variables are put back, without which programs cannot even open a
+/// socket (`SystemRoot`) or find their settings (`docker` reads its context
+/// from `USERPROFILE`). They hold paths, not secrets. Nothing on Unix.
+fn windows_system_env() -> Vec<(String, String)> {
+    if !cfg!(windows) {
+        return Vec::new();
+    }
+    const KEEP: [&str; 14] = [
+        "SystemRoot",
+        "SystemDrive",
+        "windir",
+        "ComSpec",
+        "PATHEXT",
+        "TEMP",
+        "TMP",
+        "USERPROFILE",
+        "APPDATA",
+        "LOCALAPPDATA",
+        "ProgramData",
+        "ProgramFiles",
+        "DOCKER_HOST",
+        "DOCKER_CONTEXT",
+    ];
+    KEEP.iter()
+        .filter_map(|k| std::env::var(k).ok().map(|v| (k.to_string(), v)))
+        .collect()
 }
 
 /// Start a command and wait for it, up to `timeout`. With `capture`, the last
@@ -567,14 +621,14 @@ pub fn run_spec(
     timeout: Duration,
     capture: bool,
 ) -> Result<(CheckStatus, String)> {
-    use std::os::unix::process::CommandExt;
     let mut cmd = Command::new(&spec.program);
     cmd.args(&spec.args)
         .env_clear()
+        .envs(windows_system_env())
         .envs(spec.env.iter().map(|(k, v)| (k, v)))
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .process_group(0);
+        .stdout(Stdio::null());
+    own_process_group(&mut cmd);
     cmd.stderr(if capture {
         Stdio::piped()
     } else {
@@ -585,8 +639,9 @@ pub fn run_spec(
     }
     let mut child = cmd.spawn().map_err(|e| {
         Error::Input(format!(
-            "could not start the check command ({}): {e}",
-            spec.program
+            "could not start the check command ({}): {e}{}",
+            spec.program,
+            start_hint(&spec.program)
         ))
     })?;
     let deadline = Instant::now() + timeout;
@@ -651,22 +706,23 @@ fn tail_reader<R: Read + Send + 'static>(
 /// then stderr. A timed out command returns what it printed before it was
 /// stopped.
 pub fn run_spec_captured(spec: &CommandSpec, timeout: Duration) -> Result<(CheckStatus, String)> {
-    use std::os::unix::process::CommandExt;
     let mut cmd = Command::new(&spec.program);
     cmd.args(&spec.args)
         .env_clear()
+        .envs(windows_system_env())
         .envs(spec.env.iter().map(|(k, v)| (k, v)))
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .process_group(0);
+        .stderr(Stdio::piped());
+    own_process_group(&mut cmd);
     if let Some(cwd) = &spec.cwd {
         cmd.current_dir(cwd);
     }
     let mut child = cmd.spawn().map_err(|e| {
         Error::Input(format!(
-            "could not start the check command ({}): {e}",
-            spec.program
+            "could not start the check command ({}): {e}{}",
+            spec.program,
+            start_hint(&spec.program)
         ))
     })?;
     let out = child
@@ -741,6 +797,7 @@ pub fn ids_for_owner(uid: u32, gid: u32) -> HostIds {
     }
 }
 
+#[cfg(unix)]
 fn host_ids(worktree: &Path) -> HostIds {
     use std::os::unix::fs::MetadataExt;
     match std::fs::metadata(worktree) {
@@ -749,6 +806,14 @@ fn host_ids(worktree: &Path) -> HostIds {
     }
 }
 
+/// Windows files have no Unix owner. Docker Desktop and Podman shares let
+/// any user in the Linux VM write, so the container runs as "nobody".
+#[cfg(not(unix))]
+fn host_ids(_worktree: &Path) -> HostIds {
+    ids_for_owner(0, 0)
+}
+
+#[cfg(unix)]
 fn open_for_nobody(dir: &Path) {
     use std::os::unix::fs::PermissionsExt;
     if let Ok(meta) = std::fs::symlink_metadata(dir) {
@@ -840,7 +905,8 @@ impl Runner {
                     (None, ProviderKind::Local) => Backend::None,
                     (None, ProviderKind::Real | ProviderKind::LocalModel) => {
                         return Err(Error::Input(format!(
-                            "no isolation backend works here, and a real provider must run isolated. Install bubblewrap, podman or docker. Tried: {}",
+                            "no isolation backend works here, and a real provider must run isolated. {} Tried: {}",
+                            install_hint(),
                             why.join("; ")
                         )))
                     }
@@ -918,6 +984,7 @@ impl Runner {
     }
 }
 
+#[cfg(unix)]
 fn open_for_nobody_if_root(worktree: &Path) {
     use std::os::unix::fs::MetadataExt;
     if std::fs::metadata(worktree)
@@ -925,6 +992,29 @@ fn open_for_nobody_if_root(worktree: &Path) {
         .unwrap_or(false)
     {
         open_for_nobody(worktree);
+    }
+}
+
+#[cfg(not(unix))]
+fn open_for_nobody_if_root(_worktree: &Path) {}
+
+/// Extra help when a check command cannot start.
+fn start_hint(program: &str) -> &'static str {
+    if cfg!(windows) && program == "sh" {
+        ". On Windows, checks without isolation run with sh: install Git for Windows and put its usr\\bin folder (it has sh.exe) on PATH, or use WSL2"
+    } else {
+        ""
+    }
+}
+
+/// What to install when no backend works.
+pub fn install_hint() -> &'static str {
+    if cfg!(windows) {
+        "On Windows, install and start Docker Desktop (or Podman Desktop), or run the Linux build of rules-evolve inside WSL2. bubblewrap is Linux only."
+    } else if cfg!(target_os = "macos") {
+        "Install and start Docker Desktop or Podman. bubblewrap is Linux only."
+    } else {
+        "Install bubblewrap, podman or docker."
     }
 }
 
@@ -961,6 +1051,9 @@ pub fn probe_backend(
 ) -> std::result::Result<(), String> {
     if backend == Backend::None {
         return Ok(());
+    }
+    if backend == Backend::Bwrap && !cfg!(target_os = "linux") {
+        return Err("bubblewrap runs only on Linux".into());
     }
     let path = std::env::var("PATH").ok();
     if find_in_path(backend.program(), path.as_deref()).is_none() {
