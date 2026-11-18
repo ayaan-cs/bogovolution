@@ -5,7 +5,15 @@ been published: every version below exists only as a local git commit.
 
 ## Unreleased (after 2.7.2)
 
-- `--api-thinking adaptive|off` and `--api-effort LEVEL` for Anthropic.
+- Claude runs 3 and 4 (`examples/claude/haiku-5-5-run3/`,
+  `examples/claude/sonnet-5-5-run4/`), $0.9766 in all. 28 more-itertools
+  tasks chosen from root calibration only. Haiku: root train 67% and held
+  out 31%, best accepted rule (a hand written general control) 92% and 50%;
+  5 evolve generations reached 100% on train but never moved held out.
+  Sonnet 5.5, one run each: root 92% and 44%, same rule 92% and 56%. The
+  remaining held out failures need behavior the docstrings do not state.
+- `--api-thinking adaptive|off|between_tools` (the last for
+  `claude-sonnet-5-5`, which refuses `disabled`) and `--api-effort LEVEL` for Anthropic.
   In Claude run 2, 28 of 240 task replies hit the 2,048 token cap, 14 of
   them with nothing but thinking, so `windowed` never got an answer. Thinking
   off gives the whole cap to the answer. Bad combinations (off at `xhigh` or

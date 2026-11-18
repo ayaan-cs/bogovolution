@@ -1,0 +1,65 @@
+# rules-evolve config
+#
+# The [evaluation] and [budget] values below were confirmed by the project owner.
+
+[project]
+# Rules file to evolve, relative to the repo root.
+rules_file = "AGENTS.md"
+# Model name. Only recorded. Phase 1 makes no model calls.
+model = "claude-haiku-5-5"
+
+[evaluation]
+# Runs per version. The median pass rate is used.
+repeats = 3
+# A child must beat its parent by this many percentage points on the median pass rate...
+accept_threshold_pp = 10.0
+# ...and win at least this many of the paired runs. Otherwise the result is noise.
+min_paired_wins = 3
+# Only when tasks.toml marks tasks with split = "held_out": a child the rule above
+# accepts must also gain this many points on the held out median...
+held_out_accept_threshold_pp = 10.0
+# ...and win this many held out pairs. Otherwise the verdict is overfit.
+held_out_min_paired_wins = 2
+# With at least this many held out tasks (0 turns it off) the held out gain
+# needed is held_out_large_set_threshold_pp instead of held_out_accept_threshold_pp.
+held_out_large_set_tasks = 20
+held_out_large_set_threshold_pp = 5.0
+# Failed model calls (server gone, HTTP error) allowed in one run. Past this the
+# run is not recorded and the command stops; run it again to resume.
+max_model_errors_per_run = 0
+
+[budget]
+# Token cap for one run.
+max_tokens_per_run = 400000
+
+[mutation]
+# Largest allowed change between parent and child, in bytes.
+max_change_bytes = 1000
+# evolve asks again, with a new seed, this many times when a mutation is refused
+# (a repeat, an empty or oversized change, an unreadable answer).
+retries_on_refusal = 1
+# true: tell the mutation model the agent answers in one reply, runs nothing
+# and cannot read hidden paths (right for the local and API providers).
+# false keeps the older prompt, which older replay files need.
+one_shot_agent = true
+
+[sandbox]
+# How check commands are isolated: auto, bwrap, docker, podman or none.
+# auto picks the strongest backend that works here (bwrap, then podman, then docker).
+# none is UNSAFE and only for the mock and replay providers. A real provider refuses it.
+isolation = "bwrap"
+# Container image for docker and podman. It must exist locally, runs never pull.
+image = "docker.io/library/alpine:3.20"
+# Limits for one check.
+memory_mb = 2048
+cpus = 2.0
+max_processes = 256
+max_file_mb = 256
+# Extra host folders mounted read only, for example a toolchain.
+ro_binds = []
+# Layouts where model-written files could shadow hidden tests: warn, error or off.
+# error refuses to run while there is any warning.
+shadow_warnings = "warn"
+
+[meta]
+defaults_confirmed = true

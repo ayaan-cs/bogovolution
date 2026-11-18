@@ -1,0 +1,142 @@
+{
+  "format": "rules-evolve-export",
+  "version": 1,
+  "generator": {
+    "tool": "rules-evolve",
+    "version": "2.7.2"
+  },
+  "project": {
+    "rules_file": "AGENTS.md",
+    "model": "claude-sonnet-5-5"
+  },
+  "chain": {
+    "valid": true,
+    "events": 4,
+    "head_seq": 3,
+    "head_hash": "cbf71ba23da03990687079a6e64e939df355ae12daaf20efc5c23997a9261766"
+  },
+  "config": {
+    "repeats": 1,
+    "accept_threshold_pp": 10.0,
+    "min_paired_wins": 3,
+    "max_tokens_per_run": 60000,
+    "max_change_bytes": 1000,
+    "held_out_accept_threshold_pp": 10.0,
+    "held_out_min_paired_wins": 2
+  },
+  "root": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+  "current": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+  "summary": {
+    "nodes": 2,
+    "edges": 1,
+    "accepted": 0,
+    "rejected": 0,
+    "noise": 0,
+    "pending": 1,
+    "refused": 0,
+    "runs": 2,
+    "tokens_used": 66202,
+    "max_generation": 1
+  },
+  "nodes": [
+    {
+      "hash": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "short": "8e28956afd69",
+      "parent": null,
+      "generation": 0,
+      "created_seq": 0,
+      "hypothesis": null,
+      "verdict": null,
+      "status": "root",
+      "is_current": true,
+      "size_bytes": 58,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n",
+      "diff": null,
+      "median_pass_rate": 0.9166666666666666,
+      "held_out_median_pass_rate": 0.4375,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 28079,
+          "budget_exhausted": false,
+          "held_out_passed": 7,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.4375
+        }
+      ]
+    },
+    {
+      "hash": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "short": "1ef4720cd84c",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 2,
+      "hypothesis": "Run 3 accepted rule 1ef4720c (hand written general rule), measured with Sonnet",
+      "verdict": null,
+      "status": "pending",
+      "is_current": false,
+      "size_bytes": 990,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\n## Implementing a function from its docstring\n\n- Write the whole file. Import every name you use (islice, zip_longest, count, deque, itemgetter and so on) at the top, and never leave `raise NotImplementedError` behind.\n- Match the docstring examples exactly, including the last partial group, fill values and what happens at the end of the input.\n- Check arguments the way the standard itertools functions do: a size, count, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError.\n- Do these checks before returning a generator, not inside it, so they run at call time.\n- When inputs must line up (a strict mode, rows of different lengths), raise ValueError instead of silently truncating.\n- Prefer itertools building blocks (islice, chain, tee, zip_longest) over index arithmetic.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,12 @@\n # Project rules\n \n Write clear code and keep changes small.\n+\n+## Implementing a function from its docstring\n+\n+- Write the whole file. Import every name you use (islice, zip_longest, count, deque, itemgetter and so on) at the top, and never leave `raise NotImplementedError` behind.\n+- Match the docstring examples exactly, including the last partial group, fill values and what happens at the end of the input.\n+- Check arguments the way the standard itertools functions do: a size, count, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError.\n+- Do these checks before returning a generator, not inside it, so they run at call time.\n+- When inputs must line up (a strict mode, rows of different lengths), raise ValueError instead of silently truncating.\n+- Prefer itertools building blocks (islice, chain, tee, zip_longest) over index arithmetic.\n",
+      "median_pass_rate": 0.9166666666666666,
+      "held_out_median_pass_rate": 0.5625,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 38123,
+          "budget_exhausted": false,
+          "held_out_passed": 9,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.5625
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "seq": 2,
+      "hypothesis": "Run 3 accepted rule 1ef4720c (hand written general rule), measured with Sonnet",
+      "verdict": null,
+      "reason": null,
+      "parent_median": null,
+      "child_median": null,
+      "gain_pp": null,
+      "paired_wins": null,
+      "repeats": null,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.9166666666666666,
+          "win": false
+        }
+      ]
+    }
+  ],
+  "refused": [],
+  "series": [
+    {
+      "attempt": 1,
+      "seq": 2,
+      "outcome": "pending",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "hypothesis": "Run 3 accepted rule 1ef4720c (hand written general rule), measured with Sonnet",
+      "parent_median": 0.9166666666666666,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 0.0,
+      "current_after": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "current_median_after": 0.9166666666666666
+    }
+  ]
+}

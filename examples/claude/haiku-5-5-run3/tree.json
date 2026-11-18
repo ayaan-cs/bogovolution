@@ -1,0 +1,935 @@
+{
+  "format": "rules-evolve-export",
+  "version": 1,
+  "generator": {
+    "tool": "rules-evolve",
+    "version": "2.7.2"
+  },
+  "project": {
+    "rules_file": "AGENTS.md",
+    "model": "claude-haiku-5-5"
+  },
+  "chain": {
+    "valid": true,
+    "events": 44,
+    "head_seq": 43,
+    "head_hash": "1a91270d7a7d321ffefcffa9d8ad4c27dbb216e8d58c2b5876658a7641b129b9"
+  },
+  "config": {
+    "repeats": 3,
+    "accept_threshold_pp": 10.0,
+    "min_paired_wins": 3,
+    "max_tokens_per_run": 400000,
+    "max_change_bytes": 1000,
+    "held_out_accept_threshold_pp": 10.0,
+    "held_out_min_paired_wins": 2
+  },
+  "root": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+  "current": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+  "summary": {
+    "nodes": 9,
+    "edges": 8,
+    "accepted": 1,
+    "rejected": 3,
+    "noise": 3,
+    "overfit": 1,
+    "pending": 0,
+    "refused": 0,
+    "runs": 27,
+    "tokens_used": 1525914,
+    "max_generation": 2
+  },
+  "nodes": [
+    {
+      "hash": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "short": "8e28956afd69",
+      "parent": null,
+      "generation": 0,
+      "created_seq": 0,
+      "hypothesis": null,
+      "verdict": null,
+      "status": "root",
+      "is_current": false,
+      "size_bytes": 58,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n",
+      "diff": null,
+      "median_pass_rate": 0.6666666666666666,
+      "held_out_median_pass_rate": 0.3125,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 8,
+          "total": 12,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 40001,
+          "budget_exhausted": false,
+          "held_out_passed": 5,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.3125
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 10,
+          "total": 12,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 47451,
+          "budget_exhausted": false,
+          "held_out_passed": 5,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.3125
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 8,
+          "total": 12,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 42634,
+          "budget_exhausted": false,
+          "held_out_passed": 4,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.25
+        }
+      ]
+    },
+    {
+      "hash": "0ea6c4484a72f99ee116362d72734662495d746cd4a253d35f9fdde3fbb9c248",
+      "short": "0ea6c4484a72",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 4,
+      "hypothesis": "Control: the run 1 generation 1 rule (0ea6c448: raise documented errors, import every module)",
+      "verdict": "overfit",
+      "status": "overfit",
+      "is_current": false,
+      "size_bytes": 500,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\nBefore finishing a file, re-read the docstring and list every error condition it describes. Add explicit checks that raise the documented exception (for example ValueError) for invalid arguments, such as negative or out-of-range values, and confirm each check runs before any work is done.\n\nImport every module the file uses (for example itertools) at the top of the file, and run through each function once to confirm no name is undefined.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,7 @@\n # Project rules\n \n Write clear code and keep changes small.\n+\n+Before finishing a file, re-read the docstring and list every error condition it describes. Add explicit checks that raise the documented exception (for example ValueError) for invalid arguments, such as negative or out-of-range values, and confirm each check runs before any work is done.\n+\n+Import every module the file uses (for example itertools) at the top of the file, and run through each function once to confirm no name is undefined.\n",
+      "median_pass_rate": 0.9166666666666666,
+      "held_out_median_pass_rate": 0.3125,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 59492,
+          "budget_exhausted": false,
+          "held_out_passed": 6,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.375
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 56731,
+          "budget_exhausted": false,
+          "held_out_passed": 5,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.3125
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 9,
+          "total": 12,
+          "pass_rate": 0.75,
+          "tokens_used": 53220,
+          "budget_exhausted": false,
+          "held_out_passed": 5,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.3125
+        }
+      ]
+    },
+    {
+      "hash": "b2e845f16774cfd89c4a494e33ac46bfa5f2335d419ca19668eab1090614fad5",
+      "short": "b2e845f16774",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 9,
+      "hypothesis": "Control: the run 2 best held out rule (b2e845f1: every name imported or defined)",
+      "verdict": "noise",
+      "status": "noise",
+      "is_current": false,
+      "size_bytes": 241,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\nBefore answering, scan the whole file from top to bottom. For every module, function, or variable name used, confirm it is imported or defined in the file, and fix any that are not.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,5 @@\n # Project rules\n \n Write clear code and keep changes small.\n+\n+Before answering, scan the whole file from top to bottom. For every module, function, or variable name used, confirm it is imported or defined in the file, and fix any that are not.\n",
+      "median_pass_rate": 0.8333333333333334,
+      "held_out_median_pass_rate": 0.3125,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 10,
+          "total": 12,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 43948,
+          "budget_exhausted": false,
+          "held_out_passed": 6,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.375
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 8,
+          "total": 12,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 49165,
+          "budget_exhausted": false,
+          "held_out_passed": 5,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.3125
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 10,
+          "total": 12,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 48428,
+          "budget_exhausted": false,
+          "held_out_passed": 5,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.3125
+        }
+      ]
+    },
+    {
+      "hash": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "short": "1ef4720cd84c",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 14,
+      "hypothesis": "Control: hand written general rule (complete file and imports, match examples, itertools style argument checks at call time, strict lengths)",
+      "verdict": "accepted",
+      "status": "accepted",
+      "is_current": true,
+      "size_bytes": 990,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\n## Implementing a function from its docstring\n\n- Write the whole file. Import every name you use (islice, zip_longest, count, deque, itemgetter and so on) at the top, and never leave `raise NotImplementedError` behind.\n- Match the docstring examples exactly, including the last partial group, fill values and what happens at the end of the input.\n- Check arguments the way the standard itertools functions do: a size, count, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError.\n- Do these checks before returning a generator, not inside it, so they run at call time.\n- When inputs must line up (a strict mode, rows of different lengths), raise ValueError instead of silently truncating.\n- Prefer itertools building blocks (islice, chain, tee, zip_longest) over index arithmetic.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,12 @@\n # Project rules\n \n Write clear code and keep changes small.\n+\n+## Implementing a function from its docstring\n+\n+- Write the whole file. Import every name you use (islice, zip_longest, count, deque, itemgetter and so on) at the top, and never leave `raise NotImplementedError` behind.\n+- Match the docstring examples exactly, including the last partial group, fill values and what happens at the end of the input.\n+- Check arguments the way the standard itertools functions do: a size, count, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError.\n+- Do these checks before returning a generator, not inside it, so they run at call time.\n+- When inputs must line up (a strict mode, rows of different lengths), raise ValueError instead of silently truncating.\n+- Prefer itertools building blocks (islice, chain, tee, zip_longest) over index arithmetic.\n",
+      "median_pass_rate": 0.9166666666666666,
+      "held_out_median_pass_rate": 0.5,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 61356,
+          "budget_exhausted": false,
+          "held_out_passed": 8,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.5
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 62195,
+          "budget_exhausted": false,
+          "held_out_passed": 10,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.625
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 64677,
+          "budget_exhausted": false,
+          "held_out_passed": 8,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.5
+        }
+      ]
+    },
+    {
+      "hash": "96300d56b5079955981ec93fda15eeaf2efb83fad4380bcbfdc1a99a7f6cc35c",
+      "short": "96300d56b507",
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "generation": 2,
+      "created_seq": 19,
+      "hypothesis": "The exactly_n failures come from raising ValueError on a negative count that the docstring likely treats as an ordinary result, so telling the agent to follow documented behaviour for odd inputs before adding its own error checks should stop these over-strict raises.",
+      "verdict": "rejected",
+      "status": "rejected",
+      "is_current": false,
+      "size_bytes": 1120,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\n## Implementing a function from its docstring\n\n- Write the whole file. Import every name you use (islice, zip_longest, count, deque, itemgetter and so on) at the top, and never leave `raise NotImplementedError` behind.\n- Match the docstring examples exactly, including the last partial group, fill values and what happens at the end of the input.\n- Check arguments only as the docstring says: raise ValueError for a bad option or size only when the docstring documents that error or the standard itertools function raises it. If the docstring defines a result for an unusual value (for example a negative count that should just return False or an empty result), return that result instead of raising. A value that must be iterable but is not raises TypeError.\n- Do these checks before returning a generator, not inside it, so they run at call time.\n- When inputs must line up (a strict mode, rows of different lengths), raise ValueError instead of silently truncating.\n- Prefer itertools building blocks (islice, chain, tee, zip_longest) over index arithmetic.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -6,7 +6,7 @@\n \n - Write the whole file. Import every name you use (islice, zip_longest, count, deque, itemgetter and so on) at the top, and never leave `raise NotImplementedError` behind.\n - Match the docstring examples exactly, including the last partial group, fill values and what happens at the end of the input.\n-- Check arguments the way the standard itertools functions do: a size, count, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError.\n+- Check arguments only as the docstring says: raise ValueError for a bad option or size only when the docstring documents that error or the standard itertools function raises it. If the docstring defines a result for an unusual value (for example a negative count that should just return False or an empty result), return that result instead of raising. A value that must be iterable but is not raises TypeError.\n - Do these checks before returning a generator, not inside it, so they run at call time.\n - When inputs must line up (a strict mode, rows of different lengths), raise ValueError instead of silently truncating.\n - Prefer itertools building blocks (islice, chain, tee, zip_longest) over index arithmetic.\n",
+      "median_pass_rate": 0.75,
+      "held_out_median_pass_rate": 0.375,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 9,
+          "total": 12,
+          "pass_rate": 0.75,
+          "tokens_used": 58023,
+          "budget_exhausted": false,
+          "held_out_passed": 6,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.375
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 9,
+          "total": 12,
+          "pass_rate": 0.75,
+          "tokens_used": 54539,
+          "budget_exhausted": false,
+          "held_out_passed": 6,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.375
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 9,
+          "total": 12,
+          "pass_rate": 0.75,
+          "tokens_used": 56580,
+          "budget_exhausted": false,
+          "held_out_passed": 4,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.25
+        }
+      ]
+    },
+    {
+      "hash": "442d70845dff4625713d0264561fc952ea6a1a3d1fc77e9492c2f90c7e18f083",
+      "short": "442d70845dff",
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "generation": 2,
+      "created_seq": 24,
+      "hypothesis": "The exactly_n failures come from the rule that makes every negative count raise ValueError, which is wrong for counts that are only compared against results, since a negative count should simply match nothing. Removing \"count\" from that rule and stating the exception should stop these over-strict raises without changing checks for sizes, steps and widths.",
+      "verdict": "noise",
+      "status": "noise",
+      "is_current": false,
+      "size_bytes": 1137,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\n## Implementing a function from its docstring\n\n- Write the whole file. Import every name you use (islice, zip_longest, count, deque, itemgetter and so on) at the top, and never leave `raise NotImplementedError` behind.\n- Match the docstring examples exactly, including the last partial group, fill values and what happens at the end of the input.\n- Check arguments the way the standard itertools functions do: a size, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError.\n- A count that is only compared against results is not a size: do not raise for a negative value. Let it match nothing, as the docstring's logic implies.\n- Do these checks before returning a generator, not inside it, so they run at call time.\n- When inputs must line up (a strict mode, rows of different lengths), raise ValueError instead of silently truncating.\n- Prefer itertools building blocks (islice, chain, tee, zip_longest) over index arithmetic.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -6,7 +6,8 @@\n \n - Write the whole file. Import every name you use (islice, zip_longest, count, deque, itemgetter and so on) at the top, and never leave `raise NotImplementedError` behind.\n - Match the docstring examples exactly, including the last partial group, fill values and what happens at the end of the input.\n-- Check arguments the way the standard itertools functions do: a size, count, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError.\n+- Check arguments the way the standard itertools functions do: a size, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError.\n+- A count that is only compared against results is not a size: do not raise for a negative value. Let it match nothing, as the docstring's logic implies.\n - Do these checks before returning a generator, not inside it, so they run at call time.\n - When inputs must line up (a strict mode, rows of different lengths), raise ValueError instead of silently truncating.\n - Prefer itertools building blocks (islice, chain, tee, zip_longest) over index arithmetic.\n",
+      "median_pass_rate": 1.0,
+      "held_out_median_pass_rate": 0.4375,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 55706,
+          "budget_exhausted": false,
+          "held_out_passed": 8,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.5
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 64515,
+          "budget_exhausted": false,
+          "held_out_passed": 6,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.375
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 59124,
+          "budget_exhausted": false,
+          "held_out_passed": 7,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.4375
+        }
+      ]
+    },
+    {
+      "hash": "9cbac72de49286f0120859213b60f8e4359a09aa2558ffc8fe70abd3837c720f",
+      "short": "9cbac72de492",
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "generation": 2,
+      "created_seq": 29,
+      "hypothesis": "The exactly_n failure comes from adding a ValueError for an input the docstring never marks as invalid. Telling the agent to add argument checks only where the docstring or the itertools convention calls for them should stop these unrequested raises on other tasks too.",
+      "verdict": "rejected",
+      "status": "rejected",
+      "is_current": false,
+      "size_bytes": 1123,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\n## Implementing a function from its docstring\n\n- Write the whole file. Import every name you use (islice, zip_longest, count, deque, itemgetter and so on) at the top, and never leave `raise NotImplementedError` behind.\n- Match the docstring examples exactly, including the last partial group, fill values and what happens at the end of the input.\n- Check arguments the way the standard itertools functions do: a size, count, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError. Add no other argument checks: an input the docstring does not mark as invalid should fall through to the natural result of the code.\n- Do these checks before returning a generator, not inside it, so they run at call time.\n- When inputs must line up (a strict mode, rows of different lengths), raise ValueError instead of silently truncating.\n- Prefer itertools building blocks (islice, chain, tee, zip_longest) over index arithmetic.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -6,7 +6,7 @@\n \n - Write the whole file. Import every name you use (islice, zip_longest, count, deque, itemgetter and so on) at the top, and never leave `raise NotImplementedError` behind.\n - Match the docstring examples exactly, including the last partial group, fill values and what happens at the end of the input.\n-- Check arguments the way the standard itertools functions do: a size, count, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError.\n+- Check arguments the way the standard itertools functions do: a size, count, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError. Add no other argument checks: an input the docstring does not mark as invalid should fall through to the natural result of the code.\n - Do these checks before returning a generator, not inside it, so they run at call time.\n - When inputs must line up (a strict mode, rows of different lengths), raise ValueError instead of silently truncating.\n - Prefer itertools building blocks (islice, chain, tee, zip_longest) over index arithmetic.\n",
+      "median_pass_rate": 0.9166666666666666,
+      "held_out_median_pass_rate": 0.5,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 62808,
+          "budget_exhausted": false,
+          "held_out_passed": 5,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.3125
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 65344,
+          "budget_exhausted": false,
+          "held_out_passed": 8,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.5
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 10,
+          "total": 12,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 59495,
+          "budget_exhausted": false,
+          "held_out_passed": 8,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.5
+        }
+      ]
+    },
+    {
+      "hash": "9f88b32dde4cc64614791a1eee73342bb0534b63cc0a919fe2e126c07ea070b5",
+      "short": "9f88b32dde4c",
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "generation": 2,
+      "created_seq": 34,
+      "hypothesis": "The exactly_n failures come from raising ValueError on a negative count that is only compared against results, and the current bullet makes every count raise. Restricting the raise to arguments that set sizes, steps or widths, and telling the agent to compute the docstring's result for all other values, should stop these over-strict raises.",
+      "verdict": "noise",
+      "status": "noise",
+      "is_current": false,
+      "size_bytes": 1142,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\n## Implementing a function from its docstring\n\n- Write the whole file. Import every name you use (islice, zip_longest, count, deque, itemgetter and so on) at the top, and never leave `raise NotImplementedError` behind.\n- Match the docstring examples exactly, including the last partial group, fill values and what happens at the end of the input.\n- Check arguments the way the standard itertools functions do: a size, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError. Any other argument, such as a count that is only compared against results, accepts every value and returns what the docstring describes for it, with no raise.\n- Do these checks before returning a generator, not inside it, so they run at call time.\n- When inputs must line up (a strict mode, rows of different lengths), raise ValueError instead of silently truncating.\n- Prefer itertools building blocks (islice, chain, tee, zip_longest) over index arithmetic.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -6,7 +6,7 @@\n \n - Write the whole file. Import every name you use (islice, zip_longest, count, deque, itemgetter and so on) at the top, and never leave `raise NotImplementedError` behind.\n - Match the docstring examples exactly, including the last partial group, fill values and what happens at the end of the input.\n-- Check arguments the way the standard itertools functions do: a size, count, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError.\n+- Check arguments the way the standard itertools functions do: a size, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError. Any other argument, such as a count that is only compared against results, accepts every value and returns what the docstring describes for it, with no raise.\n - Do these checks before returning a generator, not inside it, so they run at call time.\n - When inputs must line up (a strict mode, rows of different lengths), raise ValueError instead of silently truncating.\n - Prefer itertools building blocks (islice, chain, tee, zip_longest) over index arithmetic.\n",
+      "median_pass_rate": 1.0,
+      "held_out_median_pass_rate": 0.5,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 56426,
+          "budget_exhausted": false,
+          "held_out_passed": 8,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.5
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 56771,
+          "budget_exhausted": false,
+          "held_out_passed": 7,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.4375
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 58600,
+          "budget_exhausted": false,
+          "held_out_passed": 8,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.5
+        }
+      ]
+    },
+    {
+      "hash": "93e25c33c47d65013dc3158d491d6fd18dd17aec7f9c6a74ae8182a8d98af403",
+      "short": "93e25c33c47d",
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "generation": 2,
+      "created_seq": 39,
+      "hypothesis": "exactly_n fails because the agent raises ValueError on a negative count that the docstring treats as an ordinary input. Asking the agent to trace an unusual argument through its code before finishing, and to raise only errors the docstring documents, should catch these over-strict raises.",
+      "verdict": "rejected",
+      "status": "rejected",
+      "is_current": false,
+      "size_bytes": 1174,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\n## Implementing a function from its docstring\n\n- Write the whole file. Import every name you use (islice, zip_longest, count, deque, itemgetter and so on) at the top, and never leave `raise NotImplementedError` behind.\n- Match the docstring examples exactly, including the last partial group, fill values and what happens at the end of the input.\n- Check arguments the way the standard itertools functions do: a size, count, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError.\n- Do these checks before returning a generator, not inside it, so they run at call time.\n- Before finishing, trace one negative or zero argument through the code. Any error it raises must be one the docstring documents; otherwise return the result the docstring describes.\n- When inputs must line up (a strict mode, rows of different lengths), raise ValueError instead of silently truncating.\n- Prefer itertools building blocks (islice, chain, tee, zip_longest) over index arithmetic.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -8,5 +8,6 @@\n - Match the docstring examples exactly, including the last partial group, fill values and what happens at the end of the input.\n - Check arguments the way the standard itertools functions do: a size, count, step or width that is negative, or zero where zero makes no sense, raises ValueError; an option outside its documented choices raises ValueError; a value that must be iterable but is not raises TypeError.\n - Do these checks before returning a generator, not inside it, so they run at call time.\n+- Before finishing, trace one negative or zero argument through the code. Any error it raises must be one the docstring documents; otherwise return the result the docstring describes.\n - When inputs must line up (a strict mode, rows of different lengths), raise ValueError instead of silently truncating.\n - Prefer itertools building blocks (islice, chain, tee, zip_longest) over index arithmetic.\n",
+      "median_pass_rate": 0.9166666666666666,
+      "held_out_median_pass_rate": 0.4375,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 65970,
+          "budget_exhausted": false,
+          "held_out_passed": 7,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.4375
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 12,
+          "total": 12,
+          "pass_rate": 1.0,
+          "tokens_used": 62150,
+          "budget_exhausted": false,
+          "held_out_passed": 7,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.4375
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 11,
+          "total": 12,
+          "pass_rate": 0.9166666666666666,
+          "tokens_used": 60565,
+          "budget_exhausted": false,
+          "held_out_passed": 6,
+          "held_out_total": 16,
+          "held_out_pass_rate": 0.375
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "0ea6c4484a72f99ee116362d72734662495d746cd4a253d35f9fdde3fbb9c248",
+      "seq": 4,
+      "hypothesis": "Control: the run 1 generation 1 rule (0ea6c448: raise documented errors, import every module)",
+      "verdict": "overfit",
+      "reason": "the train rule would accept (median gain 25.0 points is at least 10 and the child won 3 of 3 pairs (needs 3)), but on the held out tasks: held out median gain 0.0 points (needs 10), held out wins 2 of 3 (needs 2)",
+      "parent_median": 0.6666666666666666,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 25.0,
+      "paired_wins": 3,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.9166666666666666,
+          "win": true
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.8333333333333334,
+          "child_rate": 0.9166666666666666,
+          "win": true
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.75,
+          "win": true
+        }
+      ],
+      "held_out_parent_median": 0.3125,
+      "held_out_child_median": 0.3125,
+      "held_out_gain_pp": 0.0,
+      "held_out_paired_wins": 2
+    },
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "b2e845f16774cfd89c4a494e33ac46bfa5f2335d419ca19668eab1090614fad5",
+      "seq": 9,
+      "hypothesis": "Control: the run 2 best held out rule (b2e845f1: every name imported or defined)",
+      "verdict": "noise",
+      "reason": "the child won 2 of 3 pairs (needs 3)",
+      "parent_median": 0.6666666666666666,
+      "child_median": 0.8333333333333334,
+      "gain_pp": 16.666666666666675,
+      "paired_wins": 2,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.8333333333333334,
+          "win": true
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.8333333333333334,
+          "child_rate": 0.6666666666666666,
+          "win": false
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.8333333333333334,
+          "win": true
+        }
+      ],
+      "held_out_parent_median": 0.3125,
+      "held_out_child_median": 0.3125,
+      "held_out_gain_pp": 0.0,
+      "held_out_paired_wins": 2
+    },
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "seq": 14,
+      "hypothesis": "Control: hand written general rule (complete file and imports, match examples, itertools style argument checks at call time, strict lengths)",
+      "verdict": "accepted",
+      "reason": "median gain 25.0 points is at least 10 and the child won 3 of 3 pairs (needs 3); held out median gain 18.8 points (needs 10), held out wins 3 of 3 (needs 2)",
+      "parent_median": 0.6666666666666666,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 25.0,
+      "paired_wins": 3,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.9166666666666666,
+          "win": true
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.8333333333333334,
+          "child_rate": 0.9166666666666666,
+          "win": true
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.9166666666666666,
+          "win": true
+        }
+      ],
+      "held_out_parent_median": 0.3125,
+      "held_out_child_median": 0.5,
+      "held_out_gain_pp": 18.75,
+      "held_out_paired_wins": 3
+    },
+    {
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "child": "96300d56b5079955981ec93fda15eeaf2efb83fad4380bcbfdc1a99a7f6cc35c",
+      "seq": 19,
+      "hypothesis": "The exactly_n failures come from raising ValueError on a negative count that the docstring likely treats as an ordinary result, so telling the agent to follow documented behaviour for odd inputs before adding its own error checks should stop these over-strict raises.",
+      "verdict": "rejected",
+      "reason": "child median 0.750 is not above parent median 0.917",
+      "parent_median": 0.9166666666666666,
+      "child_median": 0.75,
+      "gain_pp": -16.666666666666664,
+      "paired_wins": 0,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.75,
+          "win": false
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.75,
+          "win": false
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.75,
+          "win": false
+        }
+      ],
+      "held_out_parent_median": 0.5,
+      "held_out_child_median": 0.375,
+      "held_out_gain_pp": -12.5,
+      "held_out_paired_wins": 0
+    },
+    {
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "child": "442d70845dff4625713d0264561fc952ea6a1a3d1fc77e9492c2f90c7e18f083",
+      "seq": 24,
+      "hypothesis": "The exactly_n failures come from the rule that makes every negative count raise ValueError, which is wrong for counts that are only compared against results, since a negative count should simply match nothing. Removing \"count\" from that rule and stating the exception should stop these over-strict raises without changing checks for sizes, steps and widths.",
+      "verdict": "noise",
+      "reason": "median gain 8.3 points is below 10",
+      "parent_median": 0.9166666666666666,
+      "child_median": 1.0,
+      "gain_pp": 8.333333333333337,
+      "paired_wins": 3,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 1.0,
+          "win": true
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 1.0,
+          "win": true
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 1.0,
+          "win": true
+        }
+      ],
+      "held_out_parent_median": 0.5,
+      "held_out_child_median": 0.4375,
+      "held_out_gain_pp": -6.25,
+      "held_out_paired_wins": 0
+    },
+    {
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "child": "9cbac72de49286f0120859213b60f8e4359a09aa2558ffc8fe70abd3837c720f",
+      "seq": 29,
+      "hypothesis": "The exactly_n failure comes from adding a ValueError for an input the docstring never marks as invalid. Telling the agent to add argument checks only where the docstring or the itertools convention calls for them should stop these unrequested raises on other tasks too.",
+      "verdict": "rejected",
+      "reason": "child median 0.917 is not above parent median 0.917",
+      "parent_median": 0.9166666666666666,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 0.0,
+      "paired_wins": 0,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.9166666666666666,
+          "win": false
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.9166666666666666,
+          "win": false
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.8333333333333334,
+          "win": false
+        }
+      ],
+      "held_out_parent_median": 0.5,
+      "held_out_child_median": 0.5,
+      "held_out_gain_pp": 0.0,
+      "held_out_paired_wins": 0
+    },
+    {
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "child": "9f88b32dde4cc64614791a1eee73342bb0534b63cc0a919fe2e126c07ea070b5",
+      "seq": 34,
+      "hypothesis": "The exactly_n failures come from raising ValueError on a negative count that is only compared against results, and the current bullet makes every count raise. Restricting the raise to arguments that set sizes, steps or widths, and telling the agent to compute the docstring's result for all other values, should stop these over-strict raises.",
+      "verdict": "noise",
+      "reason": "median gain 8.3 points is below 10 and the child won 2 of 3 pairs (needs 3)",
+      "parent_median": 0.9166666666666666,
+      "child_median": 1.0,
+      "gain_pp": 8.333333333333337,
+      "paired_wins": 2,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 1.0,
+          "win": true
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.9166666666666666,
+          "win": false
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 1.0,
+          "win": true
+        }
+      ],
+      "held_out_parent_median": 0.5,
+      "held_out_child_median": 0.5,
+      "held_out_gain_pp": 0.0,
+      "held_out_paired_wins": 0
+    },
+    {
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "child": "93e25c33c47d65013dc3158d491d6fd18dd17aec7f9c6a74ae8182a8d98af403",
+      "seq": 39,
+      "hypothesis": "exactly_n fails because the agent raises ValueError on a negative count that the docstring treats as an ordinary input. Asking the agent to trace an unusual argument through its code before finishing, and to raise only errors the docstring documents, should catch these over-strict raises.",
+      "verdict": "rejected",
+      "reason": "child median 0.917 is not above parent median 0.917",
+      "parent_median": 0.9166666666666666,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 0.0,
+      "paired_wins": 1,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.9166666666666666,
+          "win": false
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 1.0,
+          "win": true
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.9166666666666666,
+          "child_rate": 0.9166666666666666,
+          "win": false
+        }
+      ],
+      "held_out_parent_median": 0.5,
+      "held_out_child_median": 0.4375,
+      "held_out_gain_pp": -6.25,
+      "held_out_paired_wins": 0
+    }
+  ],
+  "refused": [],
+  "series": [
+    {
+      "attempt": 1,
+      "seq": 4,
+      "outcome": "overfit",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "0ea6c4484a72f99ee116362d72734662495d746cd4a253d35f9fdde3fbb9c248",
+      "hypothesis": "Control: the run 1 generation 1 rule (0ea6c448: raise documented errors, import every module)",
+      "parent_median": 0.6666666666666666,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 25.0,
+      "current_after": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "current_median_after": 0.6666666666666666
+    },
+    {
+      "attempt": 2,
+      "seq": 9,
+      "outcome": "noise",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "b2e845f16774cfd89c4a494e33ac46bfa5f2335d419ca19668eab1090614fad5",
+      "hypothesis": "Control: the run 2 best held out rule (b2e845f1: every name imported or defined)",
+      "parent_median": 0.6666666666666666,
+      "child_median": 0.8333333333333334,
+      "gain_pp": 16.666666666666675,
+      "current_after": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "current_median_after": 0.6666666666666666
+    },
+    {
+      "attempt": 3,
+      "seq": 14,
+      "outcome": "accepted",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "hypothesis": "Control: hand written general rule (complete file and imports, match examples, itertools style argument checks at call time, strict lengths)",
+      "parent_median": 0.6666666666666666,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 25.0,
+      "current_after": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "current_median_after": 0.9166666666666666
+    },
+    {
+      "attempt": 4,
+      "seq": 19,
+      "outcome": "rejected",
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "child": "96300d56b5079955981ec93fda15eeaf2efb83fad4380bcbfdc1a99a7f6cc35c",
+      "hypothesis": "The exactly_n failures come from raising ValueError on a negative count that the docstring likely treats as an ordinary result, so telling the agent to follow documented behaviour for odd inputs before adding its own error checks should stop these over-strict raises.",
+      "parent_median": 0.9166666666666666,
+      "child_median": 0.75,
+      "gain_pp": -16.666666666666664,
+      "current_after": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "current_median_after": 0.9166666666666666
+    },
+    {
+      "attempt": 5,
+      "seq": 24,
+      "outcome": "noise",
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "child": "442d70845dff4625713d0264561fc952ea6a1a3d1fc77e9492c2f90c7e18f083",
+      "hypothesis": "The exactly_n failures come from the rule that makes every negative count raise ValueError, which is wrong for counts that are only compared against results, since a negative count should simply match nothing. Removing \"count\" from that rule and stating the exception should stop these over-strict raises without changing checks for sizes, steps and widths.",
+      "parent_median": 0.9166666666666666,
+      "child_median": 1.0,
+      "gain_pp": 8.333333333333337,
+      "current_after": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "current_median_after": 0.9166666666666666
+    },
+    {
+      "attempt": 6,
+      "seq": 29,
+      "outcome": "rejected",
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "child": "9cbac72de49286f0120859213b60f8e4359a09aa2558ffc8fe70abd3837c720f",
+      "hypothesis": "The exactly_n failure comes from adding a ValueError for an input the docstring never marks as invalid. Telling the agent to add argument checks only where the docstring or the itertools convention calls for them should stop these unrequested raises on other tasks too.",
+      "parent_median": 0.9166666666666666,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 0.0,
+      "current_after": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "current_median_after": 0.9166666666666666
+    },
+    {
+      "attempt": 7,
+      "seq": 34,
+      "outcome": "noise",
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "child": "9f88b32dde4cc64614791a1eee73342bb0534b63cc0a919fe2e126c07ea070b5",
+      "hypothesis": "The exactly_n failures come from raising ValueError on a negative count that is only compared against results, and the current bullet makes every count raise. Restricting the raise to arguments that set sizes, steps or widths, and telling the agent to compute the docstring's result for all other values, should stop these over-strict raises.",
+      "parent_median": 0.9166666666666666,
+      "child_median": 1.0,
+      "gain_pp": 8.333333333333337,
+      "current_after": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "current_median_after": 0.9166666666666666
+    },
+    {
+      "attempt": 8,
+      "seq": 39,
+      "outcome": "rejected",
+      "parent": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "child": "93e25c33c47d65013dc3158d491d6fd18dd17aec7f9c6a74ae8182a8d98af403",
+      "hypothesis": "exactly_n fails because the agent raises ValueError on a negative count that the docstring treats as an ordinary input. Asking the agent to trace an unusual argument through its code before finishing, and to raise only errors the docstring documents, should catch these over-strict raises.",
+      "parent_median": 0.9166666666666666,
+      "child_median": 0.9166666666666666,
+      "gain_pp": 0.0,
+      "current_after": "1ef4720cd84cf835f34457c211511c8422281c692f49bb139364bff0c8ba9f46",
+      "current_median_after": 0.9166666666666666
+    }
+  ]
+}
