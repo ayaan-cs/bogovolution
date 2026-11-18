@@ -144,3 +144,14 @@ The same log in the `watch` terminal view:
    often it helps.
 3. The deferred `islice` rule on round 6 settings.
 4. More tasks or more runs to estimate the smallest gain the bar can see.
+
+## Windows and hosting (added 2026-11-17, evening)
+
+- Ayaan's computer is a Windows desktop. bubblewrap is Linux only, so real
+  model runs there need Docker Desktop (or Podman Desktop) for isolation, or
+  the Linux build inside WSL2. A Windows build is now cross compiled on Linux
+  (`packaging/windows/build.sh`, target `x86_64-pc-windows-gnu`); without a
+  backend it says which of these to install. It was smoke tested under Wine
+  only; Docker Desktop on Windows is untested.
+- Netlify is the chosen host for the static viewer and demo. Nothing has been
+  built for it or deployed yet.
