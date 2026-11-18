@@ -67,9 +67,19 @@ from the project folder given with `-C`, not from the current folder.
 
 Expected: "Accepted 2, rejected 5, noise 1, refused 2", "Current:
 cd28eb296938 (was 8e28956afd69)", "Served 550 answers from the replay file",
-and `verify-log` says "OK: 64 events". It prints "Isolation: none (UNSAFE: no
-operating system isolation)", which is expected for the demo: the replay
-provider only writes "ok" or "no" into answer files. In `watch`, `q` quits.
+and `verify-log` says "OK: 64 events". In `watch`, `q` quits.
+
+Which isolation the demo uses depends on what works (`auto`):
+
+- Docker Desktop running and `docker.io/library/alpine:3.20` pulled (see
+  section 5): "Isolation: docker". Each check runs in a container, so the
+  demo is slower (one container per check, 550 checks).
+- Otherwise "Isolation: none (UNSAFE: no operating system isolation)", with
+  Git for Windows' `sh`. That is fine for the demo: the replay provider only
+  writes "ok" or "no" into answer files.
+
+To pick one, add `--isolation none` or `--isolation docker` to the `evolve`
+line (or set `isolation` under `[sandbox]` in `demo-run\.rules-evolve\config.toml`).
 
 ## 4. Viewer
 
@@ -143,10 +153,21 @@ key counts as not set).
 
 ## Windows caveats
 
-- Built and tested on Linux. On Windows it was only tried under Wine (Wine
-  10 with busybox as `sh`): `--version`, the full replay demo above (same
-  result as on Linux), `status`, `verify-log`, `export`, `watch --snapshot`
-  and `isolation`. Docker Desktop and real model runs on Windows are untested.
+- Built and tested on Linux, and under Wine 10 (busybox as `sh`, and a
+  stand in `docker.exe` that records its arguments): the replay demo with
+  and without docker, and the unit tests. The first run on a real Windows
+  PC with Docker Desktop found that the drive letter's `:` was refused
+  (fixed: docker and podman now get `--mount type=bind,...` on Windows).
+  Real model runs on Windows are untested.
+- Docker and podman: the project and the temp folder must be on a local
+  drive (`C:\...`). Network shares (`\\server\share`) are refused, and so
+  is a path with `,` `:` or `"` after the drive letter. Containers run as
+  user `nobody` (65534); Docker Desktop's shares of Windows drives let any
+  user write, so the check can write the worktree. Podman Desktop is
+  untested.
+- Line endings: a check script checked out with Windows line endings (CRLF)
+  fails inside a Linux container (`sh: not found` or `\r` errors). Keep
+  scripts LF, for example with a `.gitattributes` line `*.sh text eol=lf`.
 - Check commands use `sh`, so tasks written for Linux need Git for Windows
   (or a container image that has what they need).
 - A timed out check is stopped with `taskkill /T /F`.

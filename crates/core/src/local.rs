@@ -457,11 +457,9 @@ pub fn snapshot_files(workdir: &Path, rules: &str, only: &[String]) -> String {
                 if text == rules || name.ends_with(".pyc") {
                     continue;
                 }
-                let rel = path
-                    .strip_prefix(root)
-                    .unwrap_or(&path)
-                    .to_string_lossy()
-                    .to_string();
+                // `/` on Windows too, so prompts (and replay keys) and the
+                // `context` match are the same on every OS.
+                let rel = crate::init::to_forward_slashes(path.strip_prefix(root).unwrap_or(&path));
                 out.push((rel, text));
             }
         }

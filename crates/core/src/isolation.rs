@@ -262,25 +262,128 @@ impl Protected {
         self.pin_dirs.is_empty() && self.read_only.is_empty()
     }
 
-    /// Container volumes are written `src:dst:ro`, so a path with `:` or `,`
-    /// cannot be passed safely. Refuse it rather than guess.
-    fn check_container_paths(&self, worktree: &Path) -> Result<()> {
-        let bad = |t: &str| t.contains([':', ',', '\n', '\0']);
-        let wt = worktree.to_string_lossy();
-        let mut paths: Vec<String> = vec![wt.to_string()];
-        paths.extend(self.pin_dirs.iter().cloned());
-        for m in &self.read_only {
-            paths.push(m.rel.clone());
-            paths.push(m.source.to_string_lossy().to_string());
+    /// Refuse any path that cannot be passed to docker or podman safely
+    /// (see [`container_source`] and [`container_target_ok`]) rather than
+    /// guess.
+    fn check_container_paths(&self, worktree: &Path, host: HostPaths) -> Result<()> {
+        let fail = |why: String| {
+            Err(Error::Input(format!(
+                "{why}, which docker and podman mounts cannot hold safely. Rename or move it{}",
+                if host == HostPaths::Unix && cfg!(target_os = "linux") {
+                    ", or use isolation = \"bwrap\""
+                } else {
+                    ""
+                }
+            )))
+        };
+        let mut sources = vec![worktree.to_path_buf()];
+        sources.extend(self.pin_dirs.iter().map(|r| worktree.join(r)));
+        sources.extend(self.read_only.iter().map(|m| m.source.clone()));
+        for src in &sources {
+            if let Err(why) = container_source(&src.to_string_lossy(), host) {
+                return fail(why);
+            }
         }
-        match paths.into_iter().find(|p| bad(p)) {
-            Some(p) => Err(Error::Input(format!(
-                "the path {p:?} has a ':' or ',' in it, which docker and podman volumes cannot hold safely. Rename it, or use isolation = \"bwrap\""
-            ))),
-            None => Ok(()),
+        let targets = self
+            .pin_dirs
+            .iter()
+            .chain(self.read_only.iter().map(|m| &m.rel));
+        for rel in targets {
+            if !container_target_ok(rel) {
+                return fail(format!("the path {rel:?} has one of : , \" in it"));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// How the host writes paths, which decides how a folder is handed to
+/// docker or podman.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HostPaths {
+    /// `/home/me/repo`, passed as `--volume SRC:DST:rw`.
+    Unix,
+    /// `C:\Users\me\repo`, passed as `--mount type=bind,source=SRC,...`,
+    /// since the drive letter's `:` would split a `--volume` value.
+    Windows,
+}
+
+impl HostPaths {
+    pub fn current() -> HostPaths {
+        if cfg!(windows) {
+            HostPaths::Windows
+        } else {
+            HostPaths::Unix
         }
     }
 }
+
+/// The form of a host folder or file to give docker or podman, or why it
+/// cannot be given safely.
+///
+/// Unix: any absolute path without `:` `,` newline or NUL, unchanged.
+/// Windows: a drive path (`C:\...`, also `\\?\C:\...`). Only the drive's own
+/// `:` is allowed; the rest may not hold `:` `,` `"` newline or NUL (`,`
+/// and `"` would change the meaning of a `--mount` value). Network shares
+/// and device paths are refused. Separators become `\`.
+pub fn container_source(path: &str, host: HostPaths) -> std::result::Result<String, String> {
+    match host {
+        HostPaths::Unix => {
+            if path.contains([':', ',', '\n', '\0']) {
+                Err(format!("the path {path:?} has a ':' or ',' in it"))
+            } else {
+                Ok(path.to_string())
+            }
+        }
+        HostPaths::Windows => {
+            let p = path.strip_prefix(r"\\?\").unwrap_or(path);
+            let b = p.as_bytes();
+            let drive = b.len() >= 3
+                && b[0].is_ascii_alphabetic()
+                && b[1] == b':'
+                && (b[2] == b'\\' || b[2] == b'/');
+            if !drive {
+                return Err(format!(
+                    "the path {path:?} is not on a local drive (like C:\\), and only drive folders can be shared with containers"
+                ));
+            }
+            let rest = &p[2..];
+            if rest.contains([':', ',', '"', '\n', '\0']) {
+                return Err(format!(
+                    "the path {path:?} has one of : , \" after its drive letter"
+                ));
+            }
+            Ok(format!("{}{}", &p[..2], rest.replace('/', "\\")))
+        }
+    }
+}
+
+/// A path inside the container (`/work/<rel>`) is safe in both mount forms.
+pub fn container_target_ok(rel: &str) -> bool {
+    !rel.contains([':', ',', '"', '\n', '\0'])
+}
+
+/// The arguments that mount `src` (a host path) at `dst` in the container.
+pub fn mount_args(src: &str, dst: &str, read_only: bool, host: HostPaths) -> [String; 2] {
+    match host {
+        HostPaths::Unix => [
+            "--volume".into(),
+            format!("{src}:{dst}:{}", if read_only { "ro" } else { "rw" }),
+        ],
+        HostPaths::Windows => {
+            let src = container_source(src, host).unwrap_or_else(|_| src.to_string());
+            [
+                "--mount".into(),
+                format!(
+                    "type=bind,source={src},target={dst}{}",
+                    if read_only { ",readonly" } else { "" }
+                ),
+            ]
+        }
+    }
+}
+
+impl Protected {}
 
 fn mib(n: u64) -> u64 {
     n * 1024 * 1024
@@ -316,6 +419,8 @@ pub struct CheckRequest<'a> {
     /// A unique container name.
     pub container: &'a str,
     pub ids: HostIds,
+    /// How host paths are written (Unix or Windows).
+    pub host: HostPaths,
 }
 
 /// Build the command that runs a check with `backend`.
@@ -328,6 +433,7 @@ pub fn build_command(backend: Backend, s: &SandboxSettings, req: &CheckRequest) 
         launcher_path,
         container,
         ids,
+        host,
     } = *req;
     let wt = worktree.to_string_lossy().to_string();
     let mut launcher_env = Vec::new();
@@ -497,18 +603,23 @@ pub fn build_command(backend: Backend, s: &SandboxSettings, req: &CheckRequest) 
             for (k, v) in env {
                 push(&["--env", &format!("{k}={v}")]);
             }
-            push(&["--volume", &format!("{wt}:{WORK_DIR}:rw")]);
+            let mut mount = |src: &str, dst: &str, ro: bool| {
+                a.extend(mount_args(src, dst, ro, host));
+            };
+            mount(&wt, WORK_DIR, false);
             for rel in &protected.pin_dirs {
                 let src = worktree.join(rel).to_string_lossy().to_string();
-                push(&["--volume", &format!("{src}:{WORK_DIR}/{rel}:rw")]);
+                mount(&src, &format!("{WORK_DIR}/{rel}"), false);
             }
             for m in &protected.read_only {
                 let src = m.source.to_string_lossy().to_string();
-                push(&["--volume", &format!("{src}:{WORK_DIR}/{}:ro", m.rel)]);
+                mount(&src, &format!("{WORK_DIR}/{}", m.rel), true);
             }
             for p in &s.ro_binds {
-                push(&["--volume", &format!("{p}:{p}:ro")]);
+                // A path inside the docker or podman machine, on every host.
+                a.extend(["--volume".to_string(), format!("{p}:{p}:ro")]);
             }
+            let mut push = |items: &[&str]| a.extend(items.iter().map(|x| x.to_string()));
             push(&["--workdir", WORK_DIR, &s.image, "sh", "-c", check]);
             CommandSpec {
                 program: runtime.into(),
@@ -930,7 +1041,7 @@ impl Runner {
         timeout: Duration,
     ) -> Result<CheckStatus> {
         if matches!(self.backend, Backend::Docker | Backend::Podman) {
-            protected.check_container_paths(worktree)?;
+            protected.check_container_paths(worktree, HostPaths::current())?;
         }
         let spec = self.spec(worktree, check, env, protected);
         if matches!(self.backend, Backend::Docker | Backend::Podman) {
@@ -950,7 +1061,7 @@ impl Runner {
         timeout: Duration,
     ) -> Result<(CheckStatus, String)> {
         if matches!(self.backend, Backend::Docker | Backend::Podman) {
-            protected.check_container_paths(worktree)?;
+            protected.check_container_paths(worktree, HostPaths::current())?;
         }
         let spec = self.spec(worktree, check, env, protected);
         if matches!(self.backend, Backend::Docker | Backend::Podman) {
@@ -979,6 +1090,7 @@ impl Runner {
                 launcher_path: path.as_deref(),
                 container: &unique_name(),
                 ids: host_ids(worktree),
+                host: HostPaths::current(),
             },
         )
     }
@@ -1142,6 +1254,7 @@ mod tests {
                 launcher_path: Some("/usr/bin:/bin"),
                 container: "re-test",
                 ids: IDS,
+                host: HostPaths::Unix,
             },
         )
     }
@@ -1493,6 +1606,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)] // Unix paths and symlinks
     fn find_in_path_looks_only_at_the_given_path() {
         assert!(find_in_path("sh", Some("/usr/bin:/bin")).is_some());
         assert!(find_in_path("sh", Some("/nonexistent")).is_none());
@@ -1522,12 +1636,14 @@ mod tests {
     }
 
     /// Positions of a three-part flag in an argument list.
+    #[cfg(unix)]
     fn at(args: &[String], a: &str, b: &str, c: &str) -> Option<usize> {
         args.windows(3)
             .position(|w| w[0] == a && w[1] == b && w[2] == c)
     }
 
     #[test]
+    #[cfg(unix)] // Unix paths and symlinks
     fn bwrap_binds_hidden_paths_read_only_over_themselves_after_the_worktree() {
         let c = spec_with(Backend::Bwrap, &SandboxSettings::default(), &protected());
         let a = &c.args;
@@ -1575,6 +1691,7 @@ mod tests {
         assert_eq!(c.args.iter().filter(|x| *x == "--ro-bind").count(), 0);
     }
 
+    #[cfg(unix)]
     fn volumes(c: &CommandSpec) -> Vec<String> {
         c.args
             .windows(2)
@@ -1584,6 +1701,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)] // Unix paths and symlinks
     fn containers_mount_hidden_paths_with_ro_after_the_worktree() {
         for b in [Backend::Docker, Backend::Podman] {
             let c = spec_with(b, &SandboxSettings::default(), &protected());
@@ -1608,14 +1726,162 @@ mod tests {
             rel: "we:ird.sh".into(),
             source: "/pristine/we:ird.sh".into(),
         });
-        let err = p.check_container_paths(Path::new("/tmp/wt-1")).unwrap_err();
-        assert!(err.to_string().contains("docker and podman volumes"));
+        let unix = HostPaths::Unix;
+        let err = p
+            .check_container_paths(Path::new("/tmp/wt-1"), unix)
+            .unwrap_err();
+        assert!(err.to_string().contains("docker and podman mounts"));
         let mut q = protected();
         q.pin_dirs.push("a,b".into());
-        assert!(q.check_container_paths(Path::new("/tmp/wt-1")).is_err());
+        assert!(q
+            .check_container_paths(Path::new("/tmp/wt-1"), unix)
+            .is_err());
         assert!(protected()
-            .check_container_paths(Path::new("/tmp/wt-1"))
+            .check_container_paths(Path::new("/tmp/wt-1"), unix)
             .is_ok());
+        assert!(protected()
+            .check_container_paths(Path::new("/tmp/w:t"), unix)
+            .is_err());
+    }
+
+    // ---- Windows host paths (pure string logic, runs on every OS) ----
+
+    const WIN_WT: &str = r"C:\Users\example\AppData\Local\Temp\rules-evolve-2MF7t7";
+
+    #[test]
+    fn windows_drive_paths_are_accepted_and_only_the_drive_colon_is_allowed() {
+        let w = HostPaths::Windows;
+        assert_eq!(container_source(WIN_WT, w).unwrap(), WIN_WT);
+        assert_eq!(
+            container_source(r"\\?\D:\repo\x", w).unwrap(),
+            r"D:\repo\x",
+            "the verbatim prefix from canonicalize is dropped"
+        );
+        assert_eq!(
+            container_source(r"C:\wt/docs/deep", w).unwrap(),
+            r"C:\wt\docs\deep",
+            "mixed separators become backslashes"
+        );
+        assert_eq!(
+            container_source("e:/lower/case", w).unwrap(),
+            r"e:\lower\case"
+        );
+        for bad in [
+            r"C:\a,b",
+            r"C:\a:b",
+            r#"C:\a"b"#,
+            "C:\\a\nb",
+            r"\\server\share\repo",
+            r"\\?\UNC\server\share",
+            r"\\.\pipe\x",
+            r"relative\path",
+            "/tmp/unix",
+            "C:",
+            "CC:\\x",
+        ] {
+            assert!(container_source(bad, w).is_err(), "{bad:?} must be refused");
+        }
+    }
+
+    #[test]
+    fn unix_paths_keep_the_old_rule() {
+        let u = HostPaths::Unix;
+        assert_eq!(container_source("/tmp/wt-1", u).unwrap(), "/tmp/wt-1");
+        assert!(container_source("/tmp/a:b", u).is_err());
+        assert!(container_source("/tmp/a,b", u).is_err());
+        assert!(
+            container_source(WIN_WT, u).is_err(),
+            "a drive colon on Unix is refused"
+        );
+    }
+
+    #[test]
+    fn mounts_use_volume_on_unix_and_mount_on_windows() {
+        assert_eq!(
+            mount_args("/tmp/wt", "/work", false, HostPaths::Unix),
+            ["--volume".to_string(), "/tmp/wt:/work:rw".to_string()]
+        );
+        assert_eq!(
+            mount_args(WIN_WT, "/work", false, HostPaths::Windows),
+            [
+                "--mount".to_string(),
+                format!("type=bind,source={WIN_WT},target=/work")
+            ]
+        );
+        assert_eq!(
+            mount_args(r"C:\p/check.sh", "/work/check.sh", true, HostPaths::Windows)[1],
+            r"type=bind,source=C:\p\check.sh,target=/work/check.sh,readonly"
+        );
+    }
+
+    #[test]
+    fn a_windows_worktree_builds_a_docker_command_with_bind_mounts() {
+        let mut p = protected();
+        for m in &mut p.read_only {
+            m.source = PathBuf::from(format!(r"C:\Temp\pristine/{}", m.rel));
+        }
+        for backend in [Backend::Docker, Backend::Podman] {
+            let c = build_command(
+                backend,
+                &SandboxSettings::default(),
+                &CheckRequest {
+                    worktree: Path::new(WIN_WT),
+                    check: "sh check.sh task-01",
+                    env: &[],
+                    protected: &p,
+                    launcher_path: Some(r"C:\Program Files\Docker\Docker\resources\bin"),
+                    container: "re-test",
+                    ids: ids_for_owner(0, 0),
+                    host: HostPaths::Windows,
+                },
+            );
+            assert!(!c.args.iter().any(|a| a == "--volume"), "{:?}", c.args);
+            let mounts: Vec<&str> = c
+                .args
+                .windows(2)
+                .filter(|w| w[0] == "--mount")
+                .map(|w| w[1].as_str())
+                .collect();
+            let src = |rel: &str| format!(r"{WIN_WT}\{rel}");
+            assert_eq!(
+                mounts,
+                vec![
+                    format!("type=bind,source={WIN_WT},target=/work"),
+                    format!("type=bind,source={},target=/work/docs", src("docs")),
+                    format!("type=bind,source={},target=/work/docs/deep", src(r"docs\deep")),
+                    r"type=bind,source=C:\Temp\pristine\check.sh,target=/work/check.sh,readonly"
+                        .to_string(),
+                    r"type=bind,source=C:\Temp\pristine\tests,target=/work/tests,readonly"
+                        .to_string(),
+                    r"type=bind,source=C:\Temp\pristine\docs\deep\spec.txt,target=/work/docs/deep/spec.txt,readonly"
+                        .to_string(),
+                ]
+            );
+            assert!(has_pair(&c.args, "--workdir", "/work"));
+            assert!(has_pair(&c.args, "--user", "65534:65534"));
+        }
+    }
+
+    #[test]
+    fn windows_paths_pass_the_container_path_check_and_bad_ones_do_not() {
+        let w = HostPaths::Windows;
+        let mut p = protected();
+        for m in &mut p.read_only {
+            m.source = PathBuf::from(format!(r"C:\Temp\pristine\{}", m.rel));
+        }
+        assert!(p.check_container_paths(Path::new(WIN_WT), w).is_ok());
+        let err = p
+            .check_container_paths(Path::new(r"C:\Users\a,b\repo"), w)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("after its drive letter"), "{err}");
+        assert!(!err.contains("bwrap"), "no bwrap advice on Windows: {err}");
+        assert!(p
+            .check_container_paths(Path::new(r"\\server\share\repo"), w)
+            .is_err());
+        let mut q = p.clone();
+        q.read_only[0].rel = "a,b.sh".into();
+        assert!(q.check_container_paths(Path::new(WIN_WT), w).is_err());
     }
 
     #[test]

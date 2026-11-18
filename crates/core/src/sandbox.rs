@@ -609,6 +609,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)] // Unix paths and symlinks
     fn symlinks_are_not_copied() {
         let (d, cfg) = fixture();
         #[cfg(unix)]
@@ -834,6 +835,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn restore_puts_back_the_original_after_any_edit_delete_or_replacement() {
         use std::os::unix::fs::symlink;
         let (d, cfg) = fixture();
@@ -876,6 +878,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn restore_fixes_a_parent_folder_that_was_replaced() {
         use std::os::unix::fs::symlink;
         let (d, cfg) = fixture();

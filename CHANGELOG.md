@@ -13,6 +13,17 @@ been published: every version below exists only as a local git commit.
   Windows; `PATH` lookups use the platform separator and `.exe`; bubblewrap
   reports "runs only on Linux"; Windows system variables such as
   `SystemRoot` are kept for check commands and container runtimes.
+- Windows with docker or podman: the drive letter's `:` no longer refuses
+  every path (found on the first real Windows run with Docker Desktop).
+  On Windows, folders are passed as `--mount type=bind,source=...` instead
+  of `--volume`; only the drive's own `:` is allowed, `,` `:` and `"` in the
+  rest of the path, network shares and device paths are still refused. The
+  message no longer suggests bwrap outside Linux.
+- Windows: file paths in the model's repo snapshot use `/`, as on Linux, so
+  prompts, replay keys and `context` matching are the same on every OS
+  (found by running the unit tests under Wine).
+- Unix only tests are marked so, and the core, watch and CLI tests build for
+  Windows; the core unit tests and the evolve tests pass under Wine.
 - When no isolation backend works, the error says what to install for the
   platform (on Windows: Docker Desktop, Podman Desktop or WSL2). On Windows
   a missing `sh` points to Git for Windows or WSL2.

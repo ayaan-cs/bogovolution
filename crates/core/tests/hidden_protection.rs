@@ -9,6 +9,7 @@
 //! Backends that cannot start here are skipped with a loud `SKIPPED` line on
 //! stderr (run with `--nocapture`). Set
 //! `RULES_EVOLVE_REQUIRE_BACKENDS=bwrap,docker,podman` to make a skip a failure.
+#![cfg(unix)]
 
 use rules_evolve_core::isolation::{probe_backend, Backend, Isolation, Runner, SandboxSettings};
 use rules_evolve_core::model::ProviderKind;

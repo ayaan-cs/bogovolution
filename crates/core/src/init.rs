@@ -97,7 +97,9 @@ pub struct InitReport {
     pub gitignore: GitignoreReport,
 }
 
-fn to_forward_slashes(p: &Path) -> String {
+/// A relative path with `/` separators on every OS, as prompts, replay keys
+/// and `tasks.toml` write it.
+pub(crate) fn to_forward_slashes(p: &Path) -> String {
     p.components()
         .map(|c| c.as_os_str().to_string_lossy().to_string())
         .collect::<Vec<_>>()
