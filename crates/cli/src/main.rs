@@ -79,8 +79,9 @@ struct ProviderArgs {
     /// Most tokens a paid model may write per call. Thinking counts too
     #[arg(long, default_value_t = 1024, value_name = "N")]
     api_max_new_tokens: u64,
-    /// Anthropic thinking: `adaptive` or `off` (off needs --api-effort high or
-    /// lower). Not set: the model's default
+    /// Anthropic thinking: `adaptive`, `off`, or `between_tools` (thinking
+    /// off on Claude Sonnet 5.5, which refuses `off`). The last two need
+    /// --api-effort high or lower. Not set: the model's default
     #[arg(long, value_name = "MODE")]
     api_thinking: Option<String>,
     /// Anthropic effort: low, medium, high, xhigh or max. Not set: the model's

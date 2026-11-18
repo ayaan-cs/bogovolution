@@ -105,8 +105,9 @@ pub struct RemoteSettings {
     /// this model").
     pub omit_temperature: bool,
     pub max_new_tokens: u64,
-    /// Anthropic only: `adaptive` or `off` (sent as `thinking: {type:
-    /// "disabled"}`). Empty sends no `thinking` field, so the model's default
+    /// Anthropic only: `adaptive`, `off` (sent as `thinking: {type:
+    /// "disabled"}`) or `between_tools` (Claude Sonnet 5.5 refuses
+    /// `disabled` and turns up-front thinking off with this). Empty sends no `thinking` field, so the model's default
     /// applies. Thinking counts against `max_new_tokens`, so a cut off
     /// answer can be all thinking and no files (Claude run 2).
     pub thinking: String,
@@ -299,6 +300,7 @@ impl RemoteModel {
                 match self.settings.thinking.as_str() {
                     "off" => body["thinking"] = json!({"type": "disabled"}),
                     "adaptive" => body["thinking"] = json!({"type": "adaptive"}),
+                    "between_tools" => body["thinking"] = json!({"type": "between_tools"}),
                     _ => {}
                 }
                 if !self.settings.effort.is_empty() {
@@ -439,9 +441,9 @@ impl RemoteModel {
 /// `--api-thinking` and `--api-effort`: known values, Anthropic only, and not
 /// a pair the API refuses (thinking off works at effort `high` or below).
 fn check_thinking(api: Api, thinking: &str, effort: &str) -> Result<()> {
-    if !matches!(thinking, "" | "adaptive" | "off") {
+    if !matches!(thinking, "" | "adaptive" | "off" | "between_tools") {
         return Err(Error::Input(format!(
-            "--api-thinking must be adaptive or off, not {thinking:?}"
+            "--api-thinking must be adaptive, off or between_tools, not {thinking:?}"
         )));
     }
     if !matches!(effort, "" | "low" | "medium" | "high" | "xhigh" | "max") {
@@ -454,10 +456,10 @@ fn check_thinking(api: Api, thinking: &str, effort: &str) -> Result<()> {
             "--api-thinking and --api-effort are only for --provider anthropic".into(),
         ));
     }
-    if thinking == "off" && matches!(effort, "xhigh" | "max") {
-        return Err(Error::Input(
-            "--api-thinking off works only with --api-effort low, medium or high (the API refuses it at xhigh and max)".into(),
-        ));
+    if matches!(thinking, "off" | "between_tools") && matches!(effort, "xhigh" | "max") {
+        return Err(Error::Input(format!(
+            "--api-thinking {thinking} works only with --api-effort low, medium or high (the API refuses it at xhigh and max)"
+        )));
     }
     Ok(())
 }
@@ -811,6 +813,8 @@ mod tests {
         let b = body_of("off", "medium", anthropic_reply("no files"));
         assert_eq!(b["thinking"], json!({"type": "disabled"}));
         assert_eq!(b["output_config"], json!({"effort": "medium"}));
+        let b = body_of("between_tools", "high", anthropic_reply("no files"));
+        assert_eq!(b["thinking"], json!({"type": "between_tools"}));
         let b = body_of("adaptive", "", anthropic_reply("no files"));
         assert_eq!(b["thinking"], json!({"type": "adaptive"}));
         assert!(b.get("output_config").is_none(), "{b}");
@@ -828,11 +832,12 @@ mod tests {
             .lines()
             .map(|l| serde_json::from_str(l).unwrap())
             .collect();
-        assert_eq!(lines.len(), 4);
+        assert_eq!(lines.len(), 5);
         assert_eq!(lines[1]["thinking"], "off");
         assert_eq!(lines[1]["effort"], "medium");
-        assert_eq!(lines[3]["stop_reason"], "max_tokens");
-        assert_eq!(lines[3]["reply"], "");
+        assert_eq!(lines[2]["thinking"], "between_tools");
+        assert_eq!(lines[4]["stop_reason"], "max_tokens");
+        assert_eq!(lines[4]["reply"], "");
     }
 
     #[test]
@@ -850,6 +855,11 @@ mod tests {
         assert!(err_of(with(Api::Anthropic, "off", "max")).contains("low, medium or high"));
         assert!(err_of(with(Api::OpenAi, "off", "")).contains("only for --provider anthropic"));
         assert!(with(Api::Anthropic, "off", "high").is_ok());
+        assert!(with(Api::Anthropic, "between_tools", "high").is_ok());
+        assert!(
+            err_of(with(Api::Anthropic, "between_tools", "max")).contains("low, medium or high")
+        );
+        assert!(err_of(with(Api::Anthropic, "none", "")).contains("adaptive, off or between_tools"));
         assert!(with(Api::Anthropic, "adaptive", "max").is_ok());
         assert!(with(Api::OpenAi, "", "").is_ok());
     }
