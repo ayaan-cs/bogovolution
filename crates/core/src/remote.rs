@@ -105,6 +105,14 @@ pub struct RemoteSettings {
     /// this model").
     pub omit_temperature: bool,
     pub max_new_tokens: u64,
+    /// Anthropic only: `adaptive` or `off` (sent as `thinking: {type:
+    /// "disabled"}`). Empty sends no `thinking` field, so the model's default
+    /// applies. Thinking counts against `max_new_tokens`, so a cut off
+    /// answer can be all thinking and no files (Claude run 2).
+    pub thinking: String,
+    /// Anthropic only: `low`, `medium`, `high`, `xhigh` or `max`, sent as
+    /// `output_config.effort`. Empty sends nothing.
+    pub effort: String,
     pub timeout_secs: u64,
     /// Optional JSONL file that gets every raw model reply.
     pub transcript: Option<std::path::PathBuf>,
@@ -220,6 +228,7 @@ impl RemoteModel {
                 "--api-timeout must be at least 1 second".into(),
             ));
         }
+        check_thinking(api, &settings.thinking, &settings.effort)?;
         let url = check_url(if settings.url.is_empty() {
             api.default_url()
         } else {
@@ -279,13 +288,24 @@ impl RemoteModel {
 
     fn body_with_temperature(&self, system: &str, user: &str, seed: u64) -> Value {
         match self.api {
-            Api::Anthropic => json!({
-                "model": self.settings.model,
-                "max_tokens": self.settings.max_new_tokens,
-                "temperature": self.settings.temperature.min(1.0),
-                "system": system,
-                "messages": [{"role": "user", "content": user}],
-            }),
+            Api::Anthropic => {
+                let mut body = json!({
+                    "model": self.settings.model,
+                    "max_tokens": self.settings.max_new_tokens,
+                    "temperature": self.settings.temperature.min(1.0),
+                    "system": system,
+                    "messages": [{"role": "user", "content": user}],
+                });
+                match self.settings.thinking.as_str() {
+                    "off" => body["thinking"] = json!({"type": "disabled"}),
+                    "adaptive" => body["thinking"] = json!({"type": "adaptive"}),
+                    _ => {}
+                }
+                if !self.settings.effort.is_empty() {
+                    body["output_config"] = json!({"effort": self.settings.effort});
+                }
+                body
+            }
             Api::OpenAi => json!({
                 "model": self.settings.model,
                 "max_tokens": self.settings.max_new_tokens,
@@ -339,6 +359,7 @@ impl RemoteModel {
         let v: Value = serde_json::from_str(&text)
             .map_err(|e| Error::Input(format!("{name} call failed: reply is not JSON: {e}")))?;
         let usage = v["usage"].clone();
+        let stop = v["stop_reason"].clone();
         let (content, used) = match self.api {
             Api::Anthropic => {
                 let parts = v["content"].as_array().ok_or_else(|| {
@@ -372,7 +393,7 @@ impl RemoteModel {
             }
         };
         if let Some(path) = &self.settings.transcript {
-            self.append_transcript(path, seed, &content, used, &usage)?;
+            self.append_transcript(path, seed, &content, used, &usage, &stop)?;
         }
         Ok((content, used))
     }
@@ -384,6 +405,7 @@ impl RemoteModel {
         reply: &str,
         used: Option<u64>,
         usage: &Value,
+        stop: &Value,
     ) -> Result<()> {
         use std::io::Write;
         let line = json!({
@@ -394,6 +416,11 @@ impl RemoteModel {
             "tokens": used,
             // The provider's own counts (input and output apart), for cost.
             "usage": usage,
+            // Why the reply ended: "max_tokens" means it was cut off at
+            // --api-max-new-tokens (null for providers that do not say).
+            "stop_reason": stop,
+            "thinking": self.settings.thinking,
+            "effort": self.settings.effort,
         });
         let mut f = std::fs::OpenOptions::new()
             .create(true)
@@ -407,6 +434,32 @@ impl RemoteModel {
     fn estimate(&self, chars: usize) -> u64 {
         (chars / 3) as u64 + self.settings.max_new_tokens
     }
+}
+
+/// `--api-thinking` and `--api-effort`: known values, Anthropic only, and not
+/// a pair the API refuses (thinking off works at effort `high` or below).
+fn check_thinking(api: Api, thinking: &str, effort: &str) -> Result<()> {
+    if !matches!(thinking, "" | "adaptive" | "off") {
+        return Err(Error::Input(format!(
+            "--api-thinking must be adaptive or off, not {thinking:?}"
+        )));
+    }
+    if !matches!(effort, "" | "low" | "medium" | "high" | "xhigh" | "max") {
+        return Err(Error::Input(format!(
+            "--api-effort must be low, medium, high, xhigh or max, not {effort:?}"
+        )));
+    }
+    if api != Api::Anthropic && !(thinking.is_empty() && effort.is_empty()) {
+        return Err(Error::Input(
+            "--api-thinking and --api-effort are only for --provider anthropic".into(),
+        ));
+    }
+    if thinking == "off" && matches!(effort, "xhigh" | "max") {
+        return Err(Error::Input(
+            "--api-thinking off works only with --api-effort low, medium or high (the API refuses it at xhigh and max)".into(),
+        ));
+    }
+    Ok(())
 }
 
 fn read_body(r: ureq::Response) -> std::result::Result<String, String> {
@@ -734,6 +787,71 @@ mod tests {
         let line: Value = serde_json::from_str(t.lines().next().unwrap()).unwrap();
         assert_eq!(line["usage"]["input_tokens"], 30);
         assert_eq!(line["usage"]["output_tokens"], 12);
+    }
+
+    #[test]
+    fn thinking_and_effort_are_sent_only_when_set_and_the_transcript_says_why_a_reply_ended() {
+        let dir = tempfile::tempdir().unwrap();
+        let t = dir.path().join("t.jsonl");
+        let body_of = |thinking: &str, effort: &str, reply: String| {
+            let f = fake(vec![(200, "", reply)]);
+            let mut s = settings(format!("http://127.0.0.1:{}", f.port));
+            s.omit_temperature = true;
+            s.thinking = thinking.into();
+            s.effort = effort.into();
+            s.transcript = Some(t.clone());
+            let m = model(Api::Anthropic, &s);
+            m.complete(&req(dir.path())).unwrap();
+            let seen = f.requests.lock().unwrap()[0].clone();
+            serde_json::from_str::<Value>(&seen[seen.find("\r\n\r\n").unwrap() + 4..]).unwrap()
+        };
+        let b = body_of("", "", anthropic_reply("no files"));
+        assert!(b.get("thinking").is_none(), "{b}");
+        assert!(b.get("output_config").is_none(), "{b}");
+        let b = body_of("off", "medium", anthropic_reply("no files"));
+        assert_eq!(b["thinking"], json!({"type": "disabled"}));
+        assert_eq!(b["output_config"], json!({"effort": "medium"}));
+        let b = body_of("adaptive", "", anthropic_reply("no files"));
+        assert_eq!(b["thinking"], json!({"type": "adaptive"}));
+        assert!(b.get("output_config").is_none(), "{b}");
+        // A reply cut off at the cap, all thinking: no files, and the
+        // transcript says max_tokens.
+        let cut = json!({
+            "content": [{"type": "thinking", "thinking": "hmm"}],
+            "stop_reason": "max_tokens",
+            "usage": {"input_tokens": 30, "output_tokens": 1024}
+        })
+        .to_string();
+        body_of("", "", cut);
+        let lines: Vec<Value> = std::fs::read_to_string(&t)
+            .unwrap()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        assert_eq!(lines.len(), 4);
+        assert_eq!(lines[1]["thinking"], "off");
+        assert_eq!(lines[1]["effort"], "medium");
+        assert_eq!(lines[3]["stop_reason"], "max_tokens");
+        assert_eq!(lines[3]["reply"], "");
+    }
+
+    #[test]
+    fn bad_thinking_settings_are_refused_before_anything_is_sent() {
+        let base = settings("http://127.0.0.1:9".into());
+        let with = |api: Api, thinking: &str, effort: &str| {
+            let mut s = base.clone();
+            s.thinking = thinking.into();
+            s.effort = effort.into();
+            RemoteModel::with_env(api, &s, env_with_key)
+        };
+        assert!(err_of(with(Api::Anthropic, "budget", "")).contains("--api-thinking"));
+        assert!(err_of(with(Api::Anthropic, "", "huge")).contains("--api-effort"));
+        assert!(err_of(with(Api::Anthropic, "off", "xhigh")).contains("low, medium or high"));
+        assert!(err_of(with(Api::Anthropic, "off", "max")).contains("low, medium or high"));
+        assert!(err_of(with(Api::OpenAi, "off", "")).contains("only for --provider anthropic"));
+        assert!(with(Api::Anthropic, "off", "high").is_ok());
+        assert!(with(Api::Anthropic, "adaptive", "max").is_ok());
+        assert!(with(Api::OpenAi, "", "").is_ok());
     }
 
     #[test]

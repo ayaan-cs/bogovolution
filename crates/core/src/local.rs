@@ -522,7 +522,28 @@ fn strip_markers(line: &str) -> &str {
         .trim_end_matches(['*', '`', ' '])
 }
 
-/// Read `FILE: path` plus fenced block pairs out of a reply.
+/// A line that is only a relative file path with an extension, such as
+/// `solve/x.py` (a trailing `:` is dropped). Used only when a fence follows.
+fn bare_path(line: &str) -> Option<String> {
+    let p = line.trim_end_matches([':', '*', '`', ' ']);
+    let ok_chars = p
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '/' | '-'));
+    let first_ok = p
+        .chars()
+        .next()
+        .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_');
+    let ext_ok = p.rsplit_once('.').is_some_and(|(stem, ext)| {
+        !stem.is_empty()
+            && !stem.ends_with('/')
+            && !ext.is_empty()
+            && ext.chars().all(|c| c.is_ascii_alphanumeric())
+    });
+    (ok_chars && first_ok && ext_ok).then(|| p.to_string())
+}
+
+/// Read `FILE: path` plus fenced block pairs out of a reply. A bare path
+/// line directly before a fence counts too.
 pub fn parse_edits(reply: &str) -> Vec<FileEdit> {
     let lines: Vec<&str> = reply.lines().collect();
     let mut edits: Vec<FileEdit> = Vec::new();
@@ -538,7 +559,10 @@ pub fn parse_edits(reply: &str) -> Vec<FileEdit> {
                     .to_string(),
             )
         } else {
-            None
+            // A bare path line right before a fence ("solve/x.py" then
+            // ```python): Claude Haiku answered so in 7 of 383 task
+            // calls of runs 1 and 2, and those answers were lost.
+            bare_path(stripped)
         };
         let Some(path) = path.filter(|p| !p.is_empty()) else {
             i += 1;
@@ -1035,6 +1059,26 @@ mod tests {
         let big_rules = "x".repeat(30_000);
         let big = m.estimate_tokens(&req(dir.path(), "p", &big_rules));
         assert!(big > small + 9_000);
+    }
+
+    #[test]
+    fn a_bare_path_line_before_a_fence_is_a_file() {
+        // The form of the 7 lost answers of Claude runs 1 and 2.
+        let e = parse_edits("solve/zip_offset.py\n```python\ndef f():\n    pass\n```\n");
+        assert_eq!(e.len(), 1);
+        assert_eq!(e[0].path, "solve/zip_offset.py");
+        assert_eq!(e[0].content, "def f():\n    pass\n");
+        let e = parse_edits("**solve/a.py**:\n\n```\nx = 1\n```\n`b.md`\n```\nhi\n```\n");
+        let paths: Vec<&str> = e.iter().map(|e| e.path.as_str()).collect();
+        assert_eq!(paths, vec!["solve/a.py", "b.md"]);
+        // Prose, a path with spaces, no extension, or no fence: not a file.
+        assert!(parse_edits("Here is the fix.\n```\nx\n```").is_empty());
+        assert!(parse_edits("my file.py\n```\nx\n```").is_empty());
+        assert!(parse_edits("solve/x\n```\nx\n```").is_empty());
+        assert!(parse_edits("solve/x.py\nsome words\n```\nx\n```").is_empty());
+        assert!(parse_edits("../x.py\n```\nx\n```").is_empty());
+        // FILE: lines still win and work as before.
+        assert_eq!(parse_edits("FILE: a.py\n```\n1\n```\n")[0].path, "a.py");
     }
 
     #[test]

@@ -76,9 +76,17 @@ struct ProviderArgs {
     /// Send no temperature to the paid provider (some newer models refuse it)
     #[arg(long)]
     api_no_temperature: bool,
-    /// Most tokens a paid model may write per call
+    /// Most tokens a paid model may write per call. Thinking counts too
     #[arg(long, default_value_t = 1024, value_name = "N")]
     api_max_new_tokens: u64,
+    /// Anthropic thinking: `adaptive` or `off` (off needs --api-effort high or
+    /// lower). Not set: the model's default
+    #[arg(long, value_name = "MODE")]
+    api_thinking: Option<String>,
+    /// Anthropic effort: low, medium, high, xhigh or max. Not set: the model's
+    /// default
+    #[arg(long, value_name = "LEVEL")]
+    api_effort: Option<String>,
     /// Time limit for one paid call, in seconds
     #[arg(long, default_value_t = 300, value_name = "SECS")]
     api_timeout: u64,
@@ -187,6 +195,8 @@ impl ProviderArgs {
                 temperature: self.api_temperature,
                 omit_temperature: self.api_no_temperature,
                 max_new_tokens: self.api_max_new_tokens,
+                thinking: self.api_thinking.clone().unwrap_or_default(),
+                effort: self.api_effort.clone().unwrap_or_default(),
                 timeout_secs: self.api_timeout,
                 transcript: self.api_transcript.as_ref().map(rel),
             },

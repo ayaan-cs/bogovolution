@@ -5,6 +5,15 @@ been published: every version below exists only as a local git commit.
 
 ## Unreleased (after 2.7.2)
 
+- `--api-thinking adaptive|off` and `--api-effort LEVEL` for Anthropic.
+  In Claude run 2, 28 of 240 task replies hit the 2,048 token cap, 14 of
+  them with nothing but thinking, so `windowed` never got an answer. Thinking
+  off gives the whole cap to the answer. Bad combinations (off at `xhigh` or
+  `max`, either flag for OpenAI) are refused before any call. Transcript
+  lines now say `stop_reason`, `thinking` and `effort`.
+- A bare path line right before a fence (`solve/x.py` then a code block) now
+  counts as a file. Claude answered so in 7 of 383 task calls of runs 1 and 2,
+  and those answers were scored as "wrote no files".
 - `examples/starter/`: a "use it on your own repo" starter. A commented
   `tasks.toml` template, `STARTER.md` (tasks from existing tests and past
   fixes, why checks must be automatic, held out tasks that can move, running

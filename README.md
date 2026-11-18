@@ -798,9 +798,11 @@ Options shared by `run`, `mutate` and `evolve`:
 | `--api-key-env VAR` | Environment variable holding the key, default `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` |
 | `--api-temperature T` | 0 to 2, default 0.7 (sent as at most 1 to Anthropic) |
 | `--api-no-temperature` | Send no temperature (newer models such as `claude-haiku-5-5` refuse it) |
-| `--api-max-new-tokens N` | Most tokens per reply, default 1024 |
+| `--api-max-new-tokens N` | Most tokens per reply, default 1024, at most 16384. Thinking counts too |
+| `--api-thinking adaptive\|off` | Anthropic only. `off` sends `thinking: disabled`, so the whole cap goes to the answer. Unset sends nothing (the model's default, adaptive thinking on newer models) |
+| `--api-effort LEVEL` | Anthropic only: `low`, `medium`, `high`, `xhigh` or `max`, sent as `output_config.effort`. `--api-thinking off` needs `low`, `medium` or `high` |
 | `--api-timeout SECS` | Time limit per call, default 300 |
-| `--api-transcript FILE` | Append every raw reply and the provider's token usage to this JSON Lines file (the key is never in it) |
+| `--api-transcript FILE` | Append every raw reply, the provider's token usage and why the reply ended (`stop_reason`, `max_tokens` means cut off at the cap) to this JSON Lines file (the key is never in it) |
 
 **Recording.** `--record` works with any provider that makes calls (the mock now,
 real providers later). Each call is stored in a replay file, which is JSON Lines.
