@@ -866,7 +866,8 @@ rules-evolve evolve --generations 3 --provider anthropic \
 
 A first real run with `claude-haiku-5-5` (9 tasks, 4 generations, about
 $0.07) is recorded in `examples/claude/haiku-5-5-run1/`, with its log, cost
-and a free replay.
+and a free replay. A second run (16 tasks, the run 1 rule as a control plus
+3 generations, $0.14) is in `examples/claude/haiku-5-5-run2/`.
 
 Safety rules, enforced in code and tested:
 

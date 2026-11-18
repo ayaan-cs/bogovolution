@@ -201,7 +201,7 @@ impl Config {
              # (a repeat, an empty or oversized change, an unreadable answer).\n\
              retries_on_refusal = {retries}\n\
              # true: tell the mutation model the agent answers in one reply, runs nothing\n\
-             # and cannot read hidden folders (right for the local and API providers).\n\
+             # and cannot read hidden paths (right for the local and API providers).\n\
              # false keeps the older prompt, which older replay files need.\n\
              one_shot_agent = {one_shot}\n\
              \n\

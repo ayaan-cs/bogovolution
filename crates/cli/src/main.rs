@@ -742,7 +742,7 @@ fn run(cli: &Cli) -> Result<Output> {
             text = format!("{}{}", warnings_text(&report.warnings), text);
             if *total {
                 text.push_str(&format!(
-                    "Total {}: {} generations were already in the log.\n",
+                    "Total {}: {} already in the log before this session.\n",
                     generations, report.generations_already_done
                 ));
             }

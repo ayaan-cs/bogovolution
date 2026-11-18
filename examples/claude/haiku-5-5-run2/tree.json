@@ -1,0 +1,519 @@
+{
+  "format": "rules-evolve-export",
+  "version": 1,
+  "generator": {
+    "tool": "rules-evolve",
+    "version": "2.7.2"
+  },
+  "project": {
+    "rules_file": "AGENTS.md",
+    "model": "claude-haiku-5-5"
+  },
+  "chain": {
+    "valid": true,
+    "events": 24,
+    "head_seq": 23,
+    "head_hash": "a037b63c69d4525ec06e7244df980a2409dbaf9ba0f8caf57dece4b474c019b2"
+  },
+  "config": {
+    "repeats": 3,
+    "accept_threshold_pp": 10.0,
+    "min_paired_wins": 3,
+    "max_tokens_per_run": 70000,
+    "max_change_bytes": 1000,
+    "held_out_accept_threshold_pp": 10.0,
+    "held_out_min_paired_wins": 2
+  },
+  "root": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+  "current": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+  "summary": {
+    "nodes": 5,
+    "edges": 4,
+    "accepted": 0,
+    "rejected": 0,
+    "noise": 2,
+    "overfit": 2,
+    "pending": 0,
+    "refused": 0,
+    "runs": 15,
+    "tokens_used": 394983,
+    "max_generation": 1
+  },
+  "nodes": [
+    {
+      "hash": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "short": "8e28956afd69",
+      "parent": null,
+      "generation": 0,
+      "created_seq": 0,
+      "hypothesis": null,
+      "verdict": null,
+      "status": "root",
+      "is_current": true,
+      "size_bytes": 58,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n",
+      "diff": null,
+      "median_pass_rate": 0.5,
+      "held_out_median_pass_rate": 0.4,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 4,
+          "total": 6,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 22880,
+          "budget_exhausted": false,
+          "held_out_passed": 4,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.4
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 3,
+          "total": 6,
+          "pass_rate": 0.5,
+          "tokens_used": 23361,
+          "budget_exhausted": false,
+          "held_out_passed": 4,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.4
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 3,
+          "total": 6,
+          "pass_rate": 0.5,
+          "tokens_used": 22480,
+          "budget_exhausted": false,
+          "held_out_passed": 3,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.3
+        }
+      ]
+    },
+    {
+      "hash": "0ea6c4484a72f99ee116362d72734662495d746cd4a253d35f9fdde3fbb9c248",
+      "short": "0ea6c4484a72",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 4,
+      "hypothesis": "Control: the run 1 generation 1 rule (0ea6c448, raise documented errors, import every module), measured on the new held out tasks",
+      "verdict": "overfit",
+      "status": "overfit",
+      "is_current": false,
+      "size_bytes": 500,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\nBefore finishing a file, re-read the docstring and list every error condition it describes. Add explicit checks that raise the documented exception (for example ValueError) for invalid arguments, such as negative or out-of-range values, and confirm each check runs before any work is done.\n\nImport every module the file uses (for example itertools) at the top of the file, and run through each function once to confirm no name is undefined.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,7 @@\n # Project rules\n \n Write clear code and keep changes small.\n+\n+Before finishing a file, re-read the docstring and list every error condition it describes. Add explicit checks that raise the documented exception (for example ValueError) for invalid arguments, such as negative or out-of-range values, and confirm each check runs before any work is done.\n+\n+Import every module the file uses (for example itertools) at the top of the file, and run through each function once to confirm no name is undefined.\n",
+      "median_pass_rate": 1.0,
+      "held_out_median_pass_rate": 0.2,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 5,
+          "total": 6,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 28525,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.2
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 6,
+          "total": 6,
+          "pass_rate": 1.0,
+          "tokens_used": 28455,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.2
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 6,
+          "total": 6,
+          "pass_rate": 1.0,
+          "tokens_used": 28303,
+          "budget_exhausted": false,
+          "held_out_passed": 4,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.4
+        }
+      ]
+    },
+    {
+      "hash": "38f0f510e50d4198d267499f84e2f0ee09172f89ba259db6d0a4edc763c74bbb",
+      "short": "38f0f510e50d",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 9,
+      "hypothesis": "The take and distribute failures came from skipping error cases the docstring names, so a habit of checking the docstring sentence by sentence before answering should catch those omissions. It is a general self-review step rather than a rule about any one task.",
+      "verdict": "overfit",
+      "status": "overfit",
+      "is_current": false,
+      "size_bytes": 221,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\nBefore answering, go through the task's docstring sentence by sentence and confirm the code handles every stated requirement, including each error case it names.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,5 @@\n # Project rules\n \n Write clear code and keep changes small.\n+\n+Before answering, go through the task's docstring sentence by sentence and confirm the code handles every stated requirement, including each error case it names.\n",
+      "median_pass_rate": 0.8333333333333334,
+      "held_out_median_pass_rate": 0.3,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 5,
+          "total": 6,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 26004,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.2
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 5,
+          "total": 6,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 25609,
+          "budget_exhausted": false,
+          "held_out_passed": 3,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.3
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 5,
+          "total": 6,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 25925,
+          "budget_exhausted": false,
+          "held_out_passed": 3,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.3
+        }
+      ]
+    },
+    {
+      "hash": "68ae4dea94d8e777c580c7ce76b2a9784b6616a744f9116abb5280d7559039c7",
+      "short": "68ae4dea94d8",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 14,
+      "hypothesis": "Many failures come from invalid arguments (such as a negative count) returning a value instead of raising the documented error, and from missing imports. Putting explicit guard clauses for argument checks at the start of each function, with all imports at the top, should make these omissions less likely.",
+      "verdict": "noise",
+      "status": "noise",
+      "is_current": false,
+      "size_bytes": 245,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\nStart every function with guard clauses that check each argument's type and range, and raise the documented exception before doing any other work. Put all imports at the top of the file.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,4 @@\n # Project rules\n \n Write clear code and keep changes small.\n+Start every function with guard clauses that check each argument's type and range, and raise the documented exception before doing any other work. Put all imports at the top of the file.\n",
+      "median_pass_rate": 0.6666666666666666,
+      "held_out_median_pass_rate": 0.3,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 4,
+          "total": 6,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 29368,
+          "budget_exhausted": false,
+          "held_out_passed": 3,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.3
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 3,
+          "total": 6,
+          "pass_rate": 0.5,
+          "tokens_used": 29977,
+          "budget_exhausted": false,
+          "held_out_passed": 4,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.4
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 4,
+          "total": 6,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 29484,
+          "budget_exhausted": false,
+          "held_out_passed": 3,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.3
+        }
+      ]
+    },
+    {
+      "hash": "b2e845f16774cfd89c4a494e33ac46bfa5f2335d419ca19668eab1090614fad5",
+      "short": "b2e845f16774",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 19,
+      "hypothesis": "Missing imports cause NameErrors, and a rule that only says \"import everything\" does not make the agent look for them. A final pass that checks every name used in the file against its definitions and imports should catch these before the answer is given.",
+      "verdict": "noise",
+      "status": "noise",
+      "is_current": false,
+      "size_bytes": 241,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\nBefore answering, scan the whole file from top to bottom. For every module, function, or variable name used, confirm it is imported or defined in the file, and fix any that are not.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,5 @@\n # Project rules\n \n Write clear code and keep changes small.\n+\n+Before answering, scan the whole file from top to bottom. For every module, function, or variable name used, confirm it is imported or defined in the file, and fix any that are not.\n",
+      "median_pass_rate": 0.6666666666666666,
+      "held_out_median_pass_rate": 0.4,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 2,
+          "total": 6,
+          "pass_rate": 0.3333333333333333,
+          "tokens_used": 24819,
+          "budget_exhausted": false,
+          "held_out_passed": 3,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.3
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 4,
+          "total": 6,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 24746,
+          "budget_exhausted": false,
+          "held_out_passed": 5,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.5
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 4,
+          "total": 6,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 25047,
+          "budget_exhausted": false,
+          "held_out_passed": 4,
+          "held_out_total": 10,
+          "held_out_pass_rate": 0.4
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "0ea6c4484a72f99ee116362d72734662495d746cd4a253d35f9fdde3fbb9c248",
+      "seq": 4,
+      "hypothesis": "Control: the run 1 generation 1 rule (0ea6c448, raise documented errors, import every module), measured on the new held out tasks",
+      "verdict": "overfit",
+      "reason": "the train rule would accept (median gain 50.0 points is at least 10 and the child won 3 of 3 pairs (needs 3)), but on the held out tasks: held out median gain -20.0 points (needs 10), held out wins 1 of 3 (needs 2)",
+      "parent_median": 0.5,
+      "child_median": 1.0,
+      "gain_pp": 50.0,
+      "paired_wins": 3,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.8333333333333334,
+          "win": true
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.5,
+          "child_rate": 1.0,
+          "win": true
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.5,
+          "child_rate": 1.0,
+          "win": true
+        }
+      ],
+      "held_out_parent_median": 0.4,
+      "held_out_child_median": 0.2,
+      "held_out_gain_pp": -20.0,
+      "held_out_paired_wins": 1
+    },
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "38f0f510e50d4198d267499f84e2f0ee09172f89ba259db6d0a4edc763c74bbb",
+      "seq": 9,
+      "hypothesis": "The take and distribute failures came from skipping error cases the docstring names, so a habit of checking the docstring sentence by sentence before answering should catch those omissions. It is a general self-review step rather than a rule about any one task.",
+      "verdict": "overfit",
+      "reason": "the train rule would accept (median gain 33.3 points is at least 10 and the child won 3 of 3 pairs (needs 3)), but on the held out tasks: held out median gain -10.0 points (needs 10), held out wins 0 of 3 (needs 2)",
+      "parent_median": 0.5,
+      "child_median": 0.8333333333333334,
+      "gain_pp": 33.333333333333336,
+      "paired_wins": 3,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.8333333333333334,
+          "win": true
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.5,
+          "child_rate": 0.8333333333333334,
+          "win": true
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.5,
+          "child_rate": 0.8333333333333334,
+          "win": true
+        }
+      ],
+      "held_out_parent_median": 0.4,
+      "held_out_child_median": 0.3,
+      "held_out_gain_pp": -10.000000000000004,
+      "held_out_paired_wins": 0
+    },
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "68ae4dea94d8e777c580c7ce76b2a9784b6616a744f9116abb5280d7559039c7",
+      "seq": 14,
+      "hypothesis": "Many failures come from invalid arguments (such as a negative count) returning a value instead of raising the documented error, and from missing imports. Putting explicit guard clauses for argument checks at the start of each function, with all imports at the top, should make these omissions less likely.",
+      "verdict": "noise",
+      "reason": "the child won 1 of 3 pairs (needs 3)",
+      "parent_median": 0.5,
+      "child_median": 0.6666666666666666,
+      "gain_pp": 16.666666666666664,
+      "paired_wins": 1,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.6666666666666666,
+          "win": false
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.5,
+          "child_rate": 0.5,
+          "win": false
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.5,
+          "child_rate": 0.6666666666666666,
+          "win": true
+        }
+      ],
+      "held_out_parent_median": 0.4,
+      "held_out_child_median": 0.3,
+      "held_out_gain_pp": -10.000000000000004,
+      "held_out_paired_wins": 0
+    },
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "b2e845f16774cfd89c4a494e33ac46bfa5f2335d419ca19668eab1090614fad5",
+      "seq": 19,
+      "hypothesis": "Missing imports cause NameErrors, and a rule that only says \"import everything\" does not make the agent look for them. A final pass that checks every name used in the file against its definitions and imports should catch these before the answer is given.",
+      "verdict": "noise",
+      "reason": "the child won 2 of 3 pairs (needs 3)",
+      "parent_median": 0.5,
+      "child_median": 0.6666666666666666,
+      "gain_pp": 16.666666666666664,
+      "paired_wins": 2,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.3333333333333333,
+          "win": false
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.5,
+          "child_rate": 0.6666666666666666,
+          "win": true
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.5,
+          "child_rate": 0.6666666666666666,
+          "win": true
+        }
+      ],
+      "held_out_parent_median": 0.4,
+      "held_out_child_median": 0.4,
+      "held_out_gain_pp": 0.0,
+      "held_out_paired_wins": 2
+    }
+  ],
+  "refused": [],
+  "series": [
+    {
+      "attempt": 1,
+      "seq": 4,
+      "outcome": "overfit",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "0ea6c4484a72f99ee116362d72734662495d746cd4a253d35f9fdde3fbb9c248",
+      "hypothesis": "Control: the run 1 generation 1 rule (0ea6c448, raise documented errors, import every module), measured on the new held out tasks",
+      "parent_median": 0.5,
+      "child_median": 1.0,
+      "gain_pp": 50.0,
+      "current_after": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "current_median_after": 0.5
+    },
+    {
+      "attempt": 2,
+      "seq": 9,
+      "outcome": "overfit",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "38f0f510e50d4198d267499f84e2f0ee09172f89ba259db6d0a4edc763c74bbb",
+      "hypothesis": "The take and distribute failures came from skipping error cases the docstring names, so a habit of checking the docstring sentence by sentence before answering should catch those omissions. It is a general self-review step rather than a rule about any one task.",
+      "parent_median": 0.5,
+      "child_median": 0.8333333333333334,
+      "gain_pp": 33.333333333333336,
+      "current_after": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "current_median_after": 0.5
+    },
+    {
+      "attempt": 3,
+      "seq": 14,
+      "outcome": "noise",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "68ae4dea94d8e777c580c7ce76b2a9784b6616a744f9116abb5280d7559039c7",
+      "hypothesis": "Many failures come from invalid arguments (such as a negative count) returning a value instead of raising the documented error, and from missing imports. Putting explicit guard clauses for argument checks at the start of each function, with all imports at the top, should make these omissions less likely.",
+      "parent_median": 0.5,
+      "child_median": 0.6666666666666666,
+      "gain_pp": 16.666666666666664,
+      "current_after": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "current_median_after": 0.5
+    },
+    {
+      "attempt": 4,
+      "seq": 19,
+      "outcome": "noise",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "b2e845f16774cfd89c4a494e33ac46bfa5f2335d419ca19668eab1090614fad5",
+      "hypothesis": "Missing imports cause NameErrors, and a rule that only says \"import everything\" does not make the agent look for them. A final pass that checks every name used in the file against its definitions and imports should catch these before the answer is given.",
+      "parent_median": 0.5,
+      "child_median": 0.6666666666666666,
+      "gain_pp": 16.666666666666664,
+      "current_after": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "current_median_after": 0.5
+    }
+  ]
+}

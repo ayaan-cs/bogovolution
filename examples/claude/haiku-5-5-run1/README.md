@@ -56,6 +56,11 @@ The root stays current. What the children added:
 3. Turn every docstring sentence into a checklist item.
 4. Read the tests in `checks/` first (they are hidden from the model).
 
+Rules 2 and 4 ask for things the agent cannot do: it answers in one reply,
+runs nothing and never sees `checks/`. The mutation prompt should not invite
+such rules. Since run 2, `[mutation] one_shot_agent = true` tells the
+mutation model so (see `../haiku-5-5-run2/`).
+
 Passes out of 3 per task:
 
 | Task | Split | root | gen 1 | gen 2 | gen 3 | gen 4 |

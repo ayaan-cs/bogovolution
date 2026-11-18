@@ -763,7 +763,7 @@ fn evolve_total_counts_generations_already_in_the_log() {
     );
     let out = String::from_utf8_lossy(&text.stdout);
     assert!(
-        out.contains("Total 3: 3 generations were already in the log."),
+        out.contains("Total 3: 3 already in the log before this session."),
         "{out}"
     );
 }
