@@ -27,7 +27,7 @@ use crate::model::{
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::cell::{Cell, RefCell};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -139,10 +139,13 @@ impl ReplayFile {
                     return Err(bad(n, "the file must start with a header line".into()))
                 }
                 (Line::Entry { key, .. }, Some(_)) => {
-                    if entries.insert(key.clone(), line.clone()).is_some() {
-                        return Err(bad(n, "duplicate key".into()));
+                    // A later entry for the same call replaces the earlier
+                    // one: the call was made again because the run that used
+                    // the first answer was never recorded (v2.7.2, see
+                    // RecordingModel::record).
+                    if entries.insert(key.clone(), line.clone()).is_none() {
+                        order.push(key.clone());
                     }
-                    order.push(key.clone());
                 }
             }
         }
@@ -201,7 +204,11 @@ impl ReplayFile {
 pub struct RecordingModel {
     inner: Box<dyn Model>,
     path: PathBuf,
-    known: RefCell<HashSet<String>>,
+    /// The answer the file holds for each key. A call whose answer is already
+    /// there is not written again. A call made again with a different answer
+    /// (a run redone after a model error stopped it, so the log used the new
+    /// answer) is appended, and on load the later entry wins.
+    known: RefCell<HashMap<String, Value>>,
     added: Cell<usize>,
 }
 
@@ -220,7 +227,7 @@ impl RecordingModel {
     /// Start recording into `path`. An existing file must hold answers from the
     /// same provider, and new calls are added to it.
     pub fn new(inner: Box<dyn Model>, path: &Path) -> Result<RecordingModel> {
-        let mut known = HashSet::new();
+        let mut known = HashMap::new();
         if path.exists() {
             let existing = ReplayFile::load(path)?;
             if existing.provider != inner.name() {
@@ -231,7 +238,11 @@ impl RecordingModel {
                     inner.name()
                 )));
             }
-            known.extend(existing.order.iter().cloned());
+            for (key, line) in existing.entries {
+                if let Line::Entry { response, .. } = line {
+                    known.insert(key, response);
+                }
+            }
         } else {
             if let Some(parent) = path.parent() {
                 std::fs::create_dir_all(parent).map_err(io_err(parent))?;
@@ -272,9 +283,12 @@ impl RecordingModel {
             task_id,
             seed,
         );
-        if !self.known.borrow_mut().insert(key.clone()) {
+        if self.known.borrow().get(&key) == Some(&response) {
             return Ok(());
         }
+        self.known
+            .borrow_mut()
+            .insert(key.clone(), response.clone());
         write_line(
             &self.path,
             &Line::Entry {
@@ -735,8 +749,73 @@ mod tests {
         write(&format!(
             "{{\"type\":\"header\",\"format\":1,\"provider\":\"mock\"}}\n{entry}{entry}"
         ));
-        let err = ReplayFile::load(&p).unwrap_err().to_string();
-        assert!(err.contains("duplicate key"), "{err}");
+        // a repeated key is allowed since v2.7.2 (the later entry wins)
+        assert_eq!(ReplayFile::load(&p).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn a_call_made_again_in_a_later_session_replaces_the_old_answer() {
+        // A run stopped by a model error is not recorded in the log, so when
+        // it is redone its calls are made again and get new answers. The
+        // replay must serve the new ones, which the log used.
+        let d = tempdir().unwrap();
+        let p = d.path().join("r.jsonl");
+        let entry = |text: &str| {
+            format!("{{\"type\":\"entry\",\"key\":\"k\",\"kind\":\"task\",\"model\":\"m\",\"task_id\":\"t\",\"seed\":1,\"rules_hash\":\"r\",\"prompt_sha256\":\"p\",\"response\":{{\"edits\":[],\"tokens_used\":{text}}}}}\n")
+        };
+        std::fs::write(
+            &p,
+            format!(
+                "{{\"type\":\"header\",\"format\":1,\"provider\":\"mock\"}}\n{}{}",
+                entry("1"),
+                entry("2")
+            ),
+        )
+        .unwrap();
+        let f = ReplayFile::load(&p).unwrap();
+        assert_eq!(f.len(), 1);
+        assert_eq!(f.order, vec!["k".to_string()]);
+        match f.entries.get("k").unwrap() {
+            Line::Entry { response, .. } => assert_eq!(response["tokens_used"], 2),
+            _ => panic!("not an entry"),
+        }
+    }
+
+    #[test]
+    fn a_call_made_again_with_a_new_answer_is_appended_and_wins() {
+        // The first session's answer for seed 3 is edited to stand for an
+        // answer from an attempt the log never used. Recording the call again
+        // writes the real answer, and replay serves it.
+        let d = tempdir().unwrap();
+        let path = d.path().join("rec.jsonl");
+        let w = d.path();
+        let real = {
+            let rec = RecordingModel::new(mock(), &path).unwrap();
+            rec.complete(&treq(3, w)).unwrap()
+        };
+        let edited: Vec<String> = std::fs::read_to_string(&path)
+            .unwrap()
+            .lines()
+            .map(|l| {
+                let mut v: Value = serde_json::from_str(l).unwrap();
+                if v["type"] == "entry" {
+                    v["response"]["tokens_used"] = Value::from(99);
+                }
+                v.to_string()
+            })
+            .collect();
+        std::fs::write(&path, edited.join("\n") + "\n").unwrap();
+        let lines = |p: &Path| std::fs::read_to_string(p).unwrap().lines().count();
+        let before = lines(&path);
+        {
+            let rec = RecordingModel::new(mock(), &path).unwrap();
+            rec.complete(&treq(3, w)).unwrap();
+            rec.complete(&treq(3, w)).unwrap();
+            assert_eq!(rec.counters().recorded, 1);
+        }
+        assert_eq!(lines(&path), before + 1);
+        let rep = ReplayModel::load(&path).unwrap();
+        assert_eq!(rep.complete(&treq(3, w)).unwrap(), real);
     }
 
     #[test]

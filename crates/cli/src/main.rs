@@ -73,6 +73,9 @@ struct ProviderArgs {
     /// Sampling temperature for a paid provider (0 to 2, Anthropic caps at 1)
     #[arg(long, default_value_t = 0.7, value_name = "T")]
     api_temperature: f64,
+    /// Send no temperature to the paid provider (some newer models refuse it)
+    #[arg(long)]
+    api_no_temperature: bool,
     /// Most tokens a paid model may write per call
     #[arg(long, default_value_t = 1024, value_name = "N")]
     api_max_new_tokens: u64,
@@ -182,6 +185,7 @@ impl ProviderArgs {
                 key_env: self.api_key_env.clone().unwrap_or_default(),
                 allow_spend: self.allow_spend,
                 temperature: self.api_temperature,
+                omit_temperature: self.api_no_temperature,
                 max_new_tokens: self.api_max_new_tokens,
                 timeout_secs: self.api_timeout,
                 transcript: self.api_transcript.as_ref().map(rel),

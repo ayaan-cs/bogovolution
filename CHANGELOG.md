@@ -5,6 +5,19 @@ been published: every version below exists only as a local git commit.
 
 ## Unreleased (after 2.7.2)
 
+- First paid run: `claude-haiku-5-5` on 9 more-itertools tasks, 4
+  generations, 1 noise and 3 overfit, about $0.07. Log, replay, transcript
+  and cost in `examples/claude/haiku-5-5-run1/`.
+- `--api-no-temperature`: newer Anthropic models refuse `temperature`.
+- `--api-transcript` lines now keep the provider's token usage, so the real
+  cost can be computed from input and output tokens.
+- Replay fix (found by that run): when a run stopped by a model error was
+  redone, its calls got new answers but the recorder skipped them because
+  the keys were already in the file, so the replay served the discarded
+  answers and disagreed with the log. A call made again with a different
+  answer is now appended, and on load the later entry for a key wins (a
+  repeated key used to be refused). Same answers are still not written
+  twice.
 - Windows build: `packaging/windows/build.sh` cross compiles
   `rules-evolve.exe` (x86_64-pc-windows-gnu) and packs it with the viewer,
   the replay demo, `demo.ps1` and `WINDOWS-SETUP.md`.

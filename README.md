@@ -783,9 +783,10 @@ Options shared by `run`, `mutate` and `evolve`:
 | `--api-url URL` | Default `https://api.anthropic.com` or `https://api.openai.com/v1`. Must be `https`, or `http` to localhost only |
 | `--api-key-env VAR` | Environment variable holding the key, default `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` |
 | `--api-temperature T` | 0 to 2, default 0.7 (sent as at most 1 to Anthropic) |
+| `--api-no-temperature` | Send no temperature (newer models such as `claude-haiku-5-5` refuse it) |
 | `--api-max-new-tokens N` | Most tokens per reply, default 1024 |
 | `--api-timeout SECS` | Time limit per call, default 300 |
-| `--api-transcript FILE` | Append every raw reply to this JSON Lines file (the key is never in it) |
+| `--api-transcript FILE` | Append every raw reply and the provider's token usage to this JSON Lines file (the key is never in it) |
 
 **Recording.** `--record` works with any provider that makes calls (the mock now,
 real providers later). Each call is stored in a replay file, which is JSON Lines.
@@ -802,7 +803,10 @@ rules version, task and seed always find the same answer, and a change to any of
 them is a miss. For a mutation call, `kind` is `mutation`, the prompt is the
 mutation prompt, `rules_hash` is the parent version, and `task_id` is empty.
 Recording appends to an existing file of the same provider and skips calls it
-already has. A file from another provider is refused.
+already has with the same answer. A call made again with a different answer
+(a run redone after a model error stopped it, so the log used the new answer)
+is appended, and when a file is loaded the later entry for a key wins. A file
+from another provider is refused.
 
 **Replay.** `--provider replay --replay-file PATH` answers only from the file.
 It never calls anything, so it costs nothing. The recorded token counts are
@@ -851,6 +855,10 @@ export ANTHROPIC_API_KEY=...   # in your shell, never in a file in the repo
 rules-evolve evolve --generations 3 --provider anthropic \
   --api-model <model id> --allow-spend --isolation bwrap
 ```
+
+A first real run with `claude-haiku-5-5` (9 tasks, 4 generations, about
+$0.07) is recorded in `examples/claude/haiku-5-5-run1/`, with its log, cost
+and a free replay.
 
 Safety rules, enforced in code and tested:
 

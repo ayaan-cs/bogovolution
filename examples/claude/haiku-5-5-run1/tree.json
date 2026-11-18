@@ -1,0 +1,519 @@
+{
+  "format": "rules-evolve-export",
+  "version": 1,
+  "generator": {
+    "tool": "rules-evolve",
+    "version": "2.7.2"
+  },
+  "project": {
+    "rules_file": "AGENTS.md",
+    "model": "claude-haiku-5-5"
+  },
+  "chain": {
+    "valid": true,
+    "events": 24,
+    "head_seq": 23,
+    "head_hash": "de06015464ffb97ae75cd47a4efa5e05060e60d48090e5356660cae3d3a8aa11"
+  },
+  "config": {
+    "repeats": 3,
+    "accept_threshold_pp": 10.0,
+    "min_paired_wins": 3,
+    "max_tokens_per_run": 60000,
+    "max_change_bytes": 1000,
+    "held_out_accept_threshold_pp": 10.0,
+    "held_out_min_paired_wins": 2
+  },
+  "root": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+  "current": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+  "summary": {
+    "nodes": 5,
+    "edges": 4,
+    "accepted": 0,
+    "rejected": 0,
+    "noise": 1,
+    "overfit": 3,
+    "pending": 0,
+    "refused": 0,
+    "runs": 15,
+    "tokens_used": 181351,
+    "max_generation": 1
+  },
+  "nodes": [
+    {
+      "hash": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "short": "8e28956afd69",
+      "parent": null,
+      "generation": 0,
+      "created_seq": 0,
+      "hypothesis": null,
+      "verdict": null,
+      "status": "root",
+      "is_current": true,
+      "size_bytes": 58,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n",
+      "diff": null,
+      "median_pass_rate": 0.3333333333333333,
+      "held_out_median_pass_rate": 0.6666666666666666,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 4,
+          "total": 6,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 10422,
+          "budget_exhausted": false,
+          "held_out_passed": 1,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.3333333333333333
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 2,
+          "total": 6,
+          "pass_rate": 0.3333333333333333,
+          "tokens_used": 10294,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.6666666666666666
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 2,
+          "total": 6,
+          "pass_rate": 0.3333333333333333,
+          "tokens_used": 10305,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.6666666666666666
+        }
+      ]
+    },
+    {
+      "hash": "0ea6c4484a72f99ee116362d72734662495d746cd4a253d35f9fdde3fbb9c248",
+      "short": "0ea6c4484a72",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 4,
+      "hypothesis": "Three of the failing tasks come from missing argument validation (no ValueError raised for invalid input) and one from a missing import, so requiring the agent to check every documented error case and import every module it uses should fix the most common failures.",
+      "verdict": "overfit",
+      "status": "overfit",
+      "is_current": false,
+      "size_bytes": 500,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\nBefore finishing a file, re-read the docstring and list every error condition it describes. Add explicit checks that raise the documented exception (for example ValueError) for invalid arguments, such as negative or out-of-range values, and confirm each check runs before any work is done.\n\nImport every module the file uses (for example itertools) at the top of the file, and run through each function once to confirm no name is undefined.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,7 @@\n # Project rules\n \n Write clear code and keep changes small.\n+\n+Before finishing a file, re-read the docstring and list every error condition it describes. Add explicit checks that raise the documented exception (for example ValueError) for invalid arguments, such as negative or out-of-range values, and confirm each check runs before any work is done.\n+\n+Import every module the file uses (for example itertools) at the top of the file, and run through each function once to confirm no name is undefined.\n",
+      "median_pass_rate": 1.0,
+      "held_out_median_pass_rate": 0.6666666666666666,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 6,
+          "total": 6,
+          "pass_rate": 1.0,
+          "tokens_used": 13152,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.6666666666666666
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 6,
+          "total": 6,
+          "pass_rate": 1.0,
+          "tokens_used": 13736,
+          "budget_exhausted": false,
+          "held_out_passed": 1,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.3333333333333333
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 5,
+          "total": 6,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 13532,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.6666666666666666
+        }
+      ]
+    },
+    {
+      "hash": "282aecf262783e4f948e86ac240da6dde9e0f27772e8c3f34a87b467ae735df1",
+      "short": "282aecf26278",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 9,
+      "hypothesis": "The failing runs wrote code that was never checked against the test suite, so missing validation and a missing import went unnoticed. Requiring the agent to run the checks and fix every reported failure before finishing should catch these errors without restating the rejected documented-error and import rule.",
+      "verdict": "noise",
+      "status": "noise",
+      "is_current": false,
+      "size_bytes": 188,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\nBefore you finish, run the project's checks and fix every failure or error they report. Do not stop while any check still fails.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,5 @@\n # Project rules\n \n Write clear code and keep changes small.\n+\n+Before you finish, run the project's checks and fix every failure or error they report. Do not stop while any check still fails.\n",
+      "median_pass_rate": 0.6666666666666666,
+      "held_out_median_pass_rate": 0.6666666666666666,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 4,
+          "total": 6,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 11896,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.6666666666666666
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 4,
+          "total": 6,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 11911,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.6666666666666666
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 5,
+          "total": 6,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 10721,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.6666666666666666
+        }
+      ]
+    },
+    {
+      "hash": "ecf0665b995c173292150452545f203fd91417bafdeaee385f8d2b39cd05e124",
+      "short": "ecf0665b995c",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 14,
+      "hypothesis": "Several failures come from skipping parts of the docstring, such as stated error conditions, so a habit of turning each docstring sentence into a checklist item before coding should make the agent cover those requirements. This targets the missing-validation pattern without repeating the rejected rule's wording about error cases and imports.",
+      "verdict": "overfit",
+      "status": "overfit",
+      "is_current": false,
+      "size_bytes": 275,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\nBefore writing any solution, split the docstring into its individual sentences and list each requirement, including every condition, exception, or edge case it states. Make sure the code implements each listed item.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,5 @@\n # Project rules\n \n Write clear code and keep changes small.\n+\n+Before writing any solution, split the docstring into its individual sentences and list each requirement, including every condition, exception, or edge case it states. Make sure the code implements each listed item.\n",
+      "median_pass_rate": 0.8333333333333334,
+      "held_out_median_pass_rate": 0.6666666666666666,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 5,
+          "total": 6,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 13550,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.6666666666666666
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 5,
+          "total": 6,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 12858,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.6666666666666666
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 4,
+          "total": 6,
+          "pass_rate": 0.6666666666666666,
+          "tokens_used": 12663,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.6666666666666666
+        }
+      ]
+    },
+    {
+      "hash": "1117b7aa83c4bc52a9a25c5f63b2afd3f5a7ffa0414625d319f94b2d695d8fea",
+      "short": "1117b7aa83c4",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 19,
+      "hypothesis": "The failures come from expectations the agent never saw, such as which inputs must raise errors. Having it read the existing tests in checks/ before coding should surface those expectations and make the implementation match them.",
+      "verdict": "overfit",
+      "status": "overfit",
+      "is_current": false,
+      "size_bytes": 270,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\nBefore writing any code, read the tests in checks/ for the module you are changing. List every behavior they assert, including inputs they expect to raise an error, and make the implementation satisfy each one.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,5 @@\n # Project rules\n \n Write clear code and keep changes small.\n+\n+Before writing any code, read the tests in checks/ for the module you are changing. List every behavior they assert, including inputs they expect to raise an error, and make the implementation satisfy each one.\n",
+      "median_pass_rate": 0.8333333333333334,
+      "held_out_median_pass_rate": 0.6666666666666666,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 5,
+          "total": 6,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 12312,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.6666666666666666
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 5,
+          "total": 6,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 11742,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.6666666666666666
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 5,
+          "total": 6,
+          "pass_rate": 0.8333333333333334,
+          "tokens_used": 12257,
+          "budget_exhausted": false,
+          "held_out_passed": 2,
+          "held_out_total": 3,
+          "held_out_pass_rate": 0.6666666666666666
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "0ea6c4484a72f99ee116362d72734662495d746cd4a253d35f9fdde3fbb9c248",
+      "seq": 4,
+      "hypothesis": "Three of the failing tasks come from missing argument validation (no ValueError raised for invalid input) and one from a missing import, so requiring the agent to check every documented error case and import every module it uses should fix the most common failures.",
+      "verdict": "overfit",
+      "reason": "the train rule would accept (median gain 66.7 points is at least 10 and the child won 3 of 3 pairs (needs 3)), but on the held out tasks: held out median gain 0.0 points (needs 10), held out wins 1 of 3 (needs 2)",
+      "parent_median": 0.3333333333333333,
+      "child_median": 1.0,
+      "gain_pp": 66.66666666666667,
+      "paired_wins": 3,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 1.0,
+          "win": true
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.3333333333333333,
+          "child_rate": 1.0,
+          "win": true
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.3333333333333333,
+          "child_rate": 0.8333333333333334,
+          "win": true
+        }
+      ],
+      "held_out_parent_median": 0.6666666666666666,
+      "held_out_child_median": 0.6666666666666666,
+      "held_out_gain_pp": 0.0,
+      "held_out_paired_wins": 1
+    },
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "282aecf262783e4f948e86ac240da6dde9e0f27772e8c3f34a87b467ae735df1",
+      "seq": 9,
+      "hypothesis": "The failing runs wrote code that was never checked against the test suite, so missing validation and a missing import went unnoticed. Requiring the agent to run the checks and fix every reported failure before finishing should catch these errors without restating the rejected documented-error and import rule.",
+      "verdict": "noise",
+      "reason": "the child won 2 of 3 pairs (needs 3)",
+      "parent_median": 0.3333333333333333,
+      "child_median": 0.6666666666666666,
+      "gain_pp": 33.33333333333333,
+      "paired_wins": 2,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.6666666666666666,
+          "win": false
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.3333333333333333,
+          "child_rate": 0.6666666666666666,
+          "win": true
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.3333333333333333,
+          "child_rate": 0.8333333333333334,
+          "win": true
+        }
+      ],
+      "held_out_parent_median": 0.6666666666666666,
+      "held_out_child_median": 0.6666666666666666,
+      "held_out_gain_pp": 0.0,
+      "held_out_paired_wins": 1
+    },
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "ecf0665b995c173292150452545f203fd91417bafdeaee385f8d2b39cd05e124",
+      "seq": 14,
+      "hypothesis": "Several failures come from skipping parts of the docstring, such as stated error conditions, so a habit of turning each docstring sentence into a checklist item before coding should make the agent cover those requirements. This targets the missing-validation pattern without repeating the rejected rule's wording about error cases and imports.",
+      "verdict": "overfit",
+      "reason": "the train rule would accept (median gain 50.0 points is at least 10 and the child won 3 of 3 pairs (needs 3)), but on the held out tasks: held out median gain 0.0 points (needs 10), held out wins 1 of 3 (needs 2)",
+      "parent_median": 0.3333333333333333,
+      "child_median": 0.8333333333333334,
+      "gain_pp": 50.0,
+      "paired_wins": 3,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.8333333333333334,
+          "win": true
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.3333333333333333,
+          "child_rate": 0.8333333333333334,
+          "win": true
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.3333333333333333,
+          "child_rate": 0.6666666666666666,
+          "win": true
+        }
+      ],
+      "held_out_parent_median": 0.6666666666666666,
+      "held_out_child_median": 0.6666666666666666,
+      "held_out_gain_pp": 0.0,
+      "held_out_paired_wins": 1
+    },
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "1117b7aa83c4bc52a9a25c5f63b2afd3f5a7ffa0414625d319f94b2d695d8fea",
+      "seq": 19,
+      "hypothesis": "The failures come from expectations the agent never saw, such as which inputs must raise errors. Having it read the existing tests in checks/ before coding should surface those expectations and make the implementation match them.",
+      "verdict": "overfit",
+      "reason": "the train rule would accept (median gain 50.0 points is at least 10 and the child won 3 of 3 pairs (needs 3)), but on the held out tasks: held out median gain 0.0 points (needs 10), held out wins 1 of 3 (needs 2)",
+      "parent_median": 0.3333333333333333,
+      "child_median": 0.8333333333333334,
+      "gain_pp": 50.0,
+      "paired_wins": 3,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 0.6666666666666666,
+          "child_rate": 0.8333333333333334,
+          "win": true
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 0.3333333333333333,
+          "child_rate": 0.8333333333333334,
+          "win": true
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 0.3333333333333333,
+          "child_rate": 0.8333333333333334,
+          "win": true
+        }
+      ],
+      "held_out_parent_median": 0.6666666666666666,
+      "held_out_child_median": 0.6666666666666666,
+      "held_out_gain_pp": 0.0,
+      "held_out_paired_wins": 1
+    }
+  ],
+  "refused": [],
+  "series": [
+    {
+      "attempt": 1,
+      "seq": 4,
+      "outcome": "overfit",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "0ea6c4484a72f99ee116362d72734662495d746cd4a253d35f9fdde3fbb9c248",
+      "hypothesis": "Three of the failing tasks come from missing argument validation (no ValueError raised for invalid input) and one from a missing import, so requiring the agent to check every documented error case and import every module it uses should fix the most common failures.",
+      "parent_median": 0.3333333333333333,
+      "child_median": 1.0,
+      "gain_pp": 66.66666666666667,
+      "current_after": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "current_median_after": 0.3333333333333333
+    },
+    {
+      "attempt": 2,
+      "seq": 9,
+      "outcome": "noise",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "282aecf262783e4f948e86ac240da6dde9e0f27772e8c3f34a87b467ae735df1",
+      "hypothesis": "The failing runs wrote code that was never checked against the test suite, so missing validation and a missing import went unnoticed. Requiring the agent to run the checks and fix every reported failure before finishing should catch these errors without restating the rejected documented-error and import rule.",
+      "parent_median": 0.3333333333333333,
+      "child_median": 0.6666666666666666,
+      "gain_pp": 33.33333333333333,
+      "current_after": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "current_median_after": 0.3333333333333333
+    },
+    {
+      "attempt": 3,
+      "seq": 14,
+      "outcome": "overfit",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "ecf0665b995c173292150452545f203fd91417bafdeaee385f8d2b39cd05e124",
+      "hypothesis": "Several failures come from skipping parts of the docstring, such as stated error conditions, so a habit of turning each docstring sentence into a checklist item before coding should make the agent cover those requirements. This targets the missing-validation pattern without repeating the rejected rule's wording about error cases and imports.",
+      "parent_median": 0.3333333333333333,
+      "child_median": 0.8333333333333334,
+      "gain_pp": 50.0,
+      "current_after": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "current_median_after": 0.3333333333333333
+    },
+    {
+      "attempt": 4,
+      "seq": 19,
+      "outcome": "overfit",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "1117b7aa83c4bc52a9a25c5f63b2afd3f5a7ffa0414625d319f94b2d695d8fea",
+      "hypothesis": "The failures come from expectations the agent never saw, such as which inputs must raise errors. Having it read the existing tests in checks/ before coding should surface those expectations and make the implementation match them.",
+      "parent_median": 0.3333333333333333,
+      "child_median": 0.8333333333333334,
+      "gain_pp": 50.0,
+      "current_after": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "current_median_after": 0.3333333333333333
+    }
+  ]
+}

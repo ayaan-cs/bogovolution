@@ -100,6 +100,10 @@ pub struct RemoteSettings {
     /// Must be true, from `--allow-spend`.
     pub allow_spend: bool,
     pub temperature: f64,
+    /// Send no `temperature` at all (from `--api-no-temperature`). Newer
+    /// Anthropic models refuse the field ("`temperature` is deprecated for
+    /// this model").
+    pub omit_temperature: bool,
     pub max_new_tokens: u64,
     pub timeout_secs: u64,
     /// Optional JSONL file that gets every raw model reply.
@@ -264,6 +268,16 @@ impl RemoteModel {
 
     /// The request body for one call.
     fn body(&self, system: &str, user: &str, seed: u64) -> Value {
+        let mut body = self.body_with_temperature(system, user, seed);
+        if self.settings.omit_temperature {
+            if let Some(map) = body.as_object_mut() {
+                map.remove("temperature");
+            }
+        }
+        body
+    }
+
+    fn body_with_temperature(&self, system: &str, user: &str, seed: u64) -> Value {
         match self.api {
             Api::Anthropic => json!({
                 "model": self.settings.model,
@@ -324,6 +338,7 @@ impl RemoteModel {
         }
         let v: Value = serde_json::from_str(&text)
             .map_err(|e| Error::Input(format!("{name} call failed: reply is not JSON: {e}")))?;
+        let usage = v["usage"].clone();
         let (content, used) = match self.api {
             Api::Anthropic => {
                 let parts = v["content"].as_array().ok_or_else(|| {
@@ -357,7 +372,7 @@ impl RemoteModel {
             }
         };
         if let Some(path) = &self.settings.transcript {
-            self.append_transcript(path, seed, &content, used)?;
+            self.append_transcript(path, seed, &content, used, &usage)?;
         }
         Ok((content, used))
     }
@@ -368,6 +383,7 @@ impl RemoteModel {
         seed: u64,
         reply: &str,
         used: Option<u64>,
+        usage: &Value,
     ) -> Result<()> {
         use std::io::Write;
         let line = json!({
@@ -376,6 +392,8 @@ impl RemoteModel {
             "seed": seed,
             "reply": self.scrub(reply),
             "tokens": used,
+            // The provider's own counts (input and output apart), for cost.
+            "usage": usage,
         });
         let mut f = std::fs::OpenOptions::new()
             .create(true)
@@ -693,6 +711,29 @@ mod tests {
             .as_str()
             .unwrap()
             .contains("make a"));
+    }
+
+    #[test]
+    fn temperature_is_sent_unless_omitted_and_the_transcript_keeps_usage() {
+        let dir = tempfile::tempdir().unwrap();
+        let body_of = |omit: bool| {
+            let f = fake(vec![(200, "", anthropic_reply("no files"))]);
+            let mut s = settings(format!("http://127.0.0.1:{}", f.port));
+            s.omit_temperature = omit;
+            s.transcript = Some(dir.path().join("t.jsonl"));
+            let m = model(Api::Anthropic, &s);
+            m.complete(&req(dir.path())).unwrap();
+            let seen = f.requests.lock().unwrap()[0].clone();
+            serde_json::from_str::<Value>(&seen[seen.find("\r\n\r\n").unwrap() + 4..]).unwrap()
+        };
+        assert_eq!(body_of(false)["temperature"], 0.7);
+        let b = body_of(true);
+        assert!(b.get("temperature").is_none(), "{b}");
+        assert_eq!(b["max_tokens"], 1024);
+        let t = std::fs::read_to_string(dir.path().join("t.jsonl")).unwrap();
+        let line: Value = serde_json::from_str(t.lines().next().unwrap()).unwrap();
+        assert_eq!(line["usage"]["input_tokens"], 30);
+        assert_eq!(line["usage"]["output_tokens"], 12);
     }
 
     #[test]
