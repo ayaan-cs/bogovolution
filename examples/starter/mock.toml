@@ -1,0 +1,238 @@
+# Mock model for the starter (free, no network). It stands in for a real
+# model so try.sh can prove the template works end to end: the checks are
+# real Python tests, only the answers are canned. For each task the mock
+# writes either the fixed file (pass_content) or the file as it is now
+# (fail_content). The chance of the fixed file starts at
+# base_pass_probability and moves when the rules contain a marker phrase.
+# [[mutation]] lists the rule changes `mutate` and `evolve` can propose.
+#
+# On your own repo you do not need this file: use --provider local (a free
+# model on your machine) or a paid provider. See STARTER.md.
+seed = 5
+base_pass_probability = 0.35
+tokens_per_call = 400
+
+# A general habit: helps every task, train and held out.
+[[marker]]
+text = "every case the docstring names"
+delta = 0.55
+
+# A narrow fix: helps one train task only, so held out does not move.
+[[marker]]
+text = "split on whitespace with str.split()"
+delta = 0.5
+tasks = ["word_count"]
+
+[[mutation]]
+hypothesis = "Most failures miss a case the docstring states, such as an error to raise, so a final pass over the docstring should catch them."
+append = "Before you finish, check that the code handles every case the docstring names, including the errors it says to raise."
+
+[[mutation]]
+hypothesis = "One failure splits on a single space, so naming the right call should fix it."
+append = "When counting words, split on whitespace with str.split() and no argument."
+
+[[mutation]]
+hypothesis = "Shorter names might make the code easier to follow."
+append = "Prefer short variable names."
+
+[[answer]]
+task = "slugify"
+path = "textkit/slug.py"
+pass_content = '''
+import re
+
+
+def slugify(text):
+    """Turn *text* into a URL slug.
+
+    Lowercase, every run of characters that are not letters or digits
+    becomes one hyphen, and no hyphen at either end.
+
+        >>> slugify("Hello, World!")
+        'hello-world'
+    """
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+'''
+fail_content = '''
+def slugify(text):
+    """Turn *text* into a URL slug.
+
+    Lowercase, every run of characters that are not letters or digits
+    becomes one hyphen, and no hyphen at either end.
+
+        >>> slugify("Hello, World!")
+        'hello-world'
+    """
+    return text.lower().replace(" ", "-")
+'''
+
+[[answer]]
+task = "word_count"
+path = "textkit/count.py"
+pass_content = '''
+def word_count(text):
+    """Return the number of words in *text*, split on any whitespace.
+
+        >>> word_count("one two  three")
+        3
+    """
+    return len(text.split())
+'''
+fail_content = '''
+def word_count(text):
+    """Return the number of words in *text*, split on any whitespace.
+
+        >>> word_count("one two  three")
+        3
+    """
+    return len(text.split(" "))
+'''
+
+[[answer]]
+task = "truncate"
+path = "textkit/truncate.py"
+pass_content = '''
+def truncate(text, width, suffix="..."):
+    """Shorten *text* to at most *width* characters, ending with *suffix*
+    when it was cut. Text that already fits is returned unchanged.
+
+        >>> truncate("abcdefghij", 6)
+        'abc...'
+
+    Raise ValueError when *width* is smaller than the length of *suffix*.
+    """
+    if width < len(suffix):
+        raise ValueError("width is smaller than the suffix")
+    if len(text) <= width:
+        return text
+    return text[: width - len(suffix)] + suffix
+'''
+fail_content = '''
+def truncate(text, width, suffix="..."):
+    """Shorten *text* to at most *width* characters, ending with *suffix*
+    when it was cut. Text that already fits is returned unchanged.
+
+        >>> truncate("abcdefghij", 6)
+        'abc...'
+
+    Raise ValueError when *width* is smaller than the length of *suffix*.
+    """
+    if len(text) <= width:
+        return text
+    return text[:width] + suffix
+'''
+
+[[answer]]
+task = "parse_bool"
+path = "textkit/boolean.py"
+pass_content = '''
+TRUE = {"true", "yes", "on", "1"}
+FALSE = {"false", "no", "off", "0"}
+
+
+def parse_bool(value):
+    """Read a yes or no setting.
+
+    "true", "yes", "on" and "1" are True; "false", "no", "off" and "0" are
+    False. Case and surrounding spaces do not matter. Anything else raises
+    ValueError.
+
+        >>> parse_bool(" Yes ")
+        True
+    """
+    v = value.strip().lower()
+    if v in TRUE:
+        return True
+    if v in FALSE:
+        return False
+    raise ValueError(f"not a yes or no value: {value!r}")
+'''
+fail_content = '''
+def parse_bool(value):
+    """Read a yes or no setting.
+
+    "true", "yes", "on" and "1" are True; "false", "no", "off" and "0" are
+    False. Case and surrounding spaces do not matter. Anything else raises
+    ValueError.
+
+        >>> parse_bool(" Yes ")
+        True
+    """
+    raise NotImplementedError
+'''
+
+[[answer]]
+task = "chunk"
+path = "textkit/chunk.py"
+pass_content = '''
+def chunk(items, size):
+    """Split the list *items* into lists of *size* items; the last one may
+    be shorter.
+
+        >>> chunk([1, 2, 3, 4, 5], 2)
+        [[1, 2], [3, 4], [5]]
+
+    Raise ValueError when *size* is less than 1.
+    """
+    if size < 1:
+        raise ValueError("size must be at least 1")
+    return [items[i:i + size] for i in range(0, len(items), size)]
+'''
+fail_content = '''
+def chunk(items, size):
+    """Split the list *items* into lists of *size* items; the last one may
+    be shorter.
+
+        >>> chunk([1, 2, 3, 4, 5], 2)
+        [[1, 2], [3, 4], [5]]
+
+    Raise ValueError when *size* is less than 1.
+    """
+    return [items[i:i + size] for i in range(0, len(items), size)]
+'''
+
+[[answer]]
+task = "initials"
+path = "textkit/initials.py"
+pass_content = '''
+def initials(name):
+    """Return the upper case initials of *name*.
+
+        >>> initials("ada  lovelace")
+        'AL'
+    """
+    return "".join(part[0] for part in name.split()).upper()
+'''
+fail_content = '''
+def initials(name):
+    """Return the upper case initials of *name*.
+
+        >>> initials("ada  lovelace")
+        'AL'
+    """
+    return "".join(part[0] for part in name.split(" ")).upper()
+'''
+
+[[answer]]
+task = "dedupe"
+path = "textkit/dedupe.py"
+pass_content = '''
+def dedupe(items):
+    """Return the items of *items* without repeats, keeping the first time
+    each one appears, in order.
+
+        >>> dedupe([3, 1, 3, 2, 1])
+        [3, 1, 2]
+    """
+    return list(dict.fromkeys(items))
+'''
+fail_content = '''
+def dedupe(items):
+    """Return the items of *items* without repeats, keeping the first time
+    each one appears, in order.
+
+        >>> dedupe([3, 1, 3, 2, 1])
+        [3, 1, 2]
+    """
+    return sorted(set(items))
+'''

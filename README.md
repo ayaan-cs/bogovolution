@@ -60,6 +60,12 @@ lineage as a graph. On your own repo, start with `rules-evolve init --model
 <name>`, write tasks in `.rules-evolve/tasks.toml`, and run `evolve` with the
 free `local` provider (see "Local model test").
 
+**Using it on your own repo:** start from
+[`examples/starter/`](examples/starter/STARTER.md). It has a commented
+`tasks.toml` template, a walkthrough (tasks from your existing tests and past
+bug fixes, picking held out tasks, running cheaply, Windows), and a tiny
+sample repo that `examples/starter/try.sh` runs end to end for free.
+
 ## What the real model runs found
 
 With a free 7B model (Qwen2.5 Coder 7B Instruct, CPU only) on 8 tasks taken

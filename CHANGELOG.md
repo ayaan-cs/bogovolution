@@ -5,6 +5,13 @@ been published: every version below exists only as a local git commit.
 
 ## Unreleased (after 2.7.2)
 
+- `examples/starter/`: a "use it on your own repo" starter. A commented
+  `tasks.toml` template, `STARTER.md` (tasks from existing tests and past
+  fixes, why checks must be automatic, held out tasks that can move, running
+  cheaply, the output cap and thinking, Windows), a tiny Python sample repo
+  with hidden tests, a mock model and `try.sh`, which runs it end to end for
+  free (self check, mock evolve with `--total`, replay must match). A Rust
+  test checks the template parses and fits the sample.
 - Second paid run: `claude-haiku-5-5`, 6 train and 10 held out tasks, the
   run 1 rule as a control child plus 3 generations, $0.1417. The run 1 rule
   does not generalize (held out 40% to 20%). Log, replay, transcript, cost
