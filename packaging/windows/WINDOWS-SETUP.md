@@ -56,11 +56,14 @@ mkdir demo-run
 Copy-Item -Recurse examples\demo\fixture\* demo-run
 rules-evolve -C demo-run init --model demo-model
 Copy-Item examples\demo\tasks.toml, examples\demo\mock.toml demo-run\.rules-evolve
-rules-evolve -C demo-run evolve --generations 10 --seed 7 --provider replay --replay-file examples\demo\replay.jsonl
+rules-evolve -C demo-run evolve --generations 10 --seed 7 --provider replay --replay-file "$PWD\examples\demo\replay.jsonl"
 rules-evolve -C demo-run status
 rules-evolve -C demo-run verify-log
 rules-evolve -C demo-run watch
 ```
+
+Give `--replay-file` as a full path (as above): a relative one is read
+from the project folder given with `-C`, not from the current folder.
 
 Expected: "Accepted 2, rejected 5, noise 1, refused 2", "Current:
 cd28eb296938 (was 8e28956afd69)", "Served 550 answers from the replay file",
