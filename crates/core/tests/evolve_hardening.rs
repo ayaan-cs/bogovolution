@@ -109,6 +109,7 @@ struct Scripted {
     inner: MockModel,
     script: RefCell<Vec<Result<(String, String), String>>>,
     seeds: RefCell<Vec<u64>>,
+    prompts: RefCell<Vec<String>>,
 }
 
 impl Scripted {
@@ -127,6 +128,7 @@ impl Scripted {
                     .collect(),
             ),
             seeds: RefCell::new(Vec::new()),
+            prompts: RefCell::new(Vec::new()),
         }
     }
 }
@@ -149,6 +151,7 @@ impl Model for Scripted {
     }
     fn propose_mutation(&self, r: &MutationRequest) -> rules_evolve_core::Result<MutationResponse> {
         self.seeds.borrow_mut().push(r.seed);
+        self.prompts.borrow_mut().push(r.prompt.to_string());
         match self.script.borrow_mut().pop().expect("script ran out") {
             Ok((new_rules, hypothesis)) => Ok(MutationResponse {
                 new_rules,
@@ -167,6 +170,7 @@ fn evolve_n(repo: &Repo, model: &dyn Model, n: u32) -> rules_evolve_core::Result
         &EvolveOptions {
             generations: n,
             base_seed: 7,
+            total: false,
         },
     )
 }
@@ -441,6 +445,140 @@ fn a_dead_server_stops_the_run_records_nothing_and_evolve_resumes_to_the_same_re
     assert_eq!(runs_of(&repo), runs_of(&control));
     assert_eq!(resumed.end, full.end);
     log_ok(&repo);
+}
+
+fn three_hints() -> Vec<Result<(&'static str, &'static str), &'static str>> {
+    vec![
+        Ok(("base rules\nGENERAL\n", "a general hint")),
+        Ok(("base rules\nGENERAL\nNARROW\n", "a narrow hint")),
+        Ok(("base rules\nGENERAL\nmore words\n", "a wordy hint")),
+    ]
+}
+
+fn evolve_total(repo: &Repo, model: &dyn Model, n: u32) -> rules_evolve_core::Result<EvolveReport> {
+    evolve(
+        repo,
+        model,
+        &EvolveOptions {
+            generations: n,
+            base_seed: 7,
+            total: true,
+        },
+    )
+}
+
+#[test]
+fn with_total_a_resumed_evolve_stops_at_the_same_total_of_generations() {
+    // The first paid Claude run was cut off in generation 2 of 3 and the same
+    // command (3 generations) made 3 more: 4 in all. With `total` the rerun
+    // finishes generation 2 and makes generation 3, and nothing more.
+    let (_c, control) = project(true);
+    let full = evolve_total(&control, &Scripted::new(true, three_hints()), 3).unwrap();
+    assert_eq!(full.generations.len(), 3);
+    assert_eq!(full.generations_already_done, 0);
+
+    // root 5 runs of 8 tasks, child 1 the same, then 13 calls into child 2
+    let (_d, repo) = project(true);
+    let dying = DiesAfter {
+        inner: Box::new(Scripted::new(true, three_hints())),
+        calls_left: Cell::new(40 + 40 + 13),
+    };
+    let err = evolve_total(&repo, &dying, 3).unwrap_err();
+    assert!(matches!(err, Error::ModelUnavailable(_)), "{err}");
+    let tree = Tree::from_events(&repo.events().unwrap()).unwrap();
+    assert_eq!(tree.edges.len(), 2);
+    assert!(tree.edges[1].verdict.is_none());
+
+    let healthy = Scripted::new(true, three_hints()[2..].to_vec());
+    let resumed = evolve_total(&repo, &healthy, 3).unwrap();
+    assert_eq!(resumed.generations_already_done, 1);
+    let numbers: Vec<u32> = resumed.generations.iter().map(|g| g.generation).collect();
+    assert_eq!(numbers, vec![2, 3]);
+    assert!(resumed.generations[0].resumed);
+    assert_eq!(healthy.seeds.borrow().len(), 1, "one new mutation");
+    assert_eq!(verdicts(&repo), verdicts(&control));
+    assert_eq!(runs_of(&repo), runs_of(&control));
+    assert_eq!(resumed.end, full.end);
+
+    // Once more: the total is reached, so nothing is run or asked for (the
+    // empty script would panic on a mutation call).
+    let idle = Scripted::new(true, vec![]);
+    let again = evolve_total(&repo, &idle, 3).unwrap();
+    assert!(again.generations.is_empty());
+    assert_eq!(again.generations_already_done, 3);
+    assert_eq!(kinds(&repo, EventKind::Verdict), 3);
+    log_ok(&repo);
+
+    // Without `total` the same resume would go one past (the old behaviour).
+    let (_e, old) = project(true);
+    let dying = DiesAfter {
+        inner: Box::new(Scripted::new(true, three_hints())),
+        calls_left: Cell::new(40 + 40 + 13),
+    };
+    evolve_n(&old, &dying, 3).unwrap_err();
+    let mut more = three_hints()[2..].to_vec();
+    more.push(Ok(("base rules\nGENERAL\nfour\n", "a fourth hint")));
+    let past = evolve_n(&old, &Scripted::new(true, more), 3).unwrap();
+    assert_eq!(past.generations.len(), 3);
+    assert_eq!(kinds(&old, EventKind::Verdict), 4);
+}
+
+#[test]
+fn total_counts_refused_attempts_and_children_from_propose() {
+    let (_d, repo) = project(true);
+    let model = Scripted::new(true, vec![Ok((BASE, "no change"))]);
+    // generation 1: an unchanged file is refused
+    let r = evolve_total(&repo, &model, 1).unwrap();
+    assert_eq!(r.refused, 1);
+    // a child added by hand and judged counts too
+    let cfg = repo.config().unwrap();
+    let c = propose(&repo, &cfg, "root", b"base rules\nGENERAL\n", "by hand").unwrap();
+    let child = c.child.clone().unwrap();
+    let opts = RunOptions {
+        version: child.clone(),
+        repeats: None,
+        base_seed: 7,
+    };
+    run_version(&repo, &model, &opts).unwrap();
+    verify_child(&repo, &child).unwrap();
+    let idle = Scripted::new(true, vec![]);
+    let r = evolve_total(&repo, &idle, 2).unwrap();
+    assert_eq!(r.generations_already_done, 2);
+    assert!(r.generations.is_empty());
+}
+
+#[test]
+fn one_shot_agent_tells_the_mutation_model_what_the_agent_cannot_do() {
+    let (_d, repo) = project(true);
+    let model = Scripted::new(true, three_hints());
+    evolve_n(&repo, &model, 1).unwrap();
+    let old = model.prompts.borrow()[0].clone();
+    assert!(!old.contains("single reply"), "off by default: {old}");
+
+    let (_e, repo) = project(true);
+    set_config(&repo, "one_shot_agent = false", "one_shot_agent = true");
+    let model = Scripted::new(true, three_hints());
+    evolve_n(&repo, &model, 1).unwrap();
+    let p = model.prompts.borrow()[0].clone();
+    assert!(
+        p.contains("answers in a single reply. It cannot run commands, tests or checks"),
+        "{p}"
+    );
+    assert!(
+        p.contains("It cannot read these hidden paths: check.sh."),
+        "{p}"
+    );
+    assert!(
+        p.contains("Do not propose rules that need any of this."),
+        "{p}"
+    );
+    // Only the constraint list changes.
+    let without: String = p
+        .lines()
+        .filter(|l| !l.contains("single reply"))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    assert_eq!(without, old);
 }
 
 #[test]

@@ -364,6 +364,11 @@ enum Command {
         /// Base seed for runs and mutations. Same seed, same lineage
         #[arg(long, default_value_t = 0)]
         seed: u64,
+        /// --generations is the total for the project: generations already in
+        /// the log (judged children and refused attempts) count, so the same
+        /// command run again after a cut off session stops at the same total
+        #[arg(long)]
+        total: bool,
         #[command(flatten)]
         provider: ProviderArgs,
     },
@@ -714,6 +719,7 @@ fn run(cli: &Cli) -> Result<Output> {
         Command::Evolve {
             generations,
             seed,
+            total,
             provider,
         } => {
             let repo = provider.open_repo(&cli.dir)?;
@@ -724,6 +730,7 @@ fn run(cli: &Cli) -> Result<Output> {
                 &EvolveOptions {
                     generations: *generations,
                     base_seed: *seed,
+                    total: *total,
                 },
             )?;
             let mut text = format!(
@@ -733,6 +740,12 @@ fn run(cli: &Cli) -> Result<Output> {
                 report.base_seed
             );
             text = format!("{}{}", warnings_text(&report.warnings), text);
+            if *total {
+                text.push_str(&format!(
+                    "Total {}: {} generations were already in the log.\n",
+                    generations, report.generations_already_done
+                ));
+            }
             if let Some(note) = &report.recovered_log {
                 text.push_str(&format!("Log repaired: {note}\n"));
             }

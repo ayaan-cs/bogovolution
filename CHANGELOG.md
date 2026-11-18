@@ -5,6 +5,15 @@ been published: every version below exists only as a local git commit.
 
 ## Unreleased (after 2.7.2)
 
+- `evolve --total`: `--generations` counts generations already in the log,
+  so rerunning the same command after a cut off session keeps the planned
+  total (Claude run 1 made 4 generations instead of 3 this way). Without the
+  flag nothing changes.
+- `[mutation] one_shot_agent` (default false): the mutation prompt says the
+  agent answers in one reply, runs nothing and cannot read the hidden paths,
+  so it stops proposing rules like "run the checks" or "read checks/" (two of
+  the four rules of Claude run 1). Off by default so every existing replay
+  still matches.
 - First paid run: `claude-haiku-5-5` on 9 more-itertools tasks, 4
   generations, 1 noise and 3 overfit, about $0.07. Log, replay, transcript
   and cost in `examples/claude/haiku-5-5-run1/`.

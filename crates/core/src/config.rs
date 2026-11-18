@@ -87,6 +87,13 @@ pub struct MutationConfig {
     /// ends as refused. Refusals for the token cap are never retried.
     #[serde(default)]
     pub retries_on_refusal: u32,
+    /// Tell the mutation model that the agent answers each task in one reply
+    /// and runs nothing, and which folders it cannot read (tasks.toml
+    /// `[sandbox] hidden`), so it does not propose rules the agent cannot
+    /// follow ("run the checks", "read the tests in checks/"). False keeps
+    /// the old prompt, so replays recorded before this setting still match.
+    #[serde(default)]
+    pub one_shot_agent: bool,
 }
 
 impl Default for MutationConfig {
@@ -94,6 +101,7 @@ impl Default for MutationConfig {
         MutationConfig {
             max_change_bytes: 1000,
             retries_on_refusal: 0,
+            one_shot_agent: false,
         }
     }
 }
@@ -192,6 +200,10 @@ impl Config {
              # evolve asks again, with a new seed, this many times when a mutation is refused\n\
              # (a repeat, an empty or oversized change, an unreadable answer).\n\
              retries_on_refusal = {retries}\n\
+             # true: tell the mutation model the agent answers in one reply, runs nothing\n\
+             # and cannot read hidden folders (right for the local and API providers).\n\
+             # false keeps the older prompt, which older replay files need.\n\
+             one_shot_agent = {one_shot}\n\
              \n\
              [sandbox]\n\
              # How check commands are isolated: auto, bwrap, docker, podman or none.\n\
@@ -225,6 +237,7 @@ impl Config {
             tokens = self.budget.max_tokens_per_run,
             max_change = self.mutation.max_change_bytes,
             retries = self.mutation.retries_on_refusal,
+            one_shot = self.mutation.one_shot_agent,
             model_errors = self.evaluation.max_model_errors_per_run,
             isolation = toml_string(self.sandbox.isolation.as_str()),
             image = toml_string(&self.sandbox.image),

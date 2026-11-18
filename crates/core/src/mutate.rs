@@ -216,6 +216,7 @@ pub fn build_mutation_prompt(
     tree: &Tree,
     max_change_bytes: usize,
     results: &str,
+    agent_limits: &str,
 ) -> String {
     format!(
         "You are improving the agent rules file of a software project. The AI model that follows \
@@ -232,6 +233,7 @@ Constraints:\n\
 - Change at most {max_change_bytes} bytes in total (text removed plus text added counts as the larger of the two).\n\
 - Do not repeat a change that appears in the history below.\n\
 - Reply with the hypothesis and the complete new rules text.\n\
+{agent_limits}\
 \n\
 ## Current rules (version {})\n\
 {parent_rules}\n\
@@ -242,6 +244,23 @@ Constraints:\n\
         short(parent_hash),
         history_text(tree)
     )
+}
+
+/// The constraint line added when `mutation.one_shot_agent` is on: what the
+/// agent cannot do, so the rules do not ask for it.
+pub fn agent_limits_line(hidden: &[String]) -> String {
+    let mut line = String::from(
+        "- The agent reads the rules and one task, then answers in a single reply. It cannot run \
+commands, tests or checks, and it never sees the results.",
+    );
+    if !hidden.is_empty() {
+        line.push_str(&format!(
+            " It cannot read these hidden paths: {}.",
+            hidden.join(", ")
+        ));
+    }
+    line.push_str(" Do not propose rules that need any of this.\n");
+    line
 }
 
 /// Seed for the `n`th mutation attempt of a session that started from
@@ -293,7 +312,17 @@ pub fn mutate(repo: &Repo, model: &dyn Model, opts: &MutateOptions) -> Result<Mu
     if tasks.as_ref().is_some_and(|t| t.has_held_out()) {
         results.push_str(HELD_OUT_NOTICE);
     }
-    let prompt = build_mutation_prompt(&parent_text, &parent, &tree, limit, &results);
+    let limits = if config.mutation.one_shot_agent {
+        agent_limits_line(
+            tasks
+                .as_ref()
+                .map(|t| t.sandbox.hidden.as_slice())
+                .unwrap_or(&[]),
+        )
+    } else {
+        String::new()
+    };
+    let prompt = build_mutation_prompt(&parent_text, &parent, &tree, limit, &results, &limits);
     let request = MutationRequest {
         model: &tree.model,
         prompt: &prompt,
@@ -393,6 +422,11 @@ pub struct EvolveOptions {
     pub generations: u32,
     /// Base seed for runs (shared by parent and child) and for mutations.
     pub base_seed: u64,
+    /// `generations` is a total for the project, not for this session: every
+    /// judged child and every refused attempt already in the log counts, so
+    /// running the same command again after a cut off session never goes past
+    /// the total. An unjudged child is finished first and counts as one.
+    pub total: bool,
 }
 
 /// One generation of `evolve`.
@@ -445,6 +479,10 @@ pub struct EvolveReport {
     /// What was repaired when the last write to the log had been cut off.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recovered_log: Option<String>,
+    /// With `total`: generations already in the log when this session
+    /// started (judged children plus refused attempts). Left out when 0.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub generations_already_done: u32,
 }
 
 fn is_zero(n: &u32) -> bool {
@@ -474,6 +512,15 @@ pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<Ev
         warnings,
         generations: Vec::new(),
         recovered_log,
+        generations_already_done: 0,
+    };
+    let todo = if opts.total {
+        let done = first.edges.iter().filter(|e| e.verdict.is_some()).count() + first.refused.len();
+        let done = u32::try_from(done).unwrap_or(u32::MAX);
+        report.generations_already_done = done;
+        opts.generations.saturating_sub(done)
+    } else {
+        opts.generations
     };
 
     let run_opts = |version: &str| RunOptions {
@@ -482,7 +529,7 @@ pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<Ev
         base_seed: opts.base_seed,
     };
     let retries = repo.config()?.mutation.retries_on_refusal;
-    for g in 0..opts.generations {
+    for g in 0..todo {
         let tree = Tree::from_events(&repo.events()?)?;
         let parent = tree.current.clone();
         // Run the parent first, so the mutation prompt can show how it did.
@@ -555,7 +602,7 @@ pub fn evolve(repo: &Repo, model: &dyn Model, opts: &EvolveOptions) -> Result<Ev
             .isolation
             .get_or_insert(parent_runs.isolation.clone());
         let mut gen = Generation {
-            generation: g + 1,
+            generation: report.generations_already_done + g + 1,
             parent: parent.clone(),
             parent_runs_recorded: parent_runs.runs.len(),
             child_runs_recorded: 0,
@@ -696,14 +743,14 @@ mod tests {
     fn prompt_has_rules_history_and_limit() {
         let (_d, repo) = fixture(MOCK);
         let tree = Tree::from_events(&repo.events().unwrap()).unwrap();
-        let p = build_mutation_prompt("base rules\n", &tree.root, &tree, 1000, "R");
+        let p = build_mutation_prompt("base rules\n", &tree.root, &tree, 1000, "R", "");
         assert!(p.contains("at most 1000 bytes"));
         assert!(p.contains("base rules"));
         assert!(p.contains("No attempts yet."));
         // Same inputs, same prompt.
         assert_eq!(
             p,
-            build_mutation_prompt("base rules\n", &tree.root, &tree, 1000, "R")
+            build_mutation_prompt("base rules\n", &tree.root, &tree, 1000, "R", "")
         );
     }
 
@@ -764,6 +811,7 @@ mod tests {
             &EvolveOptions {
                 generations: 1,
                 base_seed: 3,
+                total: false,
             },
         )
         .unwrap();
@@ -886,7 +934,7 @@ mod tests {
             h.contains("[refused] same: the new text is identical to the parent"),
             "{h}"
         );
-        let prompt = build_mutation_prompt("x", &tree.root, &tree, 1000, "R");
+        let prompt = build_mutation_prompt("x", &tree.root, &tree, 1000, "R", "");
         assert!(prompt.contains(&h));
     }
 
@@ -1122,6 +1170,7 @@ mod tests {
             &EvolveOptions {
                 generations: 2,
                 base_seed: 3,
+                total: false,
             },
         )
         .unwrap();
@@ -1365,6 +1414,7 @@ mod tests {
             &EvolveOptions {
                 generations: 8,
                 base_seed: 0,
+                total: false,
             },
         )
         .unwrap();
@@ -1410,6 +1460,7 @@ mod tests {
                 &EvolveOptions {
                     generations: 5,
                     base_seed: 3,
+                    total: false,
                 },
             )
             .unwrap();

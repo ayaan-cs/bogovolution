@@ -733,6 +733,41 @@ fn evolve_rejects_bad_generation_counts() {
     }
 }
 
+#[test]
+fn evolve_total_counts_generations_already_in_the_log() {
+    let dir = demo_project();
+    let d = dir.path();
+    let a = ok_json(
+        d,
+        &["evolve", "--generations", "2", "--seed", "3", "--total"],
+    );
+    assert_eq!(a["data"]["generations"].as_array().unwrap().len(), 2);
+    // Again: the total of 2 is reached, nothing more is done.
+    let b = ok_json(
+        d,
+        &["evolve", "--generations", "2", "--seed", "3", "--total"],
+    );
+    assert_eq!(b["data"]["generations"].as_array().unwrap().len(), 0);
+    assert_eq!(b["data"]["generations_already_done"], 2);
+    // A total of 3 adds one, numbered 3.
+    let c = ok_json(
+        d,
+        &["evolve", "--generations", "3", "--seed", "3", "--total"],
+    );
+    let gens = c["data"]["generations"].as_array().unwrap();
+    assert_eq!(gens.len(), 1);
+    assert_eq!(gens[0]["generation"], 3);
+    let text = run(
+        d,
+        &["evolve", "--generations", "3", "--seed", "3", "--total"],
+    );
+    let out = String::from_utf8_lossy(&text.stdout);
+    assert!(
+        out.contains("Total 3: 3 generations were already in the log."),
+        "{out}"
+    );
+}
+
 /// The demo from the README, end to end, with no key and no cost.
 #[test]
 fn demo_replay_shows_accepted_rejected_noise_and_refused() {

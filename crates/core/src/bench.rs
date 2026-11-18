@@ -1245,6 +1245,7 @@ mod tests {
             &crate::mutate::EvolveOptions {
                 generations: 1,
                 base_seed: 0,
+                total: false,
             },
         );
         assert!(e
@@ -1401,6 +1402,7 @@ mod tests {
             &crate::mutate::EvolveOptions {
                 generations: 1,
                 base_seed: 0,
+                total: false,
             },
         );
         assert!(e.unwrap_err().to_string().contains("shadow_warnings"));

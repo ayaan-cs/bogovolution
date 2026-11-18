@@ -392,6 +392,7 @@ as `defaults_confirmed = true`):
 | `max_model_errors_per_run` | 0 | Failed model calls a run tolerates (under `[evaluation]`, v2.7.2). Past it the run stops, is not recorded, and nothing is counted |
 | `retries_on_refusal` | 0 | How many more times `evolve` asks for a mutation, with a new seed, after a refused one such as a repeat (under `[mutation]`, v2.7.2) |
 | `max_change_bytes` | 1000 | Largest allowed change for `propose` (under `[mutation]`) |
+| `one_shot_agent` | false | Tell the mutation model that the agent answers each task in one reply, runs nothing and cannot read the hidden paths of tasks.toml, so it does not propose rules such as "run the checks" (under `[mutation]`). Right for the local and API providers. False keeps the older prompt, which older replay files need |
 | `isolation` | `auto` | How check commands are isolated (under `[sandbox]`, see "Sandbox and threat model") |
 | `shadow_warnings` | `warn` | `warn`, `error` or `off`: what to do about layouts where model files could shadow hidden tests (under `[sandbox]`, see "Shadow warnings") |
 
@@ -519,9 +520,13 @@ A valid answer writes `mutation_proposed`. Both events also record the
 `--seed` is passed to the model as is. The same seed, tree and provider give
 the same mutation.
 
-### `evolve --generations N [--seed S] [provider options]`
+### `evolve --generations N [--seed S] [--total] [provider options]`
 
-Runs `N` generations (1 to 100). Each generation:
+Runs `N` generations (1 to 100). With `--total`, `N` is the total for the
+project: judged children and refused attempts already in the log count
+(children added with `propose` too), so the same command run again after a
+cut off session stops at the same total instead of adding `N` more. An
+unjudged child is finished first and counts as one. Each generation:
 
 1. `run` the parent (`current`) with `--seed` as the run seed, so the
    mutation prompt can show how it did (runs already in the log are reused);
@@ -557,7 +562,10 @@ What `evolve` does when things go wrong (v2.7.2):
 - **Resuming.** A child that was proposed but not judged when the last
   session stopped is finished first (its missing runs and its verdict), with
   no new mutation call, so an interrupted generation is never duplicated.
-  Runs already in the log are reused.
+  Runs already in the log are reused. Without `--total` the resumed child is
+  the first of `N` new generations, so a session cut off in generation 2 of 3
+  and run again with `--generations 3` ends with 4. Use `--total` (or pass
+  the number still missing) to keep the planned count.
 - **The token cap.** A run that hits `max_tokens_per_run` is recorded (its
   tasks not done count as failed), no further run of that version starts,
   and the output says so with the numbers. `verify` refuses to judge capped
