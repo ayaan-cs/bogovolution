@@ -1,4 +1,4 @@
-//! A rules-evolve project on disk: log, blobs, config, and the rebuilt tree.
+//! A bogo project on disk: log, blobs, config, and the rebuilt tree.
 
 use crate::config::Config;
 use crate::error::{Error, Result};
@@ -45,6 +45,10 @@ impl Repo {
         let store = Store::for_repo(dir);
         let log = Log::new(store.root());
         if !log.exists() {
+            let old = dir.join(crate::store::OLD_DIR_NAME);
+            if old.join("log.jsonl").is_file() {
+                return Err(Error::OldProjectDir(old));
+            }
             return Err(Error::NotInitialized(store.root().to_path_buf()));
         }
         Ok(Repo {
@@ -246,6 +250,16 @@ mod tests {
         let status = repo.status().unwrap();
         assert!(!status.valid);
         assert!(status.tree.is_none());
+    }
+
+    #[test]
+    fn an_old_rules_evolve_folder_gets_a_rename_hint() {
+        let dir = tempdir().unwrap();
+        std::fs::create_dir(dir.path().join(".rules-evolve")).unwrap();
+        std::fs::write(dir.path().join(".rules-evolve/log.jsonl"), "").unwrap();
+        let err = Repo::open(dir.path()).err().unwrap();
+        assert!(matches!(err, Error::OldProjectDir(_)));
+        assert!(err.to_string().contains("mv .rules-evolve .bogo"));
     }
 
     #[test]

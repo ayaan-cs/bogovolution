@@ -1,6 +1,6 @@
 # Can a small model improve its own rules file? Mostly it fit the test.
 
-rules-evolve is a local command line tool that changes a repo's agent rules
+bogovolution (the `bogo` command) is a local command line tool that changes a repo's agent rules
 file (`AGENTS.md`, `CLAUDE.md` or `.cursor/rules`) one small step at a time and
 keeps a step only if it measurably helps. The model stays the same. Only the
 rules text changes. Every attempt, good or bad, goes into a hash chained log.
@@ -237,7 +237,7 @@ again. None of them fixed `take` or `nth`. Generations 1 and 2 lost
 Generation 3 has no result. llama.cpp keeps a cache of past prompts in RAM,
 up to 8 GiB by default (`--cache-ram`). Over the long run the server grew to
 about 12 GB, and at 3:27 PM CT the kernel killed it for memory, 22 calls into
-generation 3. rules-evolve kept going: every later call failed to connect,
+generation 3. bogo kept going: every later call failed to connect,
 was logged as a model error, and the generation was logged as rejected at
 -37.5 points. That verdict says nothing about the rule, so it is not
 counted. Generation 3 was then rerun on its own: a copy of the project
@@ -279,7 +279,7 @@ the whole 2 hours.
   server (see above). The rerun replayed generations 1 and 2 instead of
   running them live; it got the same prompt but is a separate live session.
   The `islice` rule was not measured in round 6.
-- **A model error counts as a failed task.** rules-evolve does not stop when
+- **A model error counts as a failed task.** bogo does not stop when
   the server goes away, so a dead server reads as a very bad rule. Check the
   task outcomes (`model_error`) before trusting a large drop.
 - **Small models, one machine.** Qwen2.5 Coder 3B and 7B, quantized, on CPU.

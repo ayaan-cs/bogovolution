@@ -16,11 +16,11 @@
 # Needs sh and python3, plus an isolation backend (bwrap on Linux; podman or
 # docker elsewhere, with an image that has python3, see STARTER.md).
 # ISOLATION=none runs checks unisolated, which only the mock and replay
-# providers allow. RULES_EVOLVE picks the binary, WORK the scratch folder.
+# providers allow. BOGO picks the binary, WORK the scratch folder.
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
-BIN=${RULES_EVOLVE:-$ROOT/target/debug/rules-evolve}
+BIN=${BOGO:-$ROOT/target/debug/bogo}
 if [ ! -x "$BIN" ] && [ ! -x "$BIN.exe" ]; then
   (cd "$ROOT" && cargo build -q)
 fi
@@ -35,14 +35,14 @@ echo "== 1. self check of the sample tasks"
 setup() { # folder
   cp -R "$HERE/sample-repo/." "$1/"
   "$BIN" -C "$1" init --model starter-mock >/dev/null
-  cp "$HERE/tasks.toml" "$HERE/mock.toml" "$1/.rules-evolve/"
+  cp "$HERE/tasks.toml" "$HERE/mock.toml" "$1/.bogo/"
   # The settings STARTER.md suggests for a first real run.
   sed -i.bak -e 's/^repeats = .*/repeats = 3/' \
     -e 's/^min_paired_wins = .*/min_paired_wins = 3/' \
     -e 's/^held_out_min_paired_wins = .*/held_out_min_paired_wins = 2/' \
     -e 's/^one_shot_agent = .*/one_shot_agent = true/' \
-    "$1/.rules-evolve/config.toml"
-  rm -f "$1/.rules-evolve/config.toml.bak"
+    "$1/.bogo/config.toml"
+  rm -f "$1/.bogo/config.toml.bak"
 }
 
 echo "== 2. set up $WORK/mock"
@@ -62,7 +62,7 @@ setup "$WORK/replay"
 "$BIN" -C "$WORK/replay" evolve --generations 3 --total --seed 7 \
   --provider replay --replay-file "$WORK/starter-replay.jsonl" --isolation "$ISO"
 "$BIN" -C "$WORK/replay" verify-log
-"$PY" - "$WORK/mock/.rules-evolve/log.jsonl" "$WORK/replay/.rules-evolve/log.jsonl" <<'PY'
+"$PY" - "$WORK/mock/.bogo/log.jsonl" "$WORK/replay/.bogo/log.jsonl" <<'PY'
 import json, sys
 
 def events(path):
@@ -87,4 +87,4 @@ verdicts = [json.loads(p)["verdict"] for k, p in a if k == "verdict"]
 print(f"OK: {len(a)} events match, {len(runs)} runs, verdicts {verdicts}")
 PY
 "$BIN" -C "$WORK/mock" status
-echo "Starter project: $WORK/mock (try: rules-evolve -C $WORK/mock digest)"
+echo "Starter project: $WORK/mock (try: bogo -C $WORK/mock digest)"

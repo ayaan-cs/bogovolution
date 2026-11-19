@@ -21,8 +21,14 @@ describe('parseExport', () => {
       expect(r.data.edges).toHaveLength(8);
       expect(r.data.refused).toHaveLength(2);
       expect(r.data.series).toHaveLength(10);
-      expect(r.data.format).toBe('rules-evolve-export');
+      expect(r.data.format).toBe('bogovolution-export');
     }
+  });
+
+  it('accepts an export from rules-evolve 2.x, before the rename', () => {
+    const d = clone() as unknown as { format: string };
+    d.format = 'rules-evolve-export';
+    expect(parseExport(JSON.stringify(d)).ok).toBe(true);
   });
 
   it('accepts held out fields and the overfit verdict', () => {
@@ -68,8 +74,8 @@ describe('parseExport', () => {
 
   it('explains a different kind of JSON file', () => {
     const r = failure('{"name": "package.json"}');
-    expect(r.title).toMatch(/does not look like a rules-evolve export/);
-    expect(r.message).toContain('rules-evolve export --out tree.json');
+    expect(r.title).toMatch(/does not look like a bogo export/);
+    expect(r.message).toContain('bogo export --out tree.json');
   });
 
   it('explains a newer export version', () => {
@@ -124,7 +130,7 @@ describe('parseExport', () => {
   });
 
   it('never throws on odd input', () => {
-    for (const text of ['', '{', '{}', '[]', '"x"', '\u0000', '{"format":"rules-evolve-export","version":1}']) {
+    for (const text of ['', '{', '{}', '[]', '"x"', '\u0000', '{"format":"bogovolution-export","version":1}']) {
       expect(() => parseExport(text)).not.toThrow();
       expect(parseExport(text).ok).toBe(false);
     }

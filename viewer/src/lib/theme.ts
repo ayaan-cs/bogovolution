@@ -1,5 +1,5 @@
 export type Theme = 'light' | 'dark';
-const KEY = 'rules-evolve-viewer-theme';
+const KEY = 'bogovolution-viewer-theme';
 
 export function initialTheme(): Theme {
   try {

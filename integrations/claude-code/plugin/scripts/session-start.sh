@@ -1,7 +1,7 @@
 #!/bin/sh
-# SessionStart hook: show a one line rules-evolve status when the repo has .rules-evolve/.
-# Read only (runs `rules-evolve status`), makes no model call, never blocks.
-# Exits 0 and prints nothing when: hooks are off, the repo has no .rules-evolve/,
+# SessionStart hook: show a one line bogo status when the repo has .bogo/.
+# Read only (runs `bogo status`), makes no model call, never blocks.
+# Exits 0 and prints nothing when: hooks are off, the repo has no .bogo/,
 # or the binary is missing.
 . "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
@@ -25,15 +25,15 @@ versions=$(pick Versions)
 mutations=$(pick Mutations)
 current=$(pick Current)
 
-summary="rules-evolve: log ${log:-unknown}"
+summary="bogo: log ${log:-unknown}"
 [ -n "$versions" ] && summary="$summary; versions $versions"
 [ -n "$mutations" ] && summary="$summary; mutations $mutations"
 [ -n "$current" ] && summary="$summary; current $current"
 
-context="This repo uses rules-evolve (lineage in .rules-evolve/). Status: ${summary#rules-evolve: }. Slash commands: /rules-evolve:status, /rules-evolve:digest, /rules-evolve:verify-log, /rules-evolve:propose, /rules-evolve:evolve, /rules-evolve:export, /rules-evolve:apply. The rules file is changed through rules-evolve propose and apply, not by editing it directly."
+context="This repo uses bogo (lineage in .bogo/). Status: ${summary#bogo: }. Slash commands: /bogo:status, /bogo:digest, /bogo:verify-log, /bogo:propose, /bogo:evolve, /bogo:export, /bogo:apply. The rules file is changed through bogo propose and apply, not by editing it directly."
 if [ "$code" = "2" ]; then
-  context="$context The log failed verification: do not edit files under .rules-evolve/ by hand, and run /rules-evolve:verify-log."
-  summary="$summary. Run /rules-evolve:verify-log."
+  context="$context The log failed verification: do not edit files under .bogo/ by hand, and run /bogo:verify-log."
+  summary="$summary. Run /bogo:verify-log."
 fi
 
 printf '{"systemMessage":"%s","hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' \

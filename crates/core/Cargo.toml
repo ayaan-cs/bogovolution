@@ -1,10 +1,13 @@
 [package]
-name = "rules-evolve-core"
-description = "Engine for rules-evolve: hash-chained lineage log, tree rebuild, init"
+name = "bogovolution-core"
+description = "Engine for bogovolution: hash-chained lineage log, benchmark runs, verdicts and model providers"
+readme = "README.md"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
 thiserror.workspace = true

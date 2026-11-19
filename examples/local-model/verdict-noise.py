@@ -1,6 +1,6 @@
 """How often the verdict rule accepts, simulated from a root's measured runs.
 
-  verdict-noise.py <project>/.rules-evolve/log.jsonl <root hash prefix> <held out ids, comma separated>
+  verdict-noise.py <project>/.bogo/log.jsonl <root hash prefix> <held out ids, comma separated>
 
 Each task passes with the share of root runs it passed. A simulated child is
 either the root again, or the root with K train (and H held out) tasks that the

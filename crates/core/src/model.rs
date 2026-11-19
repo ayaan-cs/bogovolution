@@ -193,7 +193,7 @@ impl MockMutation {
     }
 }
 
-/// Mock model settings, read from `.rules-evolve/mock.toml`.
+/// Mock model settings, read from `.bogo/mock.toml`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MockConfig {

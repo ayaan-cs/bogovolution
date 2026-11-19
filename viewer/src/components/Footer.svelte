@@ -4,7 +4,7 @@
   <p>
     Inspired by
     <a href="https://ethglobal.com/showcase/petri-mjy1y" target="_blank" rel="noopener noreferrer">Petri</a>,
-    a self-evolving rules file project from ETHGlobal. rules-evolve is an independent, open source tool (Apache 2.0).
+    a self-evolving rules file project from ETHGlobal. bogovolution (the bogo command) is an independent, open source tool (Apache 2.0).
   </p>
   <p class="small">
     This page runs entirely in your browser. The file you open is read locally and never uploaded. No analytics, no

@@ -1,6 +1,6 @@
-# rules-evolve (working name)
+# bogovolution
 
-A small command line tool that helps you improve your repo's agent rules file
+`bogo` (crate `bogovolution`, formerly rules-evolve) is a small command line tool that helps you improve your repo's agent rules file
 (`AGENTS.md`, `CLAUDE.md`, or a file in `.cursor/rules`) with measurements
 instead of gut feeling.
 
@@ -25,14 +25,14 @@ You need Rust (stable; tested with 1.100.0, from https://rustup.rs) and, on Linu
 build it yourself.
 
 ```sh
-git clone <this repo> rules-evolve
-cd rules-evolve
-cargo install --path crates/cli --locked   # puts rules-evolve in ~/.cargo/bin
-rules-evolve --version
+git clone <this repo> bogovolution
+cd bogovolution
+cargo install --path crates/cli --locked   # puts bogo in ~/.cargo/bin
+bogo --version
 ```
 
 Or run it from the build folder with `cargo build --release` and
-`target/release/rules-evolve`. The viewer is optional and needs Node.js (see
+`target/release/bogo`. The viewer is optional and needs Node.js (see
 "Viewer").
 
 ## Quickstart (free, about a minute)
@@ -49,15 +49,15 @@ rejected, 1 noise and 2 refused mutations, and an intact log. Then look around
 the folder it printed:
 
 ```sh
-rules-evolve -C <folder> digest            # what worked, what failed, what to try
-rules-evolve -C <folder> log --limit 5     # the newest events of the log
-rules-evolve -C <folder> apply             # diff of the best version (dry run)
-rules-evolve -C <folder> export --out tree.json
+bogo -C <folder> digest            # what worked, what failed, what to try
+bogo -C <folder> log --limit 5     # the newest events of the log
+bogo -C <folder> apply             # diff of the best version (dry run)
+bogo -C <folder> export --out tree.json
 ```
 
 Open `tree.json` in the viewer (`cd viewer && npm ci && npm run dev`) to see the
-lineage as a graph. On your own repo, start with `rules-evolve init --model
-<name>`, write tasks in `.rules-evolve/tasks.toml`, and run `evolve` with the
+lineage as a graph. On your own repo, start with `bogo init --model
+<name>`, write tasks in `.bogo/tasks.toml`, and run `evolve` with the
 free `local` provider (see "Local model test").
 
 **Using it on your own repo:** start from
@@ -93,19 +93,23 @@ This project is inspired by [Petri](https://ethglobal.com/showcase/petri-mjy1y)
 (ETHOnline 2026). Petri is the inspiration only. The angle here is different:
 a local tool that evolves a repo's rules file against that repo's own tasks.
 
-## Status: v2.7.2
+## Status: v3.0.0
+
+Version 3.0.0 is the rename from rules-evolve to bogovolution (command `bogo`,
+project folder `.bogo/`). See CHANGELOG.md for what moved.
 
 The default is a deterministic **mock model**, so nothing costs money or touches
 the network. Since v2.1.0 there is a free real provider, `local`: a model server
 on your own machine (for example llama.cpp), localhost only. Since v2.5.0 there
 are two paid providers, `anthropic` and `openai`, which **cost money on your own
-API key** and only run with `--allow-spend`. They have only been tested against
-a fake local server.
+API key** and only run with `--allow-spend`. `anthropic` has made real paid
+runs (Claude runs 1 to 5, below); `openai` has only been tested against a fake
+local server.
 
 Done in Phase 1:
 
 - Cargo workspace: `crates/core` (engine library) and `crates/cli` (the
-  `rules-evolve` binary).
+  `bogo` binary).
 - Append-only, hash-chained log with tamper and truncation checks.
 - Tree rebuilt from the log. Rules file versions are stored by content hash.
 - Commands: `init`, `status`, `log`, `verify-log`.
@@ -206,11 +210,11 @@ Done in v1.2.4 (readable lineage graph):
 Done in v2.0.0 (Claude Code plugin):
 
 - `integrations/claude-code/` holds a Claude Code plugin and a small local
-  marketplace. Seven slash commands (`/rules-evolve:status`, `digest`,
+  marketplace. Seven slash commands (`/bogo:status`, `digest`,
   `verify-log`, `export`, `propose`, `evolve`, `init`) shell out to the
-  `rules-evolve` binary, and two hooks (a session start status line and a warning
+  `bogo` binary, and two hooks (a session start status line and a warning
   when the rules file is edited directly) are on only in repos that have
-  `.rules-evolve/`. Mock and replay only: the plugin refuses any other provider.
+  `.bogo/`. Mock and replay only: the plugin refuses any other provider.
   See "Claude Code plugin" below.
 
 Done in v2.1.0 (free local model test):
@@ -225,7 +229,7 @@ Done in v2.1.0 (free local model test):
   model would read them as project files.
 - `examples/local-model/`: setup, a task set derived from more-itertools,
   and an honest result: with a 3B model nothing was accepted, and the run
-  could not tell whether rules-evolve helps. Recorded answers from that
+  could not tell whether bogo helps. Recorded answers from that
   3B run are not in this repo (its weights use the Qwen Research license).
   See "Local model test" below.
 
@@ -271,7 +275,7 @@ Done in v2.4.0:
 - `apply`: writes an accepted version into the repo's rules file. A dry run
   with a diff unless `--yes`, refuses versions that were not accepted unless
   `--force`, never writes outside the repo or through a symlink, and records an
-  `applied` event in the log. The plugin has `/rules-evolve:apply`.
+  `applied` event in the log. The plugin has `/bogo:apply`.
 
 Done in v2.5.0:
 
@@ -300,7 +304,7 @@ missing before a real provider that runs tools or code is switched on:
 - The container backends (`docker`, `podman`) were run for real in v2.6.0
   (Docker 29.9.3 rootful, Podman 6.2.0 rootless) and pass both escape test
   files. They were run on one Debian 13 machine only. Run
-  `cargo test -p rules-evolve-core --test isolation_escape -- --nocapture` on
+  `cargo test -p bogovolution-core --test isolation_escape -- --nocapture` on
   your machine and read the output (see below).
 - No seccomp filter and no cgroup limits for `bwrap`. See the list of gaps in
   "Sandbox and threat model".
@@ -332,19 +336,19 @@ cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 ```
 
-The binary is `target/debug/rules-evolve`. The viewer has its own checks, see
+The binary is `target/debug/bogo`. The viewer has its own checks, see
 "Viewer" below.
 
 The isolation escape tests (`crates/core/tests/isolation_escape.rs`) run real
 attacks against each backend that works on the machine. A backend that cannot
 start (not installed, no user namespaces, no daemon, image missing) is skipped
 with a `SKIPPED: ...` line on stderr (run with `-- --nocapture` to see it), and
-a skipped backend ran nothing. Set `RULES_EVOLVE_REQUIRE_BACKENDS=bwrap,docker,podman`
+a skipped backend ran nothing. Set `BOGO_REQUIRE_BACKENDS=bwrap,docker,podman`
 (any subset) to make a skip a failure.
 
 The `watch` command is behind the cargo feature `watch`, which is on by default.
 To build a binary without any terminal code, run
-`cargo build -p rules-evolve-cli --no-default-features`.
+`cargo build -p bogovolution --no-default-features`.
 
 The Claude Code plugin has its own tests, see "Claude Code plugin" below:
 `integrations/claude-code/tests/run-all.sh`.
@@ -356,7 +360,7 @@ root, default `.`).
 
 ### `init --model <NAME> [--rules-file <PATH>]`
 
-Creates `.rules-evolve/` in the repo. If `--rules-file` is not given, it looks
+Creates `.bogo/` in the repo. If `--rules-file` is not given, it looks
 for `AGENTS.md`, then `CLAUDE.md`, then `.cursor/rules` and uses the first one
 it finds. A `.cursor/rules` folder is used only if it holds exactly one file,
 since one file is evolved at a time. The model name is only recorded. No model
@@ -366,18 +370,18 @@ It writes:
 
 | Path | What it is |
 | --- | --- |
-| `.rules-evolve/config.toml` | Settings (see below) |
-| `.rules-evolve/tasks.toml` | Task template: each task is a prompt plus a shell check |
-| `.rules-evolve/.gitignore` | Ignores only `scratch/` and `sandbox/` folders, nothing else |
-| `.rules-evolve/log.jsonl` | The lineage log, starting with an `init` event |
-| `.rules-evolve/HEAD` | Newest `seq` and `hash`, used to spot cut off logs |
-| `.rules-evolve/blobs/<sha256>` | Rules file versions, named by content hash |
+| `.bogo/config.toml` | Settings (see below) |
+| `.bogo/tasks.toml` | Task template: each task is a prompt plus a shell check |
+| `.bogo/.gitignore` | Ignores only `scratch/` and `sandbox/` folders, nothing else |
+| `.bogo/log.jsonl` | The lineage log, starting with an `init` event |
+| `.bogo/HEAD` | Newest `seq` and `hash`, used to spot cut off logs |
+| `.bogo/blobs/<sha256>` | Rules file versions, named by content hash |
 
-**Commit `.rules-evolve/` in your repo.** The log, `HEAD`, blobs, config and
+**Commit `.bogo/` in your repo.** The log, `HEAD`, blobs, config and
 tasks are all meant to live in git, so the lineage has history that the tool
 itself cannot rewrite. `init` checks with `git check-ignore` that git does not
 ignore the folder. If one of your ignore rules does, `init` appends
-`!.rules-evolve/` to the repo's `.gitignore` and checks again. The result is in
+`!.bogo/` to the repo's `.gitignore` and checks again. The result is in
 the `gitignore` field of the JSON output (`status` is `ok`, `fixed`,
 `still_ignored`, `not_a_git_repo`, or `git_unavailable`). The only ignore file
 the tool writes inside the folder covers `scratch/` and `sandbox/`.
@@ -648,7 +652,7 @@ Current version: `cd28eb296938` (root `8e28956afd69`). Median pass rate moved fr
 
 ### `apply [--version <VERSION>] [--yes] [--force]`
 
-Copies a version from `.rules-evolve/blobs/<hash>` into the rules file named
+Copies a version from `.bogo/blobs/<hash>` into the rules file named
 in `config.toml` (`AGENTS.md`, `CLAUDE.md` or the file under `.cursor/rules`).
 No model is called. `--version` is `current` (the default, the newest accepted
 version), `root`, a full hash or a unique hash prefix.
@@ -663,7 +667,7 @@ version), `root`, a full hash or a unique hash prefix.
 - **Checked before writing.** The log must verify, and the stored text must
   still match its hash.
 - **Inside the repo only.** The rules file path must be relative, without
-  `..`, outside `.rules-evolve/` and `.git/`, and no part of it may be a
+  `..`, outside `.bogo/` and `.git/`, and no part of it may be a
   symlink. The parent folder must already exist. The file is written to a
   temporary file next to it and renamed into place.
 - **Logged.** A write appends an `applied` event (version, rules file, the
@@ -674,7 +678,7 @@ version), `root`, a full hash or a unique hash prefix.
 `applied` events do not change `current` or any verdict: they only record that
 a version was put on disk. A log with an `applied` event cannot be read by
 binaries older than v2.4.0, which reject unknown event kinds. Commit the rules
-file and `.rules-evolve/` together after an apply.
+file and `.bogo/` together after an apply.
 
 ### `export --out <PATH>`
 
@@ -710,7 +714,7 @@ so older lineages export to the same bytes as before.
 
 ## Tasks
 
-`.rules-evolve/tasks.toml` holds the benchmark tasks and the sandbox settings.
+`.bogo/tasks.toml` holds the benchmark tasks and the sandbox settings.
 
 ```toml
 [sandbox]
@@ -782,7 +786,7 @@ Options shared by `run`, `mutate` and `evolve`:
 | Option | Meaning |
 | --- | --- |
 | `--provider mock\|replay` | Which provider to use (default `mock`) |
-| `--mock-config PATH` | Mock settings (default `.rules-evolve/mock.toml`) |
+| `--mock-config PATH` | Mock settings (default `.bogo/mock.toml`) |
 | `--replay-file PATH` | Replay file to answer from (for `--provider replay`) |
 | `--record PATH` | Record every model request and response into this file |
 | `--provider local` | A model server on this machine (see "Local model test") |
@@ -853,7 +857,7 @@ files the model may read. The 7B local runs used about 1,200 to 2,000 tokens
 per call. Check your
 provider's prices before you start, and set a spending limit in your provider
 account. The per run token cap (`max_tokens_per_run`, default 200000) stops a
-run, but it is not a money limit. rules-evolve has never been run against a
+run, but it is not a money limit. bogo has never been run against a
 paid endpoint by its author: the code is tested only against a fake server on
 127.0.0.1.
 
@@ -868,7 +872,7 @@ Example (bills your key):
 
 ```sh
 export ANTHROPIC_API_KEY=...   # in your shell, never in a file in the repo
-rules-evolve evolve --generations 3 --provider anthropic \
+bogo evolve --generations 3 --provider anthropic \
   --api-model <model id> --allow-spend --isolation bwrap
 ```
 
@@ -902,14 +906,14 @@ Safety rules, enforced in code and tested:
 - The Claude Code plugin never runs these: its wrapper refuses any provider
   but `mock` and `replay`, and refuses `--allow-spend`.
 
-Record a paid run with `--record` (outside the repo or under `.rules-evolve/`)
+Record a paid run with `--record` (outside the repo or under `.bogo/`)
 and you can replay it later for free with `--provider replay`.
 
 ## Local model test
 
 `--provider local` sends each task to an OpenAI compatible server running on
 this machine (`/v1/chat/completions`, with the run seed). The prompt holds the
-rules, the visible project files (hidden files and `.rules-evolve` are never
+rules, the visible project files (hidden files and `.bogo` are never
 shown) and the task. The model answers with `FILE: path` lines, each followed
 by a fenced block with the whole new file. A mutation answer has a `HYPOTHESIS:`
 line and a `RULES:` block; an answer in another shape is recorded as a refusal.
@@ -1001,10 +1005,10 @@ examples/demo/demo.sh
 It copies the fixture to a temp folder, runs `init`, and then:
 
 ```
-rules-evolve -C <folder> evolve --generations 10 --seed 7 \
+bogo -C <folder> evolve --generations 10 --seed 7 \
     --provider replay --replay-file examples/demo/replay.jsonl
-rules-evolve -C <folder> status
-rules-evolve -C <folder> verify-log
+bogo -C <folder> status
+bogo -C <folder> verify-log
 ```
 
 Expected result: 2 accepted, 5 rejected, 1 noise, 2 refused, ending two accepted
@@ -1013,8 +1017,8 @@ a different `--seed` or generation count reports a replay miss, which is the
 intended behavior. To try record and replay on a single step yourself:
 
 ```
-rules-evolve -C <folder> mutate --seed 1 --record my-replay.jsonl
-rules-evolve -C <copy of the same folder before that step> mutate --seed 1 \
+bogo -C <folder> mutate --seed 1 --record my-replay.jsonl
+bogo -C <copy of the same folder before that step> mutate --seed 1 \
     --provider replay --replay-file my-replay.jsonl --json
 ```
 
@@ -1024,14 +1028,14 @@ To record the demo again from the mock model, for example after changing
 
 ## Watch
 
-`rules-evolve watch [-C dir]` is a live terminal view of
-`.rules-evolve/log.jsonl`. Leave it open in one terminal and run `evolve` in
+`bogo watch [-C dir]` is a live terminal view of
+`.bogo/log.jsonl`. Leave it open in one terminal and run `evolve` in
 another: the view polls the log (every 200 ms, change with `--interval`) and
 redraws as events arrive. It never writes to the log.
 
 ```
-rules-evolve watch                  # follow the repo in the current folder
-rules-evolve watch --run "evolve --generations 3 --provider replay --replay-file r.jsonl"
+bogo watch                  # follow the repo in the current folder
+bogo watch --run "evolve --generations 3 --provider replay --replay-file r.jsonl"
 ```
 
 Panes:
@@ -1079,8 +1083,8 @@ not change any result or the log contents, only how fast they arrive.
 For scripts, docs and tests there is a mode that needs no terminal:
 
 ```
-rules-evolve watch --snapshot --width 130 --height 34 --select current
-rules-evolve watch --snapshot --svg out.svg
+bogo watch --snapshot --width 130 --height 34 --select current
+bogo watch --snapshot --svg out.svg
 ```
 
 `--snapshot` prints one frame as text (or as JSON with `--json`). `--svg` writes
@@ -1098,7 +1102,7 @@ The crate is layered so rendering stays thin: `state` (events to tree, progress
 and feed, pure), `view` (selection, focus and keys), `ui` (drawing, tested with
 ratatui's `TestBackend` against golden text in `crates/watch/snapshots/`), and
 `app` (terminal loop, tailing, child process). Refresh goldens with
-`UPDATE_SNAPSHOTS=1 cargo test -p rules-evolve-watch`.
+`UPDATE_SNAPSHOTS=1 cargo test -p bogovolution-watch`.
 
 ## Viewer
 
@@ -1131,7 +1135,7 @@ npm run build
 Then open `viewer/dist/index.html` in a browser. To see your own lineage:
 
 ```
-rules-evolve export --out tree.json
+bogo export --out tree.json
 ```
 
 and either click **Open tree.json**, drag the file onto the page, or serve
@@ -1179,9 +1183,9 @@ Layout (the format follows the official plugin docs):
 
 ```
 integrations/claude-code/
-  .claude-plugin/marketplace.json     local marketplace "rules-evolve-local"
+  .claude-plugin/marketplace.json     local marketplace "bogo-local"
   plugin/
-    .claude-plugin/plugin.json        manifest, plugin name "rules-evolve"
+    .claude-plugin/plugin.json        manifest, plugin name "bogo"
     skills/<command>/SKILL.md         one folder per slash command
     hooks/hooks.json                  the two hooks
     scripts/                          re.sh (wrapper), session-start.sh, edit-warn.sh, lib.sh
@@ -1190,17 +1194,17 @@ integrations/claude-code/
 
 The slash commands are skills (the folder-per-command form that the docs
 recommend over the older flat `commands/` files). They run as
-`/rules-evolve:<name>`.
+`/bogo:<name>`.
 
 ### Install
 
 1. Build the binary and make it findable. The plugin looks, in this order, at
-   `RULES_EVOLVE_BIN`, `rules-evolve` on `PATH`, and `target/release` or
+   `BOGO_BIN`, `bogo` on `PATH`, and `target/release` or
    `target/debug` of this repo:
 
    ```
    cargo build --release
-   export RULES_EVOLVE_BIN="$PWD/target/release/rules-evolve"   # or put target/release on PATH
+   export BOGO_BIN="$PWD/target/release/bogo"   # or put target/release on PATH
    ```
 
 2. Install the plugin. Pick one.
@@ -1216,67 +1220,67 @@ recommend over the older flat `commands/` files). They run as
 
    ```
    claude plugin marketplace add ./integrations/claude-code
-   claude plugin install rules-evolve@rules-evolve-local
+   claude plugin install bogo@bogo-local
    ```
 
    Inside a session the same steps are `/plugin marketplace add ./integrations/claude-code`
-   and `/plugin install rules-evolve@rules-evolve-local`.
+   and `/plugin install bogo@bogo-local`.
 
-3. In the repo whose rules you want to evolve, run `/rules-evolve:init <model-name>`
-   once (or `rules-evolve init --model <name>` in a shell).
+3. In the repo whose rules you want to evolve, run `/bogo:init <model-name>`
+   once (or `bogo init --model <name>` in a shell).
 
 Nothing is hosted and nothing is pushed anywhere. To remove it:
-`claude plugin uninstall rules-evolve@rules-evolve-local` and
-`claude plugin marketplace remove rules-evolve-local`.
+`claude plugin uninstall bogo@bogo-local` and
+`claude plugin marketplace remove bogo-local`.
 
 ### Slash commands
 
 | Command | What it does | State change |
 | --- | --- | --- |
-| `/rules-evolve:status` | Log health, versions, accepted, rejected and noise counts, current version, edges with hypotheses | none |
-| `/rules-evolve:digest` | The plain English brief: what worked, what failed, noise, pending, untried directions | none |
-| `/rules-evolve:verify-log` | Checks the hash chain and the stored versions, reports intact or the exact problems | none |
-| `/rules-evolve:export [path]` | Writes the lineage JSON for the static viewer (default `rules-evolve-lineage.json`) | writes one file |
-| `/rules-evolve:propose <what to change and why>` | Drafts one small change, writes it to `.rules-evolve/scratch/` and records it as a child version with `propose` (refusals are logged and explained) | appends to the log |
-| `/rules-evolve:evolve [generations] [--seed N] [--replay-file PATH]` | Runs the loop on the mock model (default 3 generations) or a replay file, then summarizes each generation | appends to the log |
-| `/rules-evolve:init <model-name>` | Sets up `.rules-evolve/` | creates files |
-| `/rules-evolve:apply [version]` | Shows the diff of an accepted version (default `current`) against the rules file, asks you to confirm, then writes it with `apply --yes` | writes the rules file, appends to the log |
+| `/bogo:status` | Log health, versions, accepted, rejected and noise counts, current version, edges with hypotheses | none |
+| `/bogo:digest` | The plain English brief: what worked, what failed, noise, pending, untried directions | none |
+| `/bogo:verify-log` | Checks the hash chain and the stored versions, reports intact or the exact problems | none |
+| `/bogo:export [path]` | Writes the lineage JSON for the static viewer (default `bogovolution-lineage.json`) | writes one file |
+| `/bogo:propose <what to change and why>` | Drafts one small change, writes it to `.bogo/scratch/` and records it as a child version with `propose` (refusals are logged and explained) | appends to the log |
+| `/bogo:evolve [generations] [--seed N] [--replay-file PATH]` | Runs the loop on the mock model (default 3 generations) or a replay file, then summarizes each generation | appends to the log |
+| `/bogo:init <model-name>` | Sets up `.bogo/` | creates files |
+| `/bogo:apply [version]` | Shows the diff of an accepted version (default `current`) against the rules file, asks you to confirm, then writes it with `apply --yes` | writes the rules file, appends to the log |
 
 The read only commands may also be used by Claude on its own when you ask about
 the lineage. The commands that change anything (`export`, `propose`, `evolve`,
 `init`, `apply`) only run when you type them (`disable-model-invocation: true`). Each command
 pre approves only the one wrapper script, so nothing else is allowed without a
-prompt. `watch` is a terminal screen, so it has no command: run `rules-evolve
+prompt. `watch` is a terminal screen, so it has no command: run `bogo
 watch` in another terminal.
 
 The plugin copies a version into your real `AGENTS.md` or `CLAUDE.md` only
-through `/rules-evolve:apply`, which you type yourself, which shows the diff
+through `/bogo:apply`, which you type yourself, which shows the diff
 first, and which writes only after you confirm. It runs `apply`, which calls
 no model, so it fits the plugin's no provider rule. It never passes `--force`
 unless you ask for it.
 
 ### Hooks
 
-Both hooks only act when the repo has a `.rules-evolve/` folder, so installing the
+Both hooks only act when the repo has a `.bogo/` folder, so installing the
 plugin changes nothing in other repos. Both always exit 0 (they never block or
-deny anything), print nothing and exit quietly when the `rules-evolve` binary is
+deny anything), print nothing and exit quietly when the `bogo` binary is
 missing or anything unexpected happens, make no model call and use no network.
 They use `jq` when it is installed and plain `sed` when it is not.
 
 | Hook | Event | What it does |
 | --- | --- | --- |
-| `session-start.sh` | `SessionStart` (`startup`, `resume`) | Runs `rules-evolve status` (read only) and shows one line, for example `rules-evolve: log intact (64 events); versions 9 (deepest generation 3); mutations 8 (accepted 2, rejected 5, noise 1, pending 0); current cd28eb296938`. If the log fails verification the line says so and points to `/rules-evolve:verify-log`. The same facts are given to Claude as context. |
-| `edit-warn.sh` | `PostToolUse` for `Edit`, `Write`, `MultiEdit` | Warns when the file just edited is the `rules_file` from `.rules-evolve/config.toml`, or `AGENTS.md`, `CLAUDE.md` or a file in `.cursor/rules` at the repo root. The warning says the change is not recorded or benchmarked and points to `/rules-evolve:propose`. It warns once per file per session. It is a warning only: the edit is not undone or blocked. |
+| `session-start.sh` | `SessionStart` (`startup`, `resume`) | Runs `bogo status` (read only) and shows one line, for example `bogo: log intact (64 events); versions 9 (deepest generation 3); mutations 8 (accepted 2, rejected 5, noise 1, pending 0); current cd28eb296938`. If the log fails verification the line says so and points to `/bogo:verify-log`. The same facts are given to Claude as context. |
+| `edit-warn.sh` | `PostToolUse` for `Edit`, `Write`, `MultiEdit` | Warns when the file just edited is the `rules_file` from `.bogo/config.toml`, or `AGENTS.md`, `CLAUDE.md` or a file in `.cursor/rules` at the repo root. The warning says the change is not recorded or benchmarked and points to `/bogo:propose`. It warns once per file per session. It is a warning only: the edit is not undone or blocked. |
 
 ### Turn the hooks off
 
 Any one of these works. The commands keep working either way.
 
-- For one shell or session: `RULES_EVOLVE_HOOKS=off claude` (also `0`, `false`, `no`).
-- For one repo, committed or not: create an empty file `.rules-evolve/hooks.off`.
+- For one shell or session: `BOGO_HOOKS=off claude` (also `0`, `false`, `no`).
+- For one repo, committed or not: create an empty file `.bogo/hooks.off`.
 - All Claude Code hooks, for a run: `claude --settings '{"disableAllHooks": true}'`.
-- The whole plugin: `claude plugin disable rules-evolve@rules-evolve-local`, or
-  `claude plugin uninstall rules-evolve@rules-evolve-local`.
+- The whole plugin: `claude plugin disable bogo@bogo-local`, or
+  `claude plugin uninstall bogo@bogo-local`.
 - Remove just the hooks: delete `integrations/claude-code/plugin/hooks/hooks.json`.
 
 ### Plugin tests
@@ -1312,7 +1316,7 @@ follows, so their wording is checked structurally but a live run is the real tes
 ## Mock model
 
 `run`, `mutate` and `evolve` with `--provider mock` read
-`.rules-evolve/mock.toml` (or `--mock-config`). Everything is
+`.bogo/mock.toml` (or `--mock-config`). Everything is
 deterministic: the same settings and seed give the same answers on any machine.
 
 ```toml
@@ -1363,7 +1367,7 @@ says nothing about real models.
 
 For each task attempt the harness copies the repo into a fresh temp folder and:
 
-1. leaves out the `hidden` benchmark files, `.git`, `.rules-evolve/` (which
+1. leaves out the `hidden` benchmark files, `.git`, `.bogo/` (which
    holds the check commands, config and log), `exclude` paths, and every
    symlink;
 2. writes the rules version under test into the copy;
@@ -1441,7 +1445,7 @@ so `auto` only reaches them when `bwrap` cannot start. Pick a container backend
 and an image yourself when you want the stronger boundary of a container.
 
 A backend you name that cannot start is an error that says why, not a fallback.
-`rules-evolve isolation` shows what works on this machine. Each `run_recorded`
+`bogo isolation` shows what works on this machine. Each `run_recorded`
 event stores the backend that ran it in an optional `isolation` field (old logs
 without it still read).
 
@@ -1547,7 +1551,7 @@ Be honest with yourself about these:
 
 ### Shadow warnings
 
-Whenever `run`, `evolve` or `isolation` scans the sandbox, `rules-evolve` checks
+Whenever `run`, `evolve` or `isolation` scans the sandbox, `bogo` checks
 the layout for ways model written files could shadow or influence the hidden
 tests, and prints a warning with a fix. Three cases:
 
@@ -1635,7 +1639,7 @@ folder pins from the code makes the `bwrap` test fail.
 
 Where this was built, `bwrap` ran all of them and passed, for both test files.
 In v2.6.0 `docker` and `podman` ran them too, with
-`RULES_EVOLVE_REQUIRE_BACKENDS=bwrap,docker,podman` so that a skip would fail:
+`BOGO_REQUIRE_BACKENDS=bwrap,docker,podman` so that a skip would fail:
 all 5 escape tests and all 4 hidden file tests passed for all three backends.
 
 How they were installed, since the machine's package repository was not
@@ -1832,7 +1836,7 @@ Sample:
 
 ## Log format
 
-`.rules-evolve/log.jsonl` is JSON Lines: one event per line, never edited.
+`.bogo/log.jsonl` is JSON Lines: one event per line, never edited.
 Each event looks like this (shown on several lines here for reading):
 
 ```json

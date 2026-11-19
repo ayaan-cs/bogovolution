@@ -3,8 +3,8 @@
 //! exists in the sample repo, and mock.toml answers exactly its tasks. The
 //! end to end run (real checks, mock and replay) is examples/starter/try.sh.
 
-use rules_evolve_core::model::MockConfig;
-use rules_evolve_core::tasks::{Split, TasksFile};
+use bogovolution_core::model::MockConfig;
+use bogovolution_core::tasks::{Split, TasksFile};
 use std::path::{Path, PathBuf};
 
 fn starter() -> PathBuf {

@@ -187,6 +187,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "bogovolution"
+version = "3.0.0"
+dependencies = [
+ "anyhow",
+ "bogovolution-core",
+ "bogovolution-watch",
+ "clap",
+ "jsonschema",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "bogovolution-core"
+version = "3.0.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "serde_json",
+ "sha2",
+ "similar",
+ "tempfile",
+ "thiserror 2.0.21",
+ "toml",
+ "ureq",
+]
+
+[[package]]
+name = "bogovolution-watch"
+version = "3.0.0"
+dependencies = [
+ "bogovolution-core",
+ "ratatui",
+ "tempfile",
+]
+
+[[package]]
 name = "borrow-or-share"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1690,44 +1728,6 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "rules-evolve-cli"
-version = "2.7.2"
-dependencies = [
- "anyhow",
- "clap",
- "jsonschema",
- "rules-evolve-core",
- "rules-evolve-watch",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "rules-evolve-core"
-version = "2.7.2"
-dependencies = [
- "chrono",
- "serde",
- "serde_json",
- "sha2",
- "similar",
- "tempfile",
- "thiserror 2.0.21",
- "toml",
- "ureq",
-]
-
-[[package]]
-name = "rules-evolve-watch"
-version = "2.7.2"
-dependencies = [
- "ratatui",
- "rules-evolve-core",
- "tempfile",
 ]
 
 [[package]]

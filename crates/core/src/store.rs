@@ -1,11 +1,15 @@
-//! Files under `.rules-evolve/`: content-addressed blobs and fixed paths.
+//! Files under `.bogo/`: content-addressed blobs and fixed paths.
 
 use crate::error::{io_err, Result};
 use crate::hash::sha256_hex;
 use std::path::{Path, PathBuf};
 
 /// Name of the project directory inside a repo.
-pub const DIR_NAME: &str = ".rules-evolve";
+pub const DIR_NAME: &str = ".bogo";
+
+/// The project directory of rules-evolve 2.x, before the rename to bogo.
+/// It is only looked for to tell the user to rename it.
+pub const OLD_DIR_NAME: &str = ".rules-evolve";
 
 /// Result of checking one blob.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,7 +25,7 @@ pub struct Store {
 }
 
 impl Store {
-    /// `repo_dir` is the repo root. The store lives in `repo_dir/.rules-evolve`.
+    /// `repo_dir` is the repo root. The store lives in `repo_dir/.bogo`.
     pub fn for_repo(repo_dir: &Path) -> Store {
         Store {
             root: repo_dir.join(DIR_NAME),

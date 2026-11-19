@@ -1,8 +1,8 @@
 {
-  "name": "rules-evolve",
-  "displayName": "rules-evolve",
-  "version": "2.1.0",
-  "description": "Slash commands and hooks for rules-evolve, the CLI that evolves a repo's agent rules file with measured, hash-chained experiments. Mock and replay providers only: no model is called.",
+  "name": "bogo",
+  "displayName": "bogo",
+  "version": "3.0.0",
+  "description": "Slash commands and hooks for bogo, the CLI that evolves a repo's agent rules file with measured, hash-chained experiments. Mock and replay providers only: no model is called.",
   "author": {
     "name": "Ayaan Syed"
   },

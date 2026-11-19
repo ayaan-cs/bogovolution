@@ -1,12 +1,15 @@
 [package]
-name = "rules-evolve-watch"
-description = "Optional terminal view (ratatui) that follows a rules-evolve lineage log live"
+name = "bogovolution-watch"
+description = "Terminal view (ratatui) that follows a bogovolution lineage log live"
+readme = "README.md"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
-publish.workspace = true
+authors.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [dependencies]
-rules-evolve-core = { path = "../core" }
+bogovolution-core = { path = "../core", version = "3.0.0" }
 ratatui = "0.30"
 tempfile.workspace = true

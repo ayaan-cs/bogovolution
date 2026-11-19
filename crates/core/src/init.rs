@@ -93,7 +93,7 @@ pub struct InitReport {
     pub root_hash: String,
     pub defaults_confirmed: bool,
     pub files_created: Vec<String>,
-    /// Result of checking that git does not ignore `.rules-evolve/`.
+    /// Result of checking that git does not ignore `.bogo/`.
     pub gitignore: GitignoreReport,
 }
 
@@ -127,7 +127,7 @@ fn relativize(repo_dir: &Path, given: &Path) -> Result<String> {
     Ok(to_forward_slashes(rel))
 }
 
-/// Set up `.rules-evolve/` in a repo. Makes no model calls.
+/// Set up `.bogo/` in a repo. Makes no model calls.
 pub fn init(opts: &InitOptions) -> Result<InitReport> {
     if opts.model.trim().is_empty() {
         return Err(Error::Input("model name must not be empty".into()));
@@ -263,11 +263,11 @@ mod tests {
             return;
         }
         std::fs::write(dir.path().join("AGENTS.md"), "x").unwrap();
-        std::fs::write(dir.path().join(".gitignore"), ".rules-evolve/\n").unwrap();
+        std::fs::write(dir.path().join(".gitignore"), ".bogo/\n").unwrap();
         let report = init(&opts(dir.path(), None)).unwrap();
         assert_eq!(report.gitignore.status, "fixed");
         // The inner ignore file only names scratch and sandbox folders.
-        let inner = std::fs::read_to_string(dir.path().join(".rules-evolve/.gitignore")).unwrap();
+        let inner = std::fs::read_to_string(dir.path().join(".bogo/.gitignore")).unwrap();
         let rules: Vec<&str> = inner
             .lines()
             .filter(|l| !l.starts_with('#') && !l.is_empty())

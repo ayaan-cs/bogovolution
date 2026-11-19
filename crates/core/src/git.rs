@@ -1,6 +1,6 @@
 //! Small git helpers. They only read git state and never touch the network.
 //!
-//! `.rules-evolve/` is meant to be committed so the lineage has git history,
+//! `.bogo/` is meant to be committed so the lineage has git history,
 //! so `init` checks that git does not ignore it.
 
 use serde::Serialize;
@@ -12,7 +12,7 @@ use std::process::Command;
 pub enum IgnoreCheck {
     /// Not ignored.
     NotIgnored,
-    /// Ignored. The text is the matching rule, for example `.gitignore:3:.rules-evolve/`.
+    /// Ignored. The text is the matching rule, for example `.gitignore:3:.bogo/`.
     Ignored(String),
     /// The directory is not inside a git repo.
     NotAGitRepo,
@@ -53,17 +53,17 @@ pub struct GitignoreReport {
     pub detail: String,
 }
 
-const NEGATION: &str = "!.rules-evolve/";
+const NEGATION: &str = "!.bogo/";
 
-/// Make sure `.rules-evolve/` is not ignored. If it is, add a negation rule to
+/// Make sure `.bogo/` is not ignored. If it is, add a negation rule to
 /// `<dir>/.gitignore` and check again.
 pub fn ensure_not_ignored(dir: &Path) -> crate::Result<GitignoreReport> {
-    let probe = ".rules-evolve/log.jsonl";
+    let probe = ".bogo/log.jsonl";
     match check_ignored(dir, probe) {
         IgnoreCheck::NotAGitRepo => Ok(GitignoreReport {
             status: "not_a_git_repo".into(),
             rule: None,
-            detail: "not inside a git repo; commit .rules-evolve/ once you have one".into(),
+            detail: "not inside a git repo; commit .bogo/ once you have one".into(),
         }),
         IgnoreCheck::GitUnavailable => Ok(GitignoreReport {
             status: "git_unavailable".into(),
@@ -73,7 +73,7 @@ pub fn ensure_not_ignored(dir: &Path) -> crate::Result<GitignoreReport> {
         IgnoreCheck::NotIgnored => Ok(GitignoreReport {
             status: "ok".into(),
             rule: None,
-            detail: ".rules-evolve/ is not ignored; commit it".into(),
+            detail: ".bogo/ is not ignored; commit it".into(),
         }),
         IgnoreCheck::Ignored(rule) => {
             let path = dir.join(".gitignore");
@@ -81,7 +81,7 @@ pub fn ensure_not_ignored(dir: &Path) -> crate::Result<GitignoreReport> {
             if !text.is_empty() && !text.ends_with('\n') {
                 text.push('\n');
             }
-            text.push_str("# rules-evolve: keep the lineage in git history\n");
+            text.push_str("# bogo: keep the lineage in git history\n");
             text.push_str(NEGATION);
             text.push('\n');
             std::fs::write(&path, text).map_err(crate::error::io_err(&path))?;
@@ -90,13 +90,13 @@ pub fn ensure_not_ignored(dir: &Path) -> crate::Result<GitignoreReport> {
                     status: "still_ignored".into(),
                     rule: Some(rule),
                     detail: format!(
-                        "added {NEGATION} to .gitignore but git still ignores .rules-evolve/ ({still}); fix this by hand"
+                        "added {NEGATION} to .gitignore but git still ignores .bogo/ ({still}); fix this by hand"
                     ),
                 }),
                 _ => Ok(GitignoreReport {
                     status: "fixed".into(),
                     rule: Some(rule.clone()),
-                    detail: format!("{rule} ignored .rules-evolve/, so {NEGATION} was added to .gitignore"),
+                    detail: format!("{rule} ignored .bogo/, so {NEGATION} was added to .gitignore"),
                 }),
             }
         }
@@ -149,14 +149,14 @@ mod tests {
         }
         let d = tempdir().unwrap();
         git_init(d.path());
-        std::fs::write(d.path().join(".gitignore"), "target\n.rules-evolve/").unwrap();
+        std::fs::write(d.path().join(".gitignore"), "target\n.bogo/").unwrap();
         let r = ensure_not_ignored(d.path()).unwrap();
         assert_eq!(r.status, "fixed");
         let text = std::fs::read_to_string(d.path().join(".gitignore")).unwrap();
-        assert!(text.contains("target\n.rules-evolve/\n"));
-        assert!(text.contains("!.rules-evolve/"));
+        assert!(text.contains("target\n.bogo/\n"));
+        assert!(text.contains("!.bogo/"));
         assert_eq!(
-            check_ignored(d.path(), ".rules-evolve/log.jsonl"),
+            check_ignored(d.path(), ".bogo/log.jsonl"),
             IgnoreCheck::NotIgnored
         );
     }

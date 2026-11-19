@@ -10,7 +10,7 @@ repo, on Nov 17, 2026 from 10:42 PM to 11:00 PM CST. It cost **$0.1417**.
 | `replay.sh` | Rebuilds the project from a more-itertools checkout and replays it. No key, no network. |
 | `run2.sh` | The script that made the paid run (restartable, `evolve --total`). |
 | `log.jsonl` | The run's hash-chained log (24 events, `verify-log` OK). |
-| `tree.json` | `rules-evolve export` of the log, for the viewer. |
+| `tree.json` | `bogo export` of the log, for the viewer. |
 | `api-transcript.jsonl` | Each API call: reply, seed and the provider's token usage. |
 | `rules/` | The five rules files, named by hash prefix. |
 | `config.toml` | The project config. |
@@ -150,7 +150,7 @@ No call failed, timed out or was repeated, so every call is in the log and
 the replay. The worst case worked out before the run: 240 task calls at
 2,000 input and 2,048 output tokens, plus 3 mutation calls and one redone
 run after a possible timeout, came to about $0.32. A guard script would
-have stopped the run at $0.40. rules-evolve's own token count is 402,230
+have stopped the run at $0.40. bogo's own token count is 402,230
 (input plus output over all calls).
 
 The free replay (`replay.sh`) reproduces all 23 events of `log.jsonl` after

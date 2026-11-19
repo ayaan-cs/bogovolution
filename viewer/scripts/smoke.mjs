@@ -34,7 +34,7 @@ page.on('pageerror', (e) => errors.push(e.message));
 
 await page.goto(pathToFileURL(dist).href);
 await page.waitForSelector('canvas');
-assert.match(await page.textContent('h1'), /rules-evolve lineage/);
+assert.match(await page.textContent('h1'), /bogovolution lineage/);
 assert.match(await page.textContent('.sub'), /demo-model/);
 assert.match(await page.textContent('footer'), /Petri/);
 
@@ -126,7 +126,7 @@ const graphStats = () =>
 // Bad file: friendly error, old lineage stays.
 await page.setInputFiles('input[type=file]', bad);
 await page.waitForSelector('[role=alert]');
-assert.match(await page.textContent('[role=alert]'), /does not look like a rules-evolve export/);
+assert.match(await page.textContent('[role=alert]'), /does not look like a bogo export/);
 assert.match(await page.textContent('.sub'), /demo-model/);
 
 // Good file replaces it and clears the error.

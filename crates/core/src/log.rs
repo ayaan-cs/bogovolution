@@ -157,7 +157,7 @@ pub struct Log {
 }
 
 impl Log {
-    /// `dir` is the `.rules-evolve` directory. Files are `log.jsonl` and `HEAD`.
+    /// `dir` is the `.bogo` directory. Files are `log.jsonl` and `HEAD`.
     pub fn new(dir: &Path) -> Log {
         Log {
             path: dir.join("log.jsonl"),

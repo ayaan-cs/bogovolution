@@ -3,7 +3,7 @@
 //! For every attempt the harness:
 //!
 //! 1. copies the repo into a fresh temp folder, leaving out the benchmark
-//!    check files (`hidden`), `.git`, `.rules-evolve`, other excluded paths,
+//!    check files (`hidden`), `.git`, `.bogo`, other excluded paths,
 //!    and every symlink;
 //! 2. writes the rules version under test into that copy;
 //! 3. lets the model work from that copy (the model never gets the check
@@ -36,7 +36,7 @@ use std::time::Duration;
 use tempfile::TempDir;
 
 /// Folders that are never copied into a worktree.
-const ALWAYS_EXCLUDED: [&str; 2] = [".git", ".rules-evolve"];
+const ALWAYS_EXCLUDED: [&str; 3] = [".git", ".bogo", ".rules-evolve"];
 
 /// Largest single file a model may write.
 pub const MAX_EDIT_BYTES: usize = 1_000_000;
@@ -124,7 +124,7 @@ impl Sandbox {
             hidden_dirs: Vec::new(),
             pristine: Arc::new(
                 tempfile::Builder::new()
-                    .prefix("rules-evolve-pristine-")
+                    .prefix("bogo-pristine-")
                     .tempdir()
                     .map_err(io_err(std::env::temp_dir()))?,
             ),
@@ -309,7 +309,7 @@ impl Sandbox {
     /// Build a fresh worktree with the given rules version in place.
     pub fn prepare(&self, rules_content: &[u8]) -> Result<Worktree<'_>> {
         let dir = tempfile::Builder::new()
-            .prefix("rules-evolve-")
+            .prefix("bogo-")
             .tempdir()
             .map_err(io_err(std::env::temp_dir()))?;
         for rel in &self.visible_files {
@@ -517,7 +517,7 @@ mod tests {
         write(d.path(), "check.sh", "exit 0");
         write(d.path(), "pkg/a_test.txt", "glob hidden");
         write(d.path(), ".git/config", "git");
-        write(d.path(), ".rules-evolve/log.jsonl", "log");
+        write(d.path(), ".bogo/log.jsonl", "log");
         write(d.path(), "target/big.bin", "build output");
         let cfg = SandboxConfig {
             hidden: vec!["tests".into(), "check.sh".into(), "**/*_test.txt".into()],
@@ -570,7 +570,7 @@ mod tests {
         assert!(!p.join("check.sh").exists());
         assert!(!p.join("pkg/a_test.txt").exists());
         assert!(!p.join(".git").exists());
-        assert!(!p.join(".rules-evolve").exists());
+        assert!(!p.join(".bogo").exists());
         assert!(!p.join("target").exists());
         // No file anywhere in the copy contains the secret text.
         fn all_text(dir: &Path, out: &mut String) {
@@ -641,7 +641,7 @@ mod tests {
             "/abs/path.txt",
             "a/../../b.txt",
             ".git/hooks/pre-commit",
-            ".rules-evolve/log.jsonl",
+            ".bogo/log.jsonl",
             "AGENTS.md",
             "",
             "target/x",
@@ -740,20 +740,19 @@ mod tests {
 
     #[test]
     fn check_environment_is_cleared_except_passthrough() {
-        std::env::set_var("RULES_EVOLVE_TEST_SECRET", "hunter2");
-        std::env::set_var("RULES_EVOLVE_TEST_ALLOWED", "yes");
+        std::env::set_var("BOGO_TEST_SECRET", "hunter2");
+        std::env::set_var("BOGO_TEST_ALLOWED", "yes");
         let (d, mut cfg) = fixture();
-        cfg.env_passthrough = vec!["RULES_EVOLVE_TEST_ALLOWED".into()];
+        cfg.env_passthrough = vec!["BOGO_TEST_ALLOWED".into()];
         let sb = Sandbox::scan(d.path(), "AGENTS.md", &cfg).unwrap();
         let wt = sb.prepare(b"r").unwrap();
         let t = Duration::from_secs(10);
         assert_eq!(
-            wt.run_check("test -z \"$RULES_EVOLVE_TEST_SECRET\"", t)
-                .unwrap(),
+            wt.run_check("test -z \"$BOGO_TEST_SECRET\"", t).unwrap(),
             CheckStatus::Passed
         );
         assert_eq!(
-            wt.run_check("test \"$RULES_EVOLVE_TEST_ALLOWED\" = yes", t)
+            wt.run_check("test \"$BOGO_TEST_ALLOWED\" = yes", t)
                 .unwrap(),
             CheckStatus::Passed
         );

@@ -4,8 +4,12 @@ use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("not a rules-evolve project: {0} does not exist (run `rules-evolve init` first)")]
+    #[error("not a bogo project: {0} does not exist (run `bogo init` first)")]
     NotInitialized(PathBuf),
+    #[error(
+        "{0} is a project from rules-evolve 2.x. bogo 3 keeps its files in .bogo/: rename the folder (mv .rules-evolve .bogo, or on Windows: ren .rules-evolve .bogo) and run the command again"
+    )]
+    OldProjectDir(PathBuf),
     #[error("already initialized: {0} exists")]
     AlreadyInitialized(PathBuf),
     #[error("lineage log is not valid, refusing to continue: {0}")]

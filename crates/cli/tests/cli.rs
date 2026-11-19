@@ -5,7 +5,7 @@ use std::path::Path;
 use std::process::{Command, Output};
 
 fn bin() -> Command {
-    Command::new(env!("CARGO_BIN_EXE_rules-evolve"))
+    Command::new(env!("CARGO_BIN_EXE_bogo"))
 }
 
 fn run(dir: &Path, args: &[&str]) -> Output {
@@ -69,7 +69,7 @@ fn init_then_status_then_log_then_verify() {
 #[test]
 fn init_writes_expected_files_and_template() {
     let dir = project();
-    let root = dir.path().join(".rules-evolve");
+    let root = dir.path().join(".bogo");
     for f in ["config.toml", "tasks.toml", "log.jsonl", "HEAD"] {
         assert!(root.join(f).is_file(), "{f} missing");
     }
@@ -83,7 +83,7 @@ fn init_writes_expected_files_and_template() {
 #[test]
 fn tampering_is_caught_with_exit_code_2() {
     let dir = project();
-    let log = dir.path().join(".rules-evolve/log.jsonl");
+    let log = dir.path().join(".bogo/log.jsonl");
     let text = std::fs::read_to_string(&log).unwrap();
     std::fs::write(&log, text.replace("demo-model", "other-model")).unwrap();
 
@@ -169,8 +169,8 @@ fn bench_project(mock_seed: u64) -> tempfile::TempDir {
             "[[answer]]\ntask = \"t{i}\"\npath = \"answers/t{i}.txt\"\npass_content = \"ok\\n\"\nfail_content = \"no\\n\"\n"
         ));
     }
-    std::fs::write(root.join(".rules-evolve/tasks.toml"), tasks).unwrap();
-    std::fs::write(root.join(".rules-evolve/mock.toml"), mock).unwrap();
+    std::fs::write(root.join(".bogo/tasks.toml"), tasks).unwrap();
+    std::fs::write(root.join(".bogo/mock.toml"), mock).unwrap();
     dir
 }
 
@@ -293,7 +293,7 @@ fn run_json_shape_and_resume() {
 fn token_cap_is_enforced_through_the_cli() {
     let dir = bench_project(5);
     let d = dir.path();
-    let cfg = d.join(".rules-evolve/config.toml");
+    let cfg = d.join(".bogo/config.toml");
     let text = std::fs::read_to_string(&cfg).unwrap();
     // One call costs about 100 tokens plus a few for the text. Cap at 350.
     std::fs::write(&cfg, text.replace("200000", "350")).unwrap();
@@ -314,7 +314,7 @@ fn token_cap_is_enforced_through_the_cli() {
 fn a_capped_run_says_why_and_stops_the_version() {
     let dir = bench_project(5);
     let d = dir.path();
-    let cfg = d.join(".rules-evolve/config.toml");
+    let cfg = d.join(".bogo/config.toml");
     let text = std::fs::read_to_string(&cfg).unwrap();
     std::fs::write(&cfg, text.replace("200000", "350")).unwrap();
     let out = run(d, &["run", "--version", "root", "--repeats", "3"]);
@@ -332,7 +332,7 @@ fn a_half_written_log_line_is_repaired_and_reported_by_the_next_run() {
     let dir = bench_project(5);
     let d = dir.path();
     ok_json(d, &["run", "--version", "root", "--repeats", "1"]);
-    let log = d.join(".rules-evolve/log.jsonl");
+    let log = d.join(".bogo/log.jsonl");
     let mut text = std::fs::read_to_string(&log).unwrap();
     text.push_str("{\"seq\":9,\"kind\":\"run_rec");
     std::fs::write(&log, text).unwrap();
@@ -344,7 +344,7 @@ fn a_half_written_log_line_is_repaired_and_reported_by_the_next_run() {
     );
     let words = String::from_utf8_lossy(&out.stdout);
     assert!(words.contains("Log repaired"), "{words}");
-    assert!(d.join(".rules-evolve/log.jsonl.partial").exists());
+    assert!(d.join(".bogo/log.jsonl.partial").exists());
     assert_eq!(ok_json(d, &["verify-log"])["data"]["valid"], true);
 }
 
@@ -412,7 +412,7 @@ fn verify_before_running_and_unknown_provider_are_errors() {
 #[test]
 fn run_without_mock_settings_explains_what_to_do() {
     let dir = bench_project(5);
-    std::fs::remove_file(dir.path().join(".rules-evolve/mock.toml")).unwrap();
+    std::fs::remove_file(dir.path().join(".bogo/mock.toml")).unwrap();
     let out = run(dir.path(), &["run", "--json"]);
     assert_eq!(out.status.code(), Some(1));
     assert!(json_of(&out)["error"]["message"]
@@ -435,7 +435,7 @@ fn demo_project() -> tempfile::TempDir {
     let out = run(dir.path(), &["init", "--model", "demo-model", "--json"]);
     assert!(out.status.success());
     for f in ["tasks.toml", "mock.toml"] {
-        std::fs::copy(demo.join(f), dir.path().join(".rules-evolve").join(f)).unwrap();
+        std::fs::copy(demo.join(f), dir.path().join(".bogo").join(f)).unwrap();
     }
     dir
 }
@@ -463,7 +463,7 @@ fn mutate_through_the_cli_records_proposals_and_refusals() {
     let dir = bench_project(5);
     let d = dir.path();
     // Three candidates: good, empty hypothesis, no change.
-    let mock = d.join(".rules-evolve/mock.toml");
+    let mock = d.join(".bogo/mock.toml");
     let mut text = std::fs::read_to_string(&mock).unwrap();
     text.push_str(
         "\n[[mutation]]\nhypothesis = \"add the good hint\"\nappend = \"GOOD\"\n\
@@ -919,7 +919,7 @@ fn export_of_the_demo_validates_against_the_published_schema() {
 
     let doc = read_json(&out);
     assert_valid(&schema_validator(), &doc);
-    assert_eq!(doc["format"], "rules-evolve-export");
+    assert_eq!(doc["format"], "bogovolution-export");
     assert_eq!(doc["version"], 1);
     assert_eq!(doc["nodes"].as_array().unwrap().len(), 9);
     assert_eq!(doc["edges"].as_array().unwrap().len(), 8);
@@ -1081,7 +1081,7 @@ fn committed_demo_export_validates_and_matches_a_fresh_one() {
 #[test]
 fn export_and_digest_refuse_a_tampered_log() {
     let dir = evolved_demo();
-    let log = dir.path().join(".rules-evolve").join("log.jsonl");
+    let log = dir.path().join(".bogo").join("log.jsonl");
     let text = std::fs::read_to_string(&log).unwrap();
     assert!(text.contains("\"demo-model\""));
     std::fs::write(&log, text.replacen("\"demo-model\"", "\"evil-model\"", 1)).unwrap();
@@ -1232,7 +1232,7 @@ fn watch_snapshot_svg_matches_the_committed_picture() {
 #[test]
 fn watch_snapshot_has_a_json_form_and_never_writes_the_log() {
     let dir = evolved_demo();
-    let log = dir.path().join(".rules-evolve").join("log.jsonl");
+    let log = dir.path().join(".bogo").join("log.jsonl");
     let before = std::fs::read(&log).unwrap();
     let v = ok_json(dir.path(), &["watch", "--snapshot"]);
     assert_eq!(v["command"], "watch");
@@ -1244,7 +1244,7 @@ fn watch_snapshot_has_a_json_form_and_never_writes_the_log() {
 #[test]
 fn watch_snapshot_shows_a_broken_chain_clearly() {
     let dir = evolved_demo();
-    let log = dir.path().join(".rules-evolve").join("log.jsonl");
+    let log = dir.path().join(".bogo").join("log.jsonl");
     let text = std::fs::read_to_string(&log).unwrap();
     // Tamper somewhere in the middle of the log, by editing a hypothesis.
     let tampered = text.replacen("Asking for small commits", "Asking for tiny commits", 1);
@@ -1367,7 +1367,7 @@ fn backend_works(survey: &Value, name: &str) -> bool {
 #[test]
 fn init_writes_the_sandbox_table_with_safe_defaults() {
     let dir = project();
-    let text = std::fs::read_to_string(dir.path().join(".rules-evolve/config.toml")).unwrap();
+    let text = std::fs::read_to_string(dir.path().join(".bogo/config.toml")).unwrap();
     assert!(text.contains("[sandbox]"));
     assert!(text.contains("isolation = \"auto\""));
     assert!(text.contains("image = \"docker.io/library/alpine:3.20\""));
@@ -1450,7 +1450,7 @@ fn run_uses_the_backend_auto_picks_and_records_it() {
 #[test]
 fn the_isolation_setting_in_config_and_the_flag_both_work() {
     let dir = demo_project();
-    let cfg = dir.path().join(".rules-evolve/config.toml");
+    let cfg = dir.path().join(".bogo/config.toml");
     let text = std::fs::read_to_string(&cfg).unwrap();
     std::fs::write(
         &cfg,
@@ -1523,7 +1523,7 @@ fn risky_demo() -> tempfile::TempDir {
     std::fs::create_dir_all(root.join("docs")).unwrap();
     std::fs::write(root.join("docs/spec.txt"), "spec\n").unwrap();
     std::fs::write(root.join("docs/readme.txt"), "readme\n").unwrap();
-    let tasks = root.join(".rules-evolve/tasks.toml");
+    let tasks = root.join(".bogo/tasks.toml");
     let t = std::fs::read_to_string(&tasks).unwrap();
     std::fs::write(
         &tasks,
@@ -1537,7 +1537,7 @@ fn risky_demo() -> tempfile::TempDir {
 }
 
 fn set_shadow_mode(dir: &Path, mode: &str) {
-    let cfg = dir.join(".rules-evolve/config.toml");
+    let cfg = dir.join(".bogo/config.toml");
     let t = std::fs::read_to_string(&cfg).unwrap();
     assert!(t.contains("shadow_warnings = \"warn\""));
     std::fs::write(
@@ -1682,7 +1682,7 @@ fn off_mode_hides_the_warnings() {
 #[test]
 fn hiding_the_whole_folder_clears_the_warning() {
     let dir = risky_demo();
-    let tasks = dir.path().join(".rules-evolve/tasks.toml");
+    let tasks = dir.path().join(".bogo/tasks.toml");
     let t = std::fs::read_to_string(&tasks).unwrap();
     std::fs::write(&tasks, t.replace("\"docs/spec.txt\"", "\"docs\"")).unwrap();
     let v = ok_json(dir.path(), &["run", "--repeats", "1"]);
@@ -1724,11 +1724,11 @@ fn local_output_files_must_not_land_where_the_model_reads() {
         .as_str()
         .unwrap()
         .contains("inside the repo"));
-    // under .rules-evolve or outside the repo is fine: the run then fails only
+    // under .bogo or outside the repo is fine: the run then fails only
     // because no server is listening
     let outside = tempfile::tempdir().unwrap();
     let rec = outside.path().join("rec.jsonl");
-    for path in [".rules-evolve/rec.jsonl", rec.to_str().unwrap()] {
+    for path in [".bogo/rec.jsonl", rec.to_str().unwrap()] {
         let out = run(d, &[&base[..], &["--record", path, "--json"]].concat());
         assert_eq!(out.status.code(), Some(1));
         let msg = json_of(&out)["error"]["message"]
@@ -1743,8 +1743,8 @@ fn local_output_files_must_not_land_where_the_model_reads() {
 fn held_out_project() -> tempfile::TempDir {
     let dir = bench_project(5);
     let root = dir.path();
-    let mut tasks = std::fs::read_to_string(root.join(".rules-evolve/tasks.toml")).unwrap();
-    let mut mock = std::fs::read_to_string(root.join(".rules-evolve/mock.toml")).unwrap();
+    let mut tasks = std::fs::read_to_string(root.join(".bogo/tasks.toml")).unwrap();
+    let mut mock = std::fs::read_to_string(root.join(".bogo/mock.toml")).unwrap();
     let train: Vec<String> = (0..N_TASKS).map(|i| format!("\"t{i}\"")).collect();
     mock.push_str(&format!(
         "[[marker]]\ntext = \"NARROW\"\ndelta = 0.6\ntasks = [{}]\n",
@@ -1758,8 +1758,8 @@ fn held_out_project() -> tempfile::TempDir {
             "[[answer]]\ntask = \"h{i}\"\npath = \"answers/h{i}.txt\"\npass_content = \"ok\\n\"\nfail_content = \"no\\n\"\n"
         ));
     }
-    std::fs::write(root.join(".rules-evolve/tasks.toml"), tasks).unwrap();
-    std::fs::write(root.join(".rules-evolve/mock.toml"), mock).unwrap();
+    std::fs::write(root.join(".bogo/tasks.toml"), tasks).unwrap();
+    std::fs::write(root.join(".bogo/mock.toml"), mock).unwrap();
     dir
 }
 
@@ -1853,7 +1853,7 @@ fn apply_is_a_dry_run_until_yes_and_needs_force_for_non_accepted() {
         .as_str()
         .unwrap()
         .to_string();
-    let blob = std::fs::read(d.join(".rules-evolve/blobs").join(&current)).unwrap();
+    let blob = std::fs::read(d.join(".bogo/blobs").join(&current)).unwrap();
     assert_eq!(std::fs::read(d.join("AGENTS.md")).unwrap(), blob);
     assert_eq!(
         status["data"]["tree"]["applied"][0]["version"],
@@ -2045,7 +2045,7 @@ fn paid_providers_need_allow_spend_a_model_a_key_and_isolation() {
     assert_eq!(seen.lock().unwrap().len(), N_TASKS);
     assert!(seen.lock().unwrap()[0].contains(KEY));
     let mut on_disk = std::fs::read_to_string(&rec_file).unwrap();
-    for entry in walk_files(&d.join(".rules-evolve")) {
+    for entry in walk_files(&d.join(".bogo")) {
         on_disk.push_str(&String::from_utf8_lossy(&std::fs::read(entry).unwrap()));
     }
     assert!(!on_disk.contains(KEY));

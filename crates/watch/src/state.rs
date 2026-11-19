@@ -2,9 +2,9 @@
 //! and details out. Nothing here draws anything or touches the terminal, so it
 //! is plain unit tested data in and data out.
 
-use rules_evolve_core::event::{Event, Payload, VerdictKind};
-use rules_evolve_core::export::node_median;
-use rules_evolve_core::tree::{Node, Refusal, Tree};
+use bogovolution_core::event::{Event, Payload, VerdictKind};
+use bogovolution_core::export::node_median;
+use bogovolution_core::tree::{Node, Refusal, Tree};
 use std::collections::HashMap;
 
 /// The few config values the view needs.

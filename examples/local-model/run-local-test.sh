@@ -1,5 +1,5 @@
 #!/bin/sh
-# Free, local real model test of rules-evolve.
+# Free, local real model test of bogo.
 #
 #   run-local-test.sh demo                      the demo fixture (12 toy tasks)
 #   run-local-test.sh oss <more-itertools dir>  8 train and 8 held out tasks derived
@@ -14,7 +14,7 @@
 #   OUT          where the replay file, transcript and outputs go (default ./local-test-out)
 #   WORK         the throwaway project folder (default: a new temp folder)
 #   LOCAL_URL    model server (default http://127.0.0.1:8080)
-#   RULES_EVOLVE path to the binary (default: target/release/rules-evolve)
+#   BOGO path to the binary (default: target/release/bogo)
 #   OSS_FUNCS    train functions (default: the 8 below)
 #   OSS_HELD_OUT held out functions (default: the 8 below). Set it to an empty
 #                string for the train only task set of v2.2.0.
@@ -22,7 +22,7 @@ set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
-BIN=${RULES_EVOLVE:-$ROOT/target/release/rules-evolve}
+BIN=${BOGO:-$ROOT/target/release/bogo}
 if [ ! -x "$BIN" ]; then
   (cd "$ROOT" && cargo build --release -q)
 fi
@@ -47,14 +47,14 @@ case "$MODE" in
   demo)
     cp -R "$ROOT/examples/demo/fixture/." "$WORK/"
     "$BIN" -C "$WORK" init --model local-model >/dev/null
-    cp "$ROOT/examples/demo/tasks.toml" "$WORK/.rules-evolve/"
+    cp "$ROOT/examples/demo/tasks.toml" "$WORK/.bogo/"
     ;;
   oss)
     SRC=${2:?usage: run-local-test.sh oss <more-itertools checkout>}
     python3 "$HERE/make-oss-fixture.py" "$SRC" "$WORK" "$OSS_FUNCS" \
       --held-out="$OSS_HELD_OUT" --tasks-out="$OUT/tasks.toml"
     "$BIN" -C "$WORK" init --model local-model >/dev/null
-    mv "$OUT/tasks.toml" "$WORK/.rules-evolve/tasks.toml"
+    mv "$OUT/tasks.toml" "$WORK/.bogo/tasks.toml"
     ;;
   *)
     echo "usage: run-local-test.sh demo | oss <more-itertools checkout>" >&2
@@ -79,4 +79,4 @@ echo "Wall time: $((end - start)) s" | tee -a "$OUT/$MODE-evolve.txt"
 "$BIN" -C "$WORK" export --out "$OUT/$MODE-export.json" >/dev/null
 echo "Project: $WORK"
 echo "Outputs: $OUT"
-echo "Replay it for free: rules-evolve -C <fresh copy> evolve --generations $GENERATIONS --seed $SEED --provider replay --replay-file $OUT/$MODE-replay.jsonl"
+echo "Replay it for free: bogo -C <fresh copy> evolve --generations $GENERATIONS --seed $SEED --provider replay --replay-file $OUT/$MODE-replay.jsonl"

@@ -4,13 +4,13 @@
 //! A backend that cannot start here (not installed, no user namespaces, no
 //! daemon, no image) is skipped with a loud "SKIPPED" message on stderr (run
 //! with `--nocapture` to see it). Nothing is faked: a skipped backend ran no
-//! escape attempt. Set `RULES_EVOLVE_REQUIRE_BACKENDS=bwrap,docker,podman` (any
+//! escape attempt. Set `BOGO_REQUIRE_BACKENDS=bwrap,docker,podman` (any
 //! subset) to turn a skip into a failure, for example in CI.
 
-use rules_evolve_core::isolation::{
+use bogovolution_core::isolation::{
     probe_backend, Backend, CheckStatus, Isolation, Protected, Runner, SandboxSettings,
 };
-use rules_evolve_core::model::ProviderKind;
+use bogovolution_core::model::ProviderKind;
 use std::net::TcpListener;
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -23,7 +23,7 @@ trait Go {
         check: &str,
         env: &[(String, String)],
         timeout: Duration,
-    ) -> rules_evolve_core::Result<CheckStatus>;
+    ) -> bogovolution_core::Result<CheckStatus>;
 }
 
 impl Go for Runner {
@@ -33,7 +33,7 @@ impl Go for Runner {
         check: &str,
         env: &[(String, String)],
         timeout: Duration,
-    ) -> rules_evolve_core::Result<CheckStatus> {
+    ) -> bogovolution_core::Result<CheckStatus> {
         self.run(dir, check, env, &Protected::default(), timeout)
     }
 }
@@ -60,7 +60,7 @@ fn runner_or_skip(backend: Backend, s: SandboxSettings) -> Option<Runner> {
     match probe_backend(backend, &s) {
         Ok(()) => Some(Runner::resolve(&s, ProviderKind::Real).expect("probe passed")),
         Err(why) => {
-            let required = std::env::var("RULES_EVOLVE_REQUIRE_BACKENDS").unwrap_or_default();
+            let required = std::env::var("BOGO_REQUIRE_BACKENDS").unwrap_or_default();
             if required.split(',').any(|b| b.trim() == backend.as_str()) {
                 panic!(
                     "{} is required but does not work here: {why}",
@@ -226,10 +226,10 @@ fn hidden_files_are_not_readable(runner: &Runner, none: &Runner) {
 }
 
 fn environment_is_cleared(runner: &Runner) {
-    let secret_name = format!("RULES_EVOLVE_TEST_SECRET_{}", std::process::id());
+    let secret_name = format!("BOGO_TEST_SECRET_{}", std::process::id());
     std::env::set_var(&secret_name, "do-not-leak");
     let d = tempfile::tempdir().unwrap();
-    let pass = [("RULES_EVOLVE_PASSED".to_string(), "yes".to_string())];
+    let pass = [("BOGO_PASSED".to_string(), "yes".to_string())];
     runner.go(d.path(), "env > envout", &pass, T).unwrap();
     std::env::remove_var(&secret_name);
     let out = read(d.path(), "envout");
@@ -237,7 +237,7 @@ fn environment_is_cleared(runner: &Runner) {
         !out.contains("do-not-leak") && !out.contains(&secret_name),
         "{out}"
     );
-    assert!(out.contains("RULES_EVOLVE_PASSED=yes"), "{out}");
+    assert!(out.contains("BOGO_PASSED=yes"), "{out}");
 }
 
 fn limits_and_timeouts_hold(runner: &Runner, backend: Backend) {

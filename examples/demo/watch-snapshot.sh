@@ -10,14 +10,14 @@ set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
-BIN=${RULES_EVOLVE:-$ROOT/target/debug/rules-evolve}
+BIN=${BOGO:-$ROOT/target/debug/bogo}
 if [ ! -x "$BIN" ]; then
   (cd "$ROOT" && cargo build -q)
 fi
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
-DEMO_DIR="$WORK" RULES_EVOLVE="$BIN" "$HERE/demo.sh" > /dev/null
+DEMO_DIR="$WORK" BOGO="$BIN" "$HERE/demo.sh" > /dev/null
 
 OUT="$ROOT/docs/screenshots"
 mkdir -p "$OUT"

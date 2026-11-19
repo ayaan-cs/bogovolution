@@ -253,7 +253,7 @@ impl RemoteModel {
         let key = key.trim().to_string();
         if key.is_empty() {
             return Err(Error::Input(format!(
-                "the environment variable {key_env} is not set or empty. Put your {name} key there (it is never written to disk by rules-evolve)"
+                "the environment variable {key_env} is not set or empty. Put your {name} key there (it is never written to disk by bogo)"
             )));
         }
         if key.chars().any(|c| c.is_control() || c.is_whitespace()) {
@@ -265,7 +265,7 @@ impl RemoteModel {
             .timeout(Duration::from_secs(settings.timeout_secs))
             .redirects(0)
             .try_proxy_from_env(false)
-            .user_agent(concat!("rules-evolve/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("bogo/", env!("CARGO_PKG_VERSION")))
             .build();
         Ok(RemoteModel {
             api,

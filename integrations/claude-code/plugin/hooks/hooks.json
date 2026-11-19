@@ -1,5 +1,5 @@
 {
-  "description": "rules-evolve hooks. Both only act in a repo that has .rules-evolve/, never block, never call a model, and exit quietly when the rules-evolve binary is missing. Turn them off with RULES_EVOLVE_HOOKS=off or a .rules-evolve/hooks.off file.",
+  "description": "bogo hooks. Both only act in a repo that has .bogo/, never block, never call a model, and exit quietly when the bogo binary is missing. Turn them off with BOGO_HOOKS=off or a .bogo/hooks.off file.",
   "hooks": {
     "SessionStart": [
       {

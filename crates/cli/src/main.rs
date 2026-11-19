@@ -1,21 +1,21 @@
-//! `rules-evolve` command line tool.
+//! `bogo` command line tool.
 //!
 //! Every command accepts `--json`. See the README for the JSON shapes.
 
 use anyhow::Result;
+use bogovolution_core::apply::{apply, ApplyOptions};
+use bogovolution_core::bench::{propose, run_version, verify_child, RunOptions};
+use bogovolution_core::digest::{build_digest, render_markdown};
+use bogovolution_core::event::{Event, EventKind, Payload};
+use bogovolution_core::export::{build_export, to_json as export_json};
+use bogovolution_core::init::{init, InitOptions};
+use bogovolution_core::isolation::Isolation;
+use bogovolution_core::model::{build_provider, Model, ProviderSpec};
+use bogovolution_core::mutate::{evolve, mutate, EvolveOptions, MutateOptions};
+use bogovolution_core::repo::{FullVerify, Repo, StatusReport};
+use bogovolution_core::shadow::{self, ShadowWarning};
+use bogovolution_core::tree::Tree;
 use clap::{Args, Parser, Subcommand};
-use rules_evolve_core::apply::{apply, ApplyOptions};
-use rules_evolve_core::bench::{propose, run_version, verify_child, RunOptions};
-use rules_evolve_core::digest::{build_digest, render_markdown};
-use rules_evolve_core::event::{Event, EventKind, Payload};
-use rules_evolve_core::export::{build_export, to_json as export_json};
-use rules_evolve_core::init::{init, InitOptions};
-use rules_evolve_core::isolation::Isolation;
-use rules_evolve_core::model::{build_provider, Model, ProviderSpec};
-use rules_evolve_core::mutate::{evolve, mutate, EvolveOptions, MutateOptions};
-use rules_evolve_core::repo::{FullVerify, Repo, StatusReport};
-use rules_evolve_core::shadow::{self, ShadowWarning};
-use rules_evolve_core::tree::Tree;
 use serde_json::{json, Value};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -25,7 +25,7 @@ const SCHEMA_VERSION: u32 = 1;
 
 #[derive(Parser)]
 #[command(
-    name = "rules-evolve",
+    name = "bogo",
     version,
     about = "Evolve a repo's agent rules file, one small measured change at a time",
     long_about = "Evolve a repo's agent rules file (AGENTS.md, CLAUDE.md, .cursor/rules).\n\
@@ -96,7 +96,7 @@ struct ProviderArgs {
     api_transcript: Option<PathBuf>,
     /// Base URL of the local model server. Only for `--provider local`. The host
     /// must be localhost, 127.0.0.1 or [::1]
-    #[arg(long, default_value = rules_evolve_core::local::DEFAULT_URL, value_name = "URL")]
+    #[arg(long, default_value = bogovolution_core::local::DEFAULT_URL, value_name = "URL")]
     local_url: String,
     /// Sampling temperature for `--provider local` (0 to 2)
     #[arg(long, default_value_t = 0.7, value_name = "T")]
@@ -111,7 +111,7 @@ struct ProviderArgs {
     #[arg(long, value_name = "FILE")]
     local_transcript: Option<PathBuf>,
     /// Settings for the mock model
-    #[arg(long, default_value = ".rules-evolve/mock.toml")]
+    #[arg(long, default_value = ".bogo/mock.toml")]
     mock_config: PathBuf,
     /// Replay file to answer from (needed for `--provider replay`)
     #[arg(long)]
@@ -152,7 +152,7 @@ impl ProviderArgs {
         };
         let paid = matches!(self.provider.as_str(), "anthropic" | "openai");
         if !paid && (self.allow_spend || self.api_model.is_some() || self.api_url.is_some()) {
-            return Err(rules_evolve_core::Error::Input(format!(
+            return Err(bogovolution_core::Error::Input(format!(
                 "--allow-spend, --api-model and --api-url only apply to --provider anthropic or openai, not {:?}",
                 self.provider
             ))
@@ -166,8 +166,8 @@ impl ProviderArgs {
             ] {
                 if let Some(p) = p {
                     if model_can_see(dir, &rel(p)) {
-                        return Err(rules_evolve_core::Error::Input(format!(
-                            "{flag} {} is inside the repo, where the model would read it as a project file on the next task. Put it outside the repo or under .rules-evolve/",
+                        return Err(bogovolution_core::Error::Input(format!(
+                            "{flag} {} is inside the repo, where the model would read it as a project file on the next task. Put it outside the repo or under .bogo/",
                             p.display()
                         ))
                         .into());
@@ -181,14 +181,14 @@ impl ProviderArgs {
             replay_file: self.replay_file.as_ref().map(rel),
             record: self.record.as_ref().map(rel),
             pace_ms: self.pace,
-            local: rules_evolve_core::local::LocalSettings {
+            local: bogovolution_core::local::LocalSettings {
                 url: self.local_url.clone(),
                 temperature: self.local_temperature,
                 max_new_tokens: self.local_max_new_tokens,
                 timeout_secs: self.local_timeout,
                 transcript: self.local_transcript.as_ref().map(rel),
             },
-            remote: rules_evolve_core::remote::RemoteSettings {
+            remote: bogovolution_core::remote::RemoteSettings {
                 url: self.api_url.clone().unwrap_or_default(),
                 model: self.api_model.clone().unwrap_or_default(),
                 key_env: self.api_key_env.clone().unwrap_or_default(),
@@ -206,7 +206,7 @@ impl ProviderArgs {
 }
 
 /// True when `path` lands in the repo copy the model is shown: inside `dir`
-/// and not under a hidden (dot) folder such as `.rules-evolve`.
+/// and not under a hidden (dot) folder such as `.bogo`.
 fn model_can_see(dir: &std::path::Path, path: &std::path::Path) -> bool {
     use std::path::{Component, PathBuf};
     let Ok(root) = dir.canonicalize() else {
@@ -257,7 +257,7 @@ fn with_counters(mut data: Value, model: &dyn Model) -> Result<Value> {
 
 #[derive(Subcommand)]
 enum Command {
-    /// Set up .rules-evolve/ in the repo: config, task template, and the log
+    /// Set up .bogo/ in the repo: config, task template, and the log
     Init {
         /// Rules file to evolve. Detected from AGENTS.md, CLAUDE.md, .cursor/rules if not given
         #[arg(long)]
@@ -283,7 +283,7 @@ enum Command {
     /// runs `evolve`. Read only
     #[cfg(feature = "watch")]
     Watch {
-        /// Run a rules-evolve command as a child process and show it live, for
+        /// Run a bogo command as a child process and show it live, for
         /// example "evolve --generations 3 --provider replay --replay-file r.jsonl"
         #[arg(long, value_name = "COMMAND")]
         run: Option<String>,
@@ -450,7 +450,7 @@ fn run(cli: &Cli) -> Result<Output> {
                 model: model.clone(),
             })?;
             let mut text = format!(
-                "Initialized rules-evolve in {}\n  rules file: {}{}\n  model:      {} (recorded only)\n  root:       {}\n",
+                "Initialized bogo in {}\n  rules file: {}{}\n  model:      {} (recorded only)\n  root:       {}\n",
                 report.repo_root,
                 report.rules_file,
                 if report.detected { " (detected)" } else { "" },
@@ -468,7 +468,7 @@ fn run(cli: &Cli) -> Result<Output> {
                 text.push_str(&format!("  {f}\n"));
             }
             text.push_str(&format!(
-                "\ngit: {}\nCommit .rules-evolve/ so the lineage has git history.\n",
+                "\ngit: {}\nCommit .bogo/ so the lineage has git history.\n",
                 report.gitignore.detail
             ));
             // The tasks.toml that init just wrote is the template, so this is
@@ -479,9 +479,7 @@ fn run(cli: &Cli) -> Result<Output> {
                 text.push('\n');
                 text.push_str(&warnings_text(&warnings));
             }
-            text.push_str(
-                "\nReview .rules-evolve/config.toml and edit .rules-evolve/tasks.toml.\n",
-            );
+            text.push_str("\nReview .bogo/config.toml and edit .bogo/tasks.toml.\n");
             let mut data = serde_json::to_value(&report)?;
             if let Value::Object(map) = &mut data {
                 map.insert("warnings".into(), serde_json::to_value(&warnings)?);
@@ -497,7 +495,7 @@ fn run(cli: &Cli) -> Result<Output> {
             let repo = Repo::open(&cli.dir)?;
             let settings = repo.sandbox_settings()?;
             settings.validate()?;
-            let (backends, auto) = rules_evolve_core::isolation::survey(&settings);
+            let (backends, auto) = bogovolution_core::isolation::survey(&settings);
             let (shadow_mode, warnings) = shadow::scan_repo(&repo)?;
             let mut text = format!("Configured isolation: {}\n", settings.isolation.as_str());
             for b in &backends {
@@ -514,7 +512,7 @@ fn run(cli: &Cli) -> Result<Output> {
                 Some(b) => format!("auto would use: {}\n", b.as_str()),
                 None => format!(
                     "auto would use: {} (a real provider would be refused)\n",
-                    rules_evolve_core::isolation::UNSAFE_LABEL
+                    bogovolution_core::isolation::UNSAFE_LABEL
                 ),
             });
             text.push_str(&format!("Shadow warnings: {}\n", shadow_mode.as_str()));
@@ -889,7 +887,7 @@ fn run(cli: &Cli) -> Result<Output> {
             height,
             select,
         } => {
-            use rules_evolve_watch::app;
+            use bogovolution_watch::app;
             if *snapshot {
                 if run.is_some() {
                     anyhow::bail!("--snapshot and --run cannot be used together");
@@ -1094,7 +1092,7 @@ fn warnings_text(warnings: &[ShadowWarning]) -> String {
 /// Backend name for people. `none` always says it is unsafe.
 fn label_isolation(name: &str) -> &str {
     if name == "none" {
-        rules_evolve_core::isolation::UNSAFE_LABEL
+        bogovolution_core::isolation::UNSAFE_LABEL
     } else {
         name
     }
@@ -1166,7 +1164,7 @@ fn event_line(e: &Event) -> String {
     )
 }
 
-fn verdict_label(v: Option<rules_evolve_core::event::VerdictKind>) -> &'static str {
+fn verdict_label(v: Option<bogovolution_core::event::VerdictKind>) -> &'static str {
     v.map(|v| v.as_str()).unwrap_or("pending")
 }
 

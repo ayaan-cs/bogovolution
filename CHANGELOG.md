@@ -3,7 +3,35 @@
 All notable changes, newest first. Dates are in America/Chicago. Nothing has
 been published: every version below exists only as a local git commit.
 
-## Unreleased (after 2.7.2)
+## 3.0.0 (2026-11-19): renamed to bogovolution
+
+The project is now **bogovolution** and the command is **`bogo`**. Older
+entries below keep the old name, rules-evolve.
+
+- Crates: `rules-evolve-cli` is now `bogovolution` (binary `bogo`),
+  `rules-evolve-core` is `bogovolution-core`, `rules-evolve-watch` is
+  `bogovolution-watch`. All three carry publishing metadata (Apache-2.0,
+  description, readme, keywords, categories); the repository URL is still a
+  TODO. Nothing is published.
+- Project folder: `.rules-evolve/` is now `.bogo/`. A repo that only has the
+  old folder gets an error that says how to rename it
+  (`mv .rules-evolve .bogo`). The old folder is still never copied into a
+  task sandbox or listed as context.
+- Environment variables: `RULES_EVOLVE_*` are now `BOGO_*` (`BOGO_BIN`,
+  `BOGO_HOOKS`, `BOGO` in the example scripts, `BOGO_REQUIRE_BACKENDS` in the
+  escape tests). The Claude Code plugin still reads `RULES_EVOLVE_BIN` and
+  `RULES_EVOLVE_HOOKS` when the new names are unset.
+- Export format: `bogovolution-export`. The viewer and the schema still
+  accept `rules-evolve-export` files from 2.x. The schema `$id` changed.
+- Claude Code plugin: name `bogo`, commands `/bogo:...`, version 3.0.0.
+- Viewer title, README, docs, examples and the Windows zip
+  (`bogovolution-3.0.0-windows-x86_64.zip`) use the new name.
+- Unchanged on purpose: seeds are still derived from the strings
+  `rules-evolve/mutate/...` and `rules-evolve/run/...`, so every recorded
+  replay and log still reproduces exactly. The historical paid run scripts and
+  exported trees under `examples/claude/` keep the old name as recorded.
+
+## Unreleased work, shipped in 3.0.0 (after 2.7.2)
 
 - `examples/honest/`: 24 tasks (16 train, 8 held out) whose hidden checks
   test only what the docstrings state, with reference solutions and

@@ -1,6 +1,6 @@
-# Starter: use rules-evolve on your own repo
+# Starter: use bogo on your own repo
 
-rules-evolve changes your agent rules file (AGENTS.md, CLAUDE.md,
+bogo changes your agent rules file (AGENTS.md, CLAUDE.md,
 .cursor/rules) one small step at a time and keeps a change only when a
 benchmark of tasks from your repo says it helps. This folder is a template
 for that benchmark:
@@ -17,7 +17,7 @@ for that benchmark:
 
 ```sh
 cargo build --release            # once, from the repo root
-RULES_EVOLVE=target/release/rules-evolve examples/starter/try.sh
+BOGO=target/release/bogo examples/starter/try.sh
 ```
 
 It checks the sample tasks, runs `evolve --generations 3 --total` with the
@@ -28,19 +28,19 @@ accepts the general rule ("check every case the docstring names") and
 rejects the other two. Then look around:
 
 ```sh
-rules-evolve -C <folder>/mock digest     # what worked, what failed
-rules-evolve -C <folder>/mock apply      # diff of the best rules (dry run)
+bogo -C <folder>/mock digest     # what worked, what failed
+bogo -C <folder>/mock apply      # diff of the best rules (dry run)
 ```
 
 ## 2. Set up your repo
 
 ```sh
 cd your-repo
-rules-evolve init --model <model id>     # writes .rules-evolve/
-cp path/to/examples/starter/tasks.toml .rules-evolve/tasks.toml
+bogo init --model <model id>     # writes .bogo/
+cp path/to/examples/starter/tasks.toml .bogo/tasks.toml
 ```
 
-Then edit `.rules-evolve/config.toml`. For a first run:
+Then edit `.bogo/config.toml`. For a first run:
 
 ```toml
 [evaluation]
@@ -116,7 +116,7 @@ A held out task that always passes or always fails, whatever the rules say,
 adds nothing and can block every verdict: in our first Claude run one held
 out task passed in all 15 runs and one failed in all 15, so no child could
 ever win the held out pairs. After the first root run, look at the per task
-results (`rules-evolve -C . export --out tree.json`, or `digest`) and swap
+results (`bogo -C . export --out tree.json`, or `digest`) and swap
 out tasks at 0 of N or N of N. Tasks that fail for a reason a general habit
 could fix (a missing argument check, a missing import, an edge case the
 docstring names) are the most useful.
@@ -131,7 +131,7 @@ docstring names) are the most useful.
 
    ```sh
    export ANTHROPIC_API_KEY=...        # in your shell, never in a file
-   rules-evolve evolve --generations 3 --total --seed 7 \
+   bogo evolve --generations 3 --total --seed 7 \
      --provider anthropic --allow-spend --api-model claude-haiku-5-5 \
      --api-no-temperature --api-max-new-tokens 4096 \
      --record replay.jsonl --api-transcript transcript.jsonl
@@ -147,14 +147,14 @@ docstring names) are the most useful.
    - Output cap: Haiku 5.5 thinks before it answers and the thinking counts
      against `--api-max-new-tokens`. In our second run, with a cap of 2,048,
      28 of 243 calls hit it and 14 of them returned nothing but thinking.
-     Raise the cap (4,096 for harder tasks); rules-evolve has no switch to
+     Raise the cap (4,096 for harder tasks); bogo has no switch to
      turn thinking off yet.
    - Worst case cost: calls x (input cap x input price + output cap x output
      price). Calls are about (1 + generations) x repeats x tasks plus one
      mutation call per generation. Our runs: 16 tasks, 15 runs and 243
      calls cost $0.14; the worst case was about $0.32.
 
-When a version is accepted, `rules-evolve apply --yes` writes it into your
+When a version is accepted, `bogo apply --yes` writes it into your
 rules file.
 
 ## 8. Windows

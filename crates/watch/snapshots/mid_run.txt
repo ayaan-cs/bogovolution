@@ -1,4 +1,4 @@
- rules-evolve watch  AGENTS.md  model demo-model  0 accepted  0 rejected  0 noise  1 pending  0 refused
+ bogo watch  AGENTS.md  model demo-model  0 accepted  0 rejected  0 noise  1 pending  0 refused
 ┌ Mutation tree (* is current) ──────────────────────────────┐┌ Details ─────────────────────────────────────┐
 │*aaaaaaa root      40%           starting rules             ││Version bbbbbbb  pending                      │
 │└─  bbbbbbb pending   65%           Run the test suite befor││hypothesis Run the test suite before          │

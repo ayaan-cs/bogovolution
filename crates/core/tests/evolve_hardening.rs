@@ -4,19 +4,19 @@
 //! Every test here is deterministic and free: the mock model, a scripted
 //! model on top of it, the replay provider, or a fake local HTTP server.
 
-use rules_evolve_core::bench::{propose, run_version, verify_child, RunOptions};
-use rules_evolve_core::event::{EventKind, Payload, TaskStatus, VerdictKind};
-use rules_evolve_core::init::{init, InitOptions};
-use rules_evolve_core::local::{LocalModel, LocalSettings};
-use rules_evolve_core::model::{
+use bogovolution_core::bench::{propose, run_version, verify_child, RunOptions};
+use bogovolution_core::event::{EventKind, Payload, TaskStatus, VerdictKind};
+use bogovolution_core::init::{init, InitOptions};
+use bogovolution_core::local::{LocalModel, LocalSettings};
+use bogovolution_core::model::{
     MockConfig, MockModel, Model, ModelRequest, ModelResponse, MutationRequest, MutationResponse,
     ProviderKind,
 };
-use rules_evolve_core::mutate::{evolve, EvolveOptions, EvolveReport};
-use rules_evolve_core::replay::{RecordingModel, ReplayModel};
-use rules_evolve_core::repo::Repo;
-use rules_evolve_core::tree::Tree;
-use rules_evolve_core::Error;
+use bogovolution_core::mutate::{evolve, EvolveOptions, EvolveReport};
+use bogovolution_core::replay::{RecordingModel, ReplayModel};
+use bogovolution_core::repo::Repo;
+use bogovolution_core::tree::Tree;
+use bogovolution_core::Error;
 use std::cell::{Cell, RefCell};
 use std::io::{Read, Write};
 use std::net::TcpListener;
@@ -66,8 +66,8 @@ fn project(held_out: bool) -> (TempDir, Repo) {
             if held { "split = \"held_out\"\n" } else { "" }
         ));
     }
-    std::fs::write(root.join(".rules-evolve/tasks.toml"), tasks).unwrap();
-    std::fs::write(root.join(".rules-evolve/mock.toml"), mock_toml(held_out)).unwrap();
+    std::fs::write(root.join(".bogo/tasks.toml"), tasks).unwrap();
+    std::fs::write(root.join(".bogo/mock.toml"), mock_toml(held_out)).unwrap();
     let repo = Repo::open(root).unwrap();
     (dir, repo)
 }
@@ -143,13 +143,13 @@ impl Model for Scripted {
     fn estimate_tokens(&self, r: &ModelRequest) -> u64 {
         self.inner.estimate_tokens(r)
     }
-    fn complete(&self, r: &ModelRequest) -> rules_evolve_core::Result<ModelResponse> {
+    fn complete(&self, r: &ModelRequest) -> bogovolution_core::Result<ModelResponse> {
         self.inner.complete(r)
     }
     fn estimate_mutation_tokens(&self, _r: &MutationRequest) -> u64 {
         10
     }
-    fn propose_mutation(&self, r: &MutationRequest) -> rules_evolve_core::Result<MutationResponse> {
+    fn propose_mutation(&self, r: &MutationRequest) -> bogovolution_core::Result<MutationResponse> {
         self.seeds.borrow_mut().push(r.seed);
         self.prompts.borrow_mut().push(r.prompt.to_string());
         match self.script.borrow_mut().pop().expect("script ran out") {
@@ -163,7 +163,7 @@ impl Model for Scripted {
     }
 }
 
-fn evolve_n(repo: &Repo, model: &dyn Model, n: u32) -> rules_evolve_core::Result<EvolveReport> {
+fn evolve_n(repo: &Repo, model: &dyn Model, n: u32) -> bogovolution_core::Result<EvolveReport> {
     evolve(
         repo,
         model,
@@ -285,7 +285,7 @@ fn token_cap_refusals_are_not_retried() {
         fn estimate_tokens(&self, r: &ModelRequest) -> u64 {
             self.0.estimate_tokens(r)
         }
-        fn complete(&self, r: &ModelRequest) -> rules_evolve_core::Result<ModelResponse> {
+        fn complete(&self, r: &ModelRequest) -> bogovolution_core::Result<ModelResponse> {
             self.0.complete(r)
         }
         fn estimate_mutation_tokens(&self, _r: &MutationRequest) -> u64 {
@@ -344,7 +344,7 @@ impl Model for DiesAfter {
     fn estimate_tokens(&self, r: &ModelRequest) -> u64 {
         self.inner.estimate_tokens(r)
     }
-    fn complete(&self, r: &ModelRequest) -> rules_evolve_core::Result<ModelResponse> {
+    fn complete(&self, r: &ModelRequest) -> bogovolution_core::Result<ModelResponse> {
         if self.calls_left.get() == 0 {
             return Err(Error::Input(
                 "local model call failed: could not connect to 127.0.0.1:8080: Connection refused (os error 111)".into(),
@@ -356,7 +356,7 @@ impl Model for DiesAfter {
     fn estimate_mutation_tokens(&self, r: &MutationRequest) -> u64 {
         self.inner.estimate_mutation_tokens(r)
     }
-    fn propose_mutation(&self, r: &MutationRequest) -> rules_evolve_core::Result<MutationResponse> {
+    fn propose_mutation(&self, r: &MutationRequest) -> bogovolution_core::Result<MutationResponse> {
         self.inner.propose_mutation(r)
     }
 }
@@ -455,7 +455,7 @@ fn three_hints() -> Vec<Result<(&'static str, &'static str), &'static str>> {
     ]
 }
 
-fn evolve_total(repo: &Repo, model: &dyn Model, n: u32) -> rules_evolve_core::Result<EvolveReport> {
+fn evolve_total(repo: &Repo, model: &dyn Model, n: u32) -> bogovolution_core::Result<EvolveReport> {
     evolve(
         repo,
         model,
@@ -680,7 +680,7 @@ impl Model for ViaHttp {
     fn estimate_tokens(&self, r: &ModelRequest) -> u64 {
         self.0.estimate_tokens(r)
     }
-    fn complete(&self, r: &ModelRequest) -> rules_evolve_core::Result<ModelResponse> {
+    fn complete(&self, r: &ModelRequest) -> bogovolution_core::Result<ModelResponse> {
         self.0.complete(r)
     }
 }

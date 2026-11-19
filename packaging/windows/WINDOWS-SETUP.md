@@ -1,12 +1,12 @@
-# rules-evolve on Windows
+# bogovolution (the bogo command) on Windows
 
-This zip has a Windows build of rules-evolve (64 bit, x86_64), cross compiled
+This zip has a Windows build of bogo (64 bit, x86_64), cross compiled
 on Linux with mingw-w64. It needs no installer and no extra DLLs.
 
 Contents:
 
-- `rules-evolve.exe`: the command line tool. The terminal view (`watch`) is
-  built in: `rules-evolve.exe watch`.
+- `bogo.exe`: the command line tool. The terminal view (`watch`) is
+  built in: `bogo.exe watch`.
 - `viewer\index.html`: the static lineage viewer, one file, works offline.
 - `examples\demo\`: a small demo project and a recorded replay, for a free
   demo with no key and no network.
@@ -15,15 +15,15 @@ Contents:
 
 ## 1. Unzip and add to PATH
 
-Unzip somewhere stable, for example `C:\Tools\rules-evolve`. Then in
+Unzip somewhere stable, for example `C:\Tools\bogo`. Then in
 PowerShell:
 
 ```powershell
 # this window only
-$env:Path += ";C:\Tools\rules-evolve"
+$env:Path += ";C:\Tools\bogo"
 # every new window (your user PATH; open a new window afterwards)
-[Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";C:\Tools\rules-evolve", "User")
-rules-evolve --version
+[Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path", "User") + ";C:\Tools\bogo", "User")
+bogo --version
 ```
 
 ## 2. Install sh (needed for check commands)
@@ -54,12 +54,12 @@ Or the same by hand:
 ```powershell
 mkdir demo-run
 Copy-Item -Recurse examples\demo\fixture\* demo-run
-rules-evolve -C demo-run init --model demo-model
-Copy-Item examples\demo\tasks.toml, examples\demo\mock.toml demo-run\.rules-evolve
-rules-evolve -C demo-run evolve --generations 10 --seed 7 --provider replay --replay-file "$PWD\examples\demo\replay.jsonl"
-rules-evolve -C demo-run status
-rules-evolve -C demo-run verify-log
-rules-evolve -C demo-run watch
+bogo -C demo-run init --model demo-model
+Copy-Item examples\demo\tasks.toml, examples\demo\mock.toml demo-run\.bogo
+bogo -C demo-run evolve --generations 10 --seed 7 --provider replay --replay-file "$PWD\examples\demo\replay.jsonl"
+bogo -C demo-run status
+bogo -C demo-run verify-log
+bogo -C demo-run watch
 ```
 
 Give `--replay-file` as a full path (as above): a relative one is read
@@ -79,7 +79,7 @@ Which isolation the demo uses depends on what works (`auto`):
   writes "ok" or "no" into answer files.
 
 To pick one, add `--isolation none` or `--isolation docker` to the `evolve`
-line (or set `isolation` under `[sandbox]` in `demo-run\.rules-evolve\config.toml`).
+line (or set `isolation` under `[sandbox]` in `demo-run\.bogo\config.toml`).
 
 ## 4. Viewer
 
@@ -87,7 +87,7 @@ Open `viewer\index.html` in a browser. It shows the bundled demo lineage. To
 see your own:
 
 ```powershell
-rules-evolve -C demo-run export --out demo-tree.json
+bogo -C demo-run export --out demo-tree.json
 ```
 
 then click **Open tree.json** (or drag the file onto the page). It runs
@@ -105,7 +105,7 @@ exist on Windows. Two options:
 
   ```powershell
   docker pull docker.io/library/alpine:3.20
-  rules-evolve -C demo-run isolation
+  bogo -C demo-run isolation
   ```
 
   `isolation` (run inside a project, such as the demo above) should list
@@ -113,7 +113,7 @@ exist on Windows. Two options:
   with no network, a read only root, and memory, CPU and process limits. The
   image needs whatever your checks use (alpine has only `sh`; for Python
   tasks, build or pull an image with Python and set `[sandbox] image` in
-  `.rules-evolve\config.toml`).
+  `.bogo\config.toml`).
 - **WSL2**. Install Ubuntu or Debian under WSL2, build or copy the Linux
   binary there, and run everything inside WSL2 with bubblewrap
   (`sudo apt install bubblewrap`). This is the setup the tool was tested on.
@@ -125,7 +125,7 @@ and says which of these to install.
 
 **Every task attempt and every mutation is a billed call on your account.** A
 default `evolve` with 8 tasks, 5 repeats and 3 generations makes up to 163
-calls. Set a spending limit in your provider account first. rules-evolve has
+calls. Set a spending limit in your provider account first. bogo has
 never been run against a paid endpoint by its author.
 
 The key is read only from an environment variable, never from a file or a
@@ -142,7 +142,7 @@ setx ANTHROPIC_API_KEY "sk-ant-..."
 keeps it in that window only. Then, with Docker Desktop running:
 
 ```powershell
-rules-evolve -C my-repo evolve --generations 3 --provider anthropic --api-model <model id> --allow-spend --isolation docker
+bogo -C my-repo evolve --generations 3 --provider anthropic --api-model <model id> --allow-spend --isolation docker
 ```
 
 Nothing is sent unless `--allow-spend` and `--api-model` are on the command

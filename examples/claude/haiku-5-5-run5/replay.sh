@@ -10,7 +10,7 @@
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../../.." && pwd)
-BIN=${RULES_EVOLVE:-$ROOT/target/release/rules-evolve}
+BIN=${BOGO:-$ROOT/target/release/bogo}
 if [ ! -x "$BIN" ]; then
   (cd "$ROOT" && cargo build --release -q)
 fi
@@ -18,8 +18,8 @@ WORK=${WORK:-$(mktemp -d)}
 rm -rf "$WORK"
 cp -a "$ROOT/examples/honest/repo" "$WORK"
 "$BIN" -C "$WORK" init --model claude-haiku-5-5 >/dev/null
-cp "$ROOT/examples/honest/tasks.toml" "$WORK/.rules-evolve/tasks.toml"
-cp "$HERE/config.toml" "$WORK/.rules-evolve/config.toml"
+cp "$ROOT/examples/honest/tasks.toml" "$WORK/.bogo/tasks.toml"
+cp "$HERE/config.toml" "$WORK/.bogo/config.toml"
 R="--provider replay --replay-file $HERE/replay.jsonl --isolation bwrap"
 "$BIN" -C "$WORK" run --version root --seed 7 $R
 "$BIN" -C "$WORK" evolve --generations 2 --total --seed 7 $R

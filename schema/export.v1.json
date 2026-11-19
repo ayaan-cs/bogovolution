@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://rules-evolve.invalid/schema/export.v1.json",
-  "title": "rules-evolve lineage export, version 1",
-  "description": "Everything the static viewer needs to draw a lineage. Written by `rules-evolve export`. Fields are never removed or renamed within version 1. Changing a field means a new version number. Since 2.3.0 version 1 has optional held out fields and the overfit verdict, which appear only in lineages whose task set has held out tasks, so older lineages export to the same bytes as before.",
+  "$id": "https://bogovolution.invalid/schema/export.v1.json",
+  "title": "bogovolution lineage export, version 1",
+  "description": "Everything the static viewer needs to draw a lineage. Written by `bogo export`. Fields are never removed or renamed within version 1. Changing a field means a new version number. Since 2.3.0 version 1 has optional held out fields and the overfit verdict, which appear only in lineages whose task set has held out tasks, so older lineages export to the same bytes as before.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -22,7 +22,8 @@
   ],
   "properties": {
     "format": {
-      "const": "rules-evolve-export"
+      "description": "bogovolution-export since 3.0.0. Files from rules-evolve 2.x say rules-evolve-export and are otherwise the same.",
+      "enum": ["bogovolution-export", "rules-evolve-export"]
     },
     "version": {
       "const": 1

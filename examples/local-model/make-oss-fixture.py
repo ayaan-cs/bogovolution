@@ -8,7 +8,7 @@ this writes
   checks/test_<name>.py    the upstream unit tests for that function, unchanged
                            except that they import the stub instead of the package
 
-The checks are hidden from the model by rules-evolve. This is a task set DERIVED
+The checks are hidden from the model by bogo. This is a task set DERIVED
 from a real open source project (MIT licensed), not the whole project.
 
   make-oss-fixture.py <more-itertools checkout> <destination> [fn,fn,...]
@@ -16,15 +16,15 @@ from a real open source project (MIT licensed), not the whole project.
                      [--short-context]
 
 --held-out adds more functions as held out tasks (split = "held_out" in
-tasks.toml): rules-evolve runs and scores them, but never shows them to the
+tasks.toml): bogo runs and scores them, but never shows them to the
 model that writes the rules, and accepts a change only if it also gains on them.
 
 --short-context gives every task `context = ["solve/<name>.py"]`, so the model
-is shown only that task's stub instead of every stub (rules-evolve 2.7.0 and
+is shown only that task's stub instead of every stub (bogo 2.7.0 and
 later). Without it the task file is the same as before.
 
 --tasks-out writes tasks.toml somewhere else (default: <destination>/tasks.toml).
-Put it in <destination>/.rules-evolve/ after `rules-evolve init`, so the model
+Put it in <destination>/.bogo/ after `bogo init`, so the model
 never sees the check commands.
 
 --reference fills each stub file with the whole upstream module, to

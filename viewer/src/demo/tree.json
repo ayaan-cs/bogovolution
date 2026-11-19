@@ -1,9 +1,9 @@
 {
-  "format": "rules-evolve-export",
+  "format": "bogovolution-export",
   "version": 1,
   "generator": {
-    "tool": "rules-evolve",
-    "version": "2.7.2"
+    "tool": "bogo",
+    "version": "3.0.0"
   },
   "project": {
     "rules_file": "AGENTS.md",
@@ -13,7 +13,7 @@
     "valid": true,
     "events": 64,
     "head_seq": 63,
-    "head_hash": "a2a8c0c4790274cfd882f634956db5dd1f2d48397b6f3904cfa83853a723fc12"
+    "head_hash": "b84dbb8db98d3e4decc706ad6541f8f8da5df9738f6f25ba2dce06359a337903"
   },
   "config": {
     "repeats": 5,

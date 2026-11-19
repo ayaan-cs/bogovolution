@@ -65,11 +65,11 @@ function walk(dir, out = []) {
 }
 
 test("plugin.json: required fields, kebab-case name, only documented keys", () => {
-  assert.equal(manifest.name, "rules-evolve");
+  assert.equal(manifest.name, "bogo");
   assert.match(manifest.name, /^[a-z0-9]+(-[a-z0-9]+)*$/);
   // reserved names: claude-, anthropic-, official..., or the bare words
   assert.doesNotMatch(manifest.name, /^(claude|anthropic|anthropics|cc-plugin)(-|$)|official/i);
-  assert.equal(manifest.version, "2.1.0");
+  assert.equal(manifest.version, "3.0.0");
   assert.ok(manifest.description.length > 20);
   assert.ok(manifest.author && typeof manifest.author.name === "string");
   for (const k of Object.keys(manifest)) assert.ok(MANIFEST_KEYS.has(k), `unknown plugin.json key: ${k}`);
@@ -87,7 +87,7 @@ test("plugin layout: only .claude-plugin/ holds the manifest", () => {
 });
 
 test("marketplace.json: name, owner, plugins, relative source that exists", () => {
-  assert.equal(marketplace.name, "rules-evolve-local");
+  assert.equal(marketplace.name, "bogo-local");
   assert.doesNotMatch(marketplace.name, /^(claude|anthropic)|official/i);
   assert.ok(marketplace.owner && typeof marketplace.owner.name === "string");
   assert.ok(Array.isArray(marketplace.plugins) && marketplace.plugins.length === 1);
@@ -114,7 +114,7 @@ test("skills: one folder per slash command, valid frontmatter", () => {
     assert.equal(fields["allowed-tools"], "Bash(${CLAUDE_PLUGIN_ROOT}/scripts/re.sh *)", `${d}: allowed-tools must be the wrapper only`);
     assert.ok(body.includes("${CLAUDE_PLUGIN_ROOT}/scripts/re.sh"), `${d}: body must call the wrapper`);
     // every command in the body calls the wrapper, never the binary directly
-    assert.doesNotMatch(body, /^\s*(\$\s*)?rules-evolve\s/m, `${d}: call re.sh, not the binary`);
+    assert.doesNotMatch(body, /^\s*(\$\s*)?bogo\s/m, `${d}: call re.sh, not the binary`);
   }
 });
 
@@ -159,8 +159,8 @@ test("skills: every subcommand they call exists in the CLI", () => {
 });
 
 test("skills: flags they use exist in the CLI help (when a binary is built)", (t) => {
-  const bin = process.env.RULES_EVOLVE_BIN || ["release", "debug"].map((k) => path.join(repo, "target", k, "rules-evolve")).find(fs.existsSync);
-  if (!bin) return t.skip("no built rules-evolve binary");
+  const bin = process.env.BOGO_BIN || ["release", "debug"].map((k) => path.join(repo, "target", k, "bogo")).find(fs.existsSync);
+  if (!bin) return t.skip("no built bogo binary");
   const help = (sub) => execFileSync(bin, [sub, "--help"], { encoding: "utf8" });
   const wanted = {
     evolve: ["--generations", "--seed", "--provider", "--replay-file", "--json"],
@@ -238,12 +238,12 @@ test("all plugin json files are valid and use two space indentation", () => {
   }
 });
 
-test("README states v2.x and keeps the Petri credit", () => {
+test("README states v3.x and keeps the Petri credit", () => {
   const readme = read(path.join(repo, "README.md"));
-  assert.match(readme, /^## Status: v2\.\d+\.\d+$/m);
+  assert.match(readme, /^## Status: v3\.\d+\.\d+$/m);
   assert.match(readme, /https:\/\/ethglobal\.com\/showcase\/petri-mjy1y/);
   assert.match(readme, /## Claude Code plugin/);
-  for (const s of EXPECTED_SKILLS) assert.ok(readme.includes(`/rules-evolve:${s}`), `README lacks /rules-evolve:${s}`);
-  assert.match(readme, /RULES_EVOLVE_HOOKS=off/);
+  for (const s of EXPECTED_SKILLS) assert.ok(readme.includes(`/bogo:${s}`), `README lacks /bogo:${s}`);
+  assert.match(readme, /BOGO_HOOKS=off/);
   assert.match(readme, /hooks\.off/);
 });

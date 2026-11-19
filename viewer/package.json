@@ -1,9 +1,9 @@
 {
-  "name": "rules-evolve-viewer",
+  "name": "bogovolution-viewer",
   "version": "0.1.0",
   "private": true,
   "license": "Apache-2.0",
-  "description": "Static viewer for rules-evolve lineage exports. Needs no server, keys or network.",
+  "description": "Static viewer for bogo lineage exports. Needs no server, keys or network.",
   "type": "module",
   "scripts": {
     "dev": "vite",

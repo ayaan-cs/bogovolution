@@ -3,10 +3,13 @@ resolver = "2"
 members = ["crates/core", "crates/cli", "crates/watch"]
 
 [workspace.package]
-version = "2.7.2"
+version = "3.0.0"
 edition = "2021"
 license = "Apache-2.0"
-publish = false
+authors = ["Ayaan Syed"]
+keywords = ["agents", "ai", "prompts", "evolution", "llm"]
+categories = ["command-line-utilities", "development-tools"]
+# repository = "TODO: add the public repository URL once it exists"
 
 [workspace.dependencies]
 anyhow = "1"

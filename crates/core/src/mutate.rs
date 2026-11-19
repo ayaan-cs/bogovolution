@@ -266,6 +266,8 @@ commands, tests or checks, and it never sees the results.",
 /// Seed for the `n`th mutation attempt of a session that started from
 /// `base_seed`. Used by `evolve`.
 pub fn mutation_seed(base_seed: u64, attempt: usize) -> u64 {
+    // The "rules-evolve" prefix predates the rename to bogo. Changing it
+    // would change every seed and break the recorded replays.
     let d = sha256_hex(format!("rules-evolve/mutate/{base_seed}/{attempt}").as_bytes());
     u64::from_str_radix(&d[..12], 16).expect("hex")
 }
@@ -682,8 +684,8 @@ mod tests {
                 "[[answer]]\ntask = \"t{i}\"\npath = \"answers/t{i}.txt\"\npass_content = \"ok\\n\"\nfail_content = \"no\\n\"\n"
             ));
         }
-        std::fs::write(root.join(".rules-evolve/tasks.toml"), tasks).unwrap();
-        std::fs::write(root.join(".rules-evolve/mock.toml"), &mock).unwrap();
+        std::fs::write(root.join(".bogo/tasks.toml"), tasks).unwrap();
+        std::fs::write(root.join(".bogo/mock.toml"), &mock).unwrap();
         let repo = Repo::open(root).unwrap();
         (dir, repo)
     }
@@ -1135,8 +1137,8 @@ mod tests {
             ),
         )
         .unwrap();
-        std::fs::write(root.join(".rules-evolve/tasks.toml"), tasks).unwrap();
-        std::fs::write(root.join(".rules-evolve/mock.toml"), &mock).unwrap();
+        std::fs::write(root.join(".bogo/tasks.toml"), tasks).unwrap();
+        std::fs::write(root.join(".bogo/mock.toml"), &mock).unwrap();
         let repo = Repo::open(root).unwrap();
         (dir, repo)
     }

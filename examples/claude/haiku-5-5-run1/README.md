@@ -1,6 +1,6 @@
 # Claude run 1: claude-haiku-5-5 on 9 more-itertools tasks
 
-The first run of rules-evolve against a paid model. Ayaan approved it with a
+The first run of bogo against a paid model. Ayaan approved it with a
 budget well under $1. It ran on the Linux box under bwrap, in a project
 outside this repo, on Nov 17, 2026 between 10:04 PM and 10:19 PM CST.
 
@@ -11,7 +11,7 @@ Everything the run produced is here, so it can be shown again for free:
 | `replay.jsonl` | Every model answer the log used (139 calls). `replay.sh` replays it. |
 | `replay.sh` | Rebuilds the project from a more-itertools checkout and replays the run. No key, no network. |
 | `log.jsonl` | The run's hash-chained log (24 events, `verify-log` OK). |
-| `tree.json` | `rules-evolve export` of the log, for the viewer. |
+| `tree.json` | `bogo export` of the log, for the viewer. |
 | `api-transcript.jsonl` | Each completed API call: reply, seed, the provider's token usage. The cost below is computed from it. |
 | `rules/` | The five rules files (root and four children), named by hash prefix. |
 | `config.toml` | The project config. |
@@ -102,7 +102,7 @@ From the provider's usage numbers in `api-transcript.jsonl`:
 Cost = input tokens x $0.10 / 1M + output tokens x $0.50 / 1M. Output
 tokens include 63,347 thinking tokens. Total: about $0.067, at most $0.068
 if the timed out call was billed in full. One call reached the 2,048 token
-cap. rules-evolve's own count (sum of input plus output over the calls the
+cap. bogo's own count (sum of input plus output over the calls the
 log used) is 190,471 tokens. A first probe that sent `temperature` got
 HTTP 400 and was not billed; that is why `--api-no-temperature` exists.
 

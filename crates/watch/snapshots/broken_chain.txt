@@ -1,4 +1,4 @@
- rules-evolve watch  AGENTS.md  model demo-model  0 accepted  0 rejected  0 noise  1 pending  0 refused
+ bogo watch  AGENTS.md  model demo-model  0 accepted  0 rejected  0 noise  1 pending  0 refused
  CHAIN FAILED VERIFICATION. This view is read only and shows the log only up to the first problem.
  event 5 does not link to the one before it (line 6)
 ┌ Mutation tree (* is current) ──────────────────────────────┐┌ Details ─────────────────────────────────────┐

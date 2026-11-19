@@ -29,7 +29,7 @@
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
-BIN=${RULES_EVOLVE:-$ROOT/target/release/rules-evolve}
+BIN=${BOGO:-$ROOT/target/release/bogo}
 if [ ! -x "$BIN" ]; then
   (cd "$ROOT" && cargo build --release -q)
 fi
@@ -43,7 +43,7 @@ case "${1:-}" in
     REPLAY=$(abs "${2:?usage: replay.sh demo <demo-replay.jsonl>}")
     cp -R "$ROOT/examples/demo/fixture/." "$WORK/"
     "$BIN" -C "$WORK" init --model local-model >/dev/null
-    cp "$ROOT/examples/demo/tasks.toml" "$WORK/.rules-evolve/"
+    cp "$ROOT/examples/demo/tasks.toml" "$WORK/.bogo/"
     "$BIN" -C "$WORK" evolve --generations 3 --seed 7 --provider replay \
       --replay-file "$REPLAY"
     ;;
@@ -54,7 +54,7 @@ case "${1:-}" in
     python3 "$HERE/make-oss-fixture.py" "$SRC" "$WORK" \
       take,tail,nth,flatten,partition,unique_justseen,prepend,quantify --tasks-out="$TASKS"
     "$BIN" -C "$WORK" init --model local-model >/dev/null
-    mv "$TASKS" "$WORK/.rules-evolve/tasks.toml"
+    mv "$TASKS" "$WORK/.bogo/tasks.toml"
     "$BIN" -C "$WORK" evolve --generations 3 --seed 7 --provider replay \
       --replay-file "$REPLAY"
     if [ -n "${4:-}" ]; then
@@ -75,7 +75,7 @@ case "${1:-}" in
       --held-out=consume,roundrobin,iter_index,tabulate,ncycles,powerset,unique_everseen,first_true \
       --tasks-out="$TASKS"
     "$BIN" -C "$WORK" init --model local-model >/dev/null
-    mv "$TASKS" "$WORK/.rules-evolve/tasks.toml"
+    mv "$TASKS" "$WORK/.bogo/tasks.toml"
     "$BIN" -C "$WORK" evolve --generations 3 --seed 7 --provider replay \
       --replay-file "$REPLAY"
     ;;
@@ -88,7 +88,7 @@ case "${1:-}" in
       consume,roundrobin,iter_index,tabulate,ncycles,powerset,unique_everseen,first_true \
       --tasks-out="$TASKS"
     "$BIN" -C "$WORK" init --model local-model >/dev/null
-    mv "$TASKS" "$WORK/.rules-evolve/tasks.toml"
+    mv "$TASKS" "$WORK/.bogo/tasks.toml"
     prop() {
       "$BIN" -C "$WORK" propose --parent root --file "$1" --hypothesis "$2" --json \
         | python3 -c 'import json,sys; print(json.load(sys.stdin)["data"]["child"])'
@@ -112,10 +112,10 @@ case "${1:-}" in
     python3 "$HERE/make-oss-fixture.py" "$SRC" "$WM" "$OSS48_TRAIN" \
       --held-out="$OSS48_HELD_OUT" --tasks-out="$TASKS" $SC
     "$BIN" -C "$WM" init --model local-model >/dev/null
-    mv "$TASKS" "$WM/.rules-evolve/tasks.toml"
+    mv "$TASKS" "$WM/.bogo/tasks.toml"
     # Every task prompt is about 10,000 tokens, so 48 tasks need more than the
     # default cap of 200,000 tokens per run.
-    sed -i 's/^max_tokens_per_run = 200000$/max_tokens_per_run = 1000000/' "$WM/.rules-evolve/config.toml"
+    sed -i 's/^max_tokens_per_run = 200000$/max_tokens_per_run = 1000000/' "$WM/.bogo/config.toml"
     "$BIN" -C "$WM" run --version root --seed 7 --provider replay --replay-file "$RD/root-replay.jsonl"
     cp -a "$WM" "$WORK/evolve"
     if [ -n "${LATER_REPEATS:-}" ]; then
@@ -123,7 +123,7 @@ case "${1:-}" in
         sed -i -e "s/^repeats = .*/repeats = $LATER_REPEATS/" \
           -e "s/^min_paired_wins = .*/min_paired_wins = $LATER_REPEATS/" \
           -e "s/^held_out_min_paired_wins = .*/held_out_min_paired_wins = $LATER_REPEATS/" \
-          "$p/.rules-evolve/config.toml"
+          "$p/.bogo/config.toml"
       done
     fi
     prop() {

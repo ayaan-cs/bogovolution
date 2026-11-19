@@ -1,8 +1,8 @@
 {
- "format": "rules-evolve-export",
+ "format": "bogovolution-export",
  "version": 1,
  "generator": {
-  "tool": "rules-evolve",
+  "tool": "bogo",
   "version": "0.1.0"
  },
  "project": {

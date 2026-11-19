@@ -1,14 +1,14 @@
 {
-  "name": "rules-evolve-local",
-  "description": "Local marketplace for the rules-evolve plugin. Add it from a path on disk, nothing is hosted.",
+  "name": "bogo-local",
+  "description": "Local marketplace for the bogo plugin. Add it from a path on disk, nothing is hosted.",
   "owner": {
     "name": "Ayaan Syed"
   },
   "plugins": [
     {
-      "name": "rules-evolve",
+      "name": "bogo",
       "source": "./plugin",
-      "description": "Slash commands and repo gated hooks that wrap the rules-evolve CLI (mock and replay only)."
+      "description": "Slash commands and repo gated hooks that wrap the bogo CLI (mock and replay only)."
     }
   ]
 }

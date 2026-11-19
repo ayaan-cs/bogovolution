@@ -9,7 +9,7 @@
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../../.." && pwd)
-BIN=${RULES_EVOLVE:-$ROOT/target/release/rules-evolve}
+BIN=${BOGO:-$ROOT/target/release/bogo}
 if [ ! -x "$BIN" ]; then
   (cd "$ROOT" && cargo build --release -q)
 fi
@@ -22,8 +22,8 @@ python3 "$ROOT/examples/local-model/make-oss-fixture.py" "$SRC" "$WORK" \
   --held-out=consume,iter_index,circular_shifts,before_and_after,transpose,intersperse,windowed,chunked,locate,zip_offset,reshape,chunked_even,totient,ncycles,powerset,mark_ends \
   --short-context --tasks-out="$TASKS" >/dev/null
 "$BIN" -C "$WORK" init --model claude-sonnet-5-5 >/dev/null
-mv "$TASKS" "$WORK/.rules-evolve/tasks.toml"
-cp "$HERE/config.toml" "$WORK/.rules-evolve/config.toml"
+mv "$TASKS" "$WORK/.bogo/tasks.toml"
+cp "$HERE/config.toml" "$WORK/.bogo/config.toml"
 R="--provider replay --replay-file $HERE/replay.jsonl --isolation bwrap"
 "$BIN" -C "$WORK" run --version root --seed 7 $R
 V=$("$BIN" -C "$WORK" --json propose --parent root --file "$HERE/rules/1ef4720c.md" \

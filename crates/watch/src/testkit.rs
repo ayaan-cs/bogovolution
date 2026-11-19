@@ -1,11 +1,11 @@
 //! Helpers for building small lineages in unit tests.
 
 use crate::state::{ChainStatus, ConfigView, WatchState};
-use rules_evolve_core::event::{
+use bogovolution_core::event::{
     Event, InitPayload, MutationProposedPayload, MutationRefusedPayload, Payload,
     RunRecordedPayload, VerdictKind, VerdictPayload,
 };
-use rules_evolve_core::log::Log;
+use bogovolution_core::log::Log;
 
 pub fn h(c: char) -> String {
     c.to_string().repeat(64)

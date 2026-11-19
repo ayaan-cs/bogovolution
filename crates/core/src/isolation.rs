@@ -470,7 +470,7 @@ pub fn build_command(backend: Backend, s: &SandboxSettings, req: &CheckRequest) 
                 "ALL",
                 "--clearenv",
                 "--hostname",
-                "rules-evolve",
+                "bogo",
             ]);
             for p in BWRAP_SYSTEM {
                 push(&["--ro-bind-try", p, p]);
@@ -558,7 +558,7 @@ pub fn build_command(backend: Backend, s: &SandboxSettings, req: &CheckRequest) 
                 "--pull",
                 "never",
                 "--hostname",
-                "rules-evolve",
+                "bogo",
             ]);
             if backend == Backend::Podman {
                 // Rootless podman maps your user to root unless told to keep
@@ -890,7 +890,7 @@ fn unique_name() -> String {
         .map(|d| d.subsec_nanos())
         .unwrap_or(0);
     format!(
-        "rules-evolve-{}-{}-{nanos}",
+        "bogo-{}-{}-{nanos}",
         std::process::id(),
         N.fetch_add(1, Ordering::Relaxed)
     )
@@ -1122,7 +1122,7 @@ fn start_hint(program: &str) -> &'static str {
 /// What to install when no backend works.
 pub fn install_hint() -> &'static str {
     if cfg!(windows) {
-        "On Windows, install and start Docker Desktop (or Podman Desktop), or run the Linux build of rules-evolve inside WSL2. bubblewrap is Linux only."
+        "On Windows, install and start Docker Desktop (or Podman Desktop), or run the Linux build of bogo inside WSL2. bubblewrap is Linux only."
     } else if cfg!(target_os = "macos") {
         "Install and start Docker Desktop or Podman. bubblewrap is Linux only."
     } else {
@@ -1172,7 +1172,7 @@ pub fn probe_backend(
         return Err(format!("{} is not on PATH", backend.program()));
     }
     let dir = tempfile::Builder::new()
-        .prefix("rules-evolve-probe-")
+        .prefix("bogo-probe-")
         .tempdir()
         .map_err(|e| format!("could not make a temp folder: {e}"))?;
     let runner = Runner {
@@ -1202,7 +1202,7 @@ pub fn probe_backend(
     }
 }
 
-/// One backend, as shown by `rules-evolve isolation`.
+/// One backend, as shown by `bogo isolation`.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct BackendStatus {
     pub backend: Backend,
@@ -1746,7 +1746,7 @@ mod tests {
 
     // ---- Windows host paths (pure string logic, runs on every OS) ----
 
-    const WIN_WT: &str = r"C:\Users\example\AppData\Local\Temp\rules-evolve-2MF7t7";
+    const WIN_WT: &str = r"C:\Users\example\AppData\Local\Temp\bogo-2MF7t7";
 
     #[test]
     fn windows_drive_paths_are_accepted_and_only_the_drive_colon_is_allowed() {
