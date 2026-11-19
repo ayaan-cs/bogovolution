@@ -8,6 +8,7 @@ license.workspace = true
 authors.workspace = true
 keywords.workspace = true
 categories.workspace = true
+repository.workspace = true
 
 [dependencies]
 bogovolution-core = { path = "../core", version = "3.0.0" }

@@ -25,7 +25,7 @@ You need Rust (stable; tested with 1.100.0, from https://rustup.rs) and, on Linu
 build it yourself.
 
 ```sh
-git clone <this repo> bogovolution
+git clone https://github.com/ayaan-cs/bogovolution
 cd bogovolution
 cargo install --path crates/cli --locked   # puts bogo in ~/.cargo/bin
 bogo --version

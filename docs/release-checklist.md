@@ -45,7 +45,7 @@ where marked. No remote exists, nothing is pushed or published.
 - [x] README: install, quickstart, findings, Petri credit.
 - [x] CHANGELOG.md.
 - [x] docs/writeup.md.
-- [ ] Replace `<this repo>` placeholders with the real URL once it exists.
+- [x] Replace `<this repo>` placeholders with the real URL (https://github.com/ayaan-cs/bogovolution).
 - [ ] Read the README top to bottom once more; it is long. Consider moving the
       sandbox and plugin sections into `docs/`.
 - [ ] Regenerate screenshots if the viewer changed (`npm run screenshots`).

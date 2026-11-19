@@ -9,7 +9,7 @@ license = "Apache-2.0"
 authors = ["Ayaan Syed"]
 keywords = ["agents", "ai", "prompts", "evolution", "llm"]
 categories = ["command-line-utilities", "development-tools"]
-# repository = "TODO: add the public repository URL once it exists"
+repository = "https://github.com/ayaan-cs/bogovolution"
 
 [workspace.dependencies]
 anyhow = "1"
