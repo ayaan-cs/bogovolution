@@ -1,3 +1,5 @@
 /target
 /viewer/node_modules
 /viewer/dist
+__pycache__/
+*.pyc

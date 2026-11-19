@@ -26,6 +26,14 @@ entries below keep the old name, rules-evolve.
 - Claude Code plugin: name `bogo`, commands `/bogo:...`, version 3.0.0.
 - Viewer title, README, docs, examples and the Windows zip
   (`bogovolution-3.0.0-windows-x86_64.zip`) use the new name.
+- The historical paid run scripts under `examples/claude/` now use `$REPO`
+  (the repo root) and `$WORKDIR` (a scratch folder) instead of the build
+  machine's absolute paths, and READMEs say `<workdir>`. The whole git history
+  was rewritten the same way before the first publish; no recorded log or
+  replay contained those paths, so every replay still matches.
+- Removed `examples/honest/reference/kit/__pycache__/` (compiled Python
+  files committed by mistake, with build machine paths inside) from the whole
+  history; `.gitignore` now ignores `__pycache__/` and `*.pyc`.
 - Unchanged on purpose: seeds are still derived from the strings
   `rules-evolve/mutate/...` and `rules-evolve/run/...`, so every recorded
   replay and log still reproduces exactly. The historical paid run scripts and
