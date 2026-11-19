@@ -18,11 +18,18 @@ The idea:
 
 It runs locally. Nothing is uploaded anywhere.
 
-## Install from source
+## Install
 
 You need Rust (stable; tested with 1.100.0, from https://rustup.rs) and, on Linux,
-`bwrap` (bubblewrap) for isolated checks. There are no published packages: you
-build it yourself.
+`bwrap` (bubblewrap) for isolated checks. Install the published crate from
+[crates.io](https://crates.io/crates/bogovolution):
+
+```sh
+cargo install bogovolution --locked   # puts bogo in ~/.cargo/bin
+bogo --version
+```
+
+Or build it from source:
 
 ```sh
 git clone https://github.com/ayaan-cs/bogovolution
