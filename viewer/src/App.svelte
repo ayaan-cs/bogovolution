@@ -104,7 +104,12 @@
   }
 
   function toggleTheme() {
-    theme = theme === 'dark' ? 'light' : 'dark';
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    // Apply the theme to the page before the state change, so the charts and
+    // the graph read the new colours when they redraw (child effects run
+    // before this component's effects).
+    applyTheme(next);
+    theme = next;
   }
 
   $effect(() => {

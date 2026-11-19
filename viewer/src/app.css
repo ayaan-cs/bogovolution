@@ -154,3 +154,25 @@ code,
 .d2h-wrapper {
   font-size: 0.85rem;
 }
+
+/* Chart tooltips: Observable Plot draws them with inherited, faded colours,
+   which made the text hard to read in both themes. Force solid colours. */
+g[aria-label='tip'] {
+  fill-opacity: 1;
+  stroke-opacity: 1;
+}
+g[aria-label='tip'] path {
+  fill: var(--panel);
+  stroke: var(--muted);
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.18));
+}
+g[aria-label='tip'] text,
+g[aria-label='tip'] tspan {
+  fill: var(--fg);
+  fill-opacity: 1;
+  opacity: 1;
+  stroke: none;
+}
+g[aria-label='tip'] tspan:first-child {
+  font-weight: 600;
+}
