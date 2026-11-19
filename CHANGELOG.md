@@ -5,6 +5,13 @@ been published: every version below exists only as a local git commit.
 
 ## Unreleased (after 2.7.2)
 
+- `examples/honest/`: 24 tasks (16 train, 8 held out) whose hidden checks
+  test only what the docstrings state, with reference solutions and
+  `selfcheck.py` (stubs fail, references pass, docstring examples agree).
+  A Rust test keeps the layout consistent.
+- Claude run 5 (`examples/claude/haiku-5-5-run5/`, $0.1288): Haiku with the
+  plain starting rules passes 100% train and 100% held out (median of 3) on
+  the honest example; two evolved children were rejected (no gain left).
 - Claude runs 3 and 4 (`examples/claude/haiku-5-5-run3/`,
   `examples/claude/sonnet-5-5-run4/`), $0.9766 in all. 28 more-itertools
   tasks chosen from root calibration only. Haiku: root train 67% and held

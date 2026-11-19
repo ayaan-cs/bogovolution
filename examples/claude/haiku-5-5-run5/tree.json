@@ -1,0 +1,310 @@
+{
+  "format": "rules-evolve-export",
+  "version": 1,
+  "generator": {
+    "tool": "rules-evolve",
+    "version": "2.7.2"
+  },
+  "project": {
+    "rules_file": "AGENTS.md",
+    "model": "claude-haiku-5-5"
+  },
+  "chain": {
+    "valid": true,
+    "events": 14,
+    "head_seq": 13,
+    "head_hash": "a513d0b1037d4028b100b823efa5ecabd1627ea36155c1f9b0eff86ed1ede751"
+  },
+  "config": {
+    "repeats": 3,
+    "accept_threshold_pp": 10.0,
+    "min_paired_wins": 3,
+    "max_tokens_per_run": 400000,
+    "max_change_bytes": 1000,
+    "held_out_accept_threshold_pp": 10.0,
+    "held_out_min_paired_wins": 2
+  },
+  "root": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+  "current": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+  "summary": {
+    "nodes": 3,
+    "edges": 2,
+    "accepted": 0,
+    "rejected": 2,
+    "noise": 0,
+    "pending": 0,
+    "refused": 0,
+    "runs": 9,
+    "tokens_used": 294372,
+    "max_generation": 1
+  },
+  "nodes": [
+    {
+      "hash": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "short": "8e28956afd69",
+      "parent": null,
+      "generation": 0,
+      "created_seq": 0,
+      "hypothesis": null,
+      "verdict": null,
+      "status": "root",
+      "is_current": true,
+      "size_bytes": 58,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n",
+      "diff": null,
+      "median_pass_rate": 1.0,
+      "held_out_median_pass_rate": 1.0,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 16,
+          "total": 16,
+          "pass_rate": 1.0,
+          "tokens_used": 30665,
+          "budget_exhausted": false,
+          "held_out_passed": 8,
+          "held_out_total": 8,
+          "held_out_pass_rate": 1.0
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 16,
+          "total": 16,
+          "pass_rate": 1.0,
+          "tokens_used": 30927,
+          "budget_exhausted": false,
+          "held_out_passed": 8,
+          "held_out_total": 8,
+          "held_out_pass_rate": 1.0
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 16,
+          "total": 16,
+          "pass_rate": 1.0,
+          "tokens_used": 30320,
+          "budget_exhausted": false,
+          "held_out_passed": 7,
+          "held_out_total": 8,
+          "held_out_pass_rate": 0.875
+        }
+      ]
+    },
+    {
+      "hash": "35ec7146f83b12e6d2d9d9d930fb494896b9a52b4f868a46c0a1421e72d16420",
+      "short": "35ec7146f83b",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 4,
+      "hypothesis": "The current rules passed every benchmark task, so there is no failure to target. Asking the agent to check each stated requirement and edge case by hand before answering should catch mistakes on the unseen tasks, since it cannot run code to verify its work.",
+      "verdict": "rejected",
+      "status": "rejected",
+      "is_current": false,
+      "size_bytes": 274,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\n\nBefore answering, re-read the task and check your change against each stated requirement and obvious edge case, such as empty input, missing values, and error paths. You cannot run code, so trace the logic by hand.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,5 @@\n # Project rules\n \n Write clear code and keep changes small.\n+\n+Before answering, re-read the task and check your change against each stated requirement and obvious edge case, such as empty input, missing values, and error paths. You cannot run code, so trace the logic by hand.\n",
+      "median_pass_rate": 1.0,
+      "held_out_median_pass_rate": 1.0,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 16,
+          "total": 16,
+          "pass_rate": 1.0,
+          "tokens_used": 34844,
+          "budget_exhausted": false,
+          "held_out_passed": 8,
+          "held_out_total": 8,
+          "held_out_pass_rate": 1.0
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 16,
+          "total": 16,
+          "pass_rate": 1.0,
+          "tokens_used": 35208,
+          "budget_exhausted": false,
+          "held_out_passed": 8,
+          "held_out_total": 8,
+          "held_out_pass_rate": 1.0
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 16,
+          "total": 16,
+          "pass_rate": 1.0,
+          "tokens_used": 35397,
+          "budget_exhausted": false,
+          "held_out_passed": 8,
+          "held_out_total": 8,
+          "held_out_pass_rate": 1.0
+        }
+      ]
+    },
+    {
+      "hash": "a8bea44a207a4d58f8b1c69d7250733fcfab08e480d9092a573a964981c7a291",
+      "short": "a8bea44a207a",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "generation": 1,
+      "created_seq": 9,
+      "hypothesis": "Unseen tasks may fail when the agent makes incidental edits, such as renaming, reformatting, or changing signatures, that break existing callers or behavior. Stating that scope limit as a general habit should reduce that collateral damage without changing how the agent handles the task itself.",
+      "verdict": "rejected",
+      "status": "rejected",
+      "is_current": false,
+      "size_bytes": 293,
+      "content": "# Project rules\n\nWrite clear code and keep changes small.\nMatch the naming, style, and layout of the surrounding code.\nDo not rename, reformat, or restructure code the task does not ask you to touch. Keep existing function signatures and behavior unchanged unless the task requires otherwise.\n",
+      "diff": "diff --git a/AGENTS.md b/AGENTS.md\n--- a/AGENTS.md\n+++ b/AGENTS.md\n@@ -1,3 +1,5 @@\n # Project rules\n \n Write clear code and keep changes small.\n+Match the naming, style, and layout of the surrounding code.\n+Do not rename, reformat, or restructure code the task does not ask you to touch. Keep existing function signatures and behavior unchanged unless the task requires otherwise.\n",
+      "median_pass_rate": 1.0,
+      "held_out_median_pass_rate": 1.0,
+      "runs": [
+        {
+          "run_index": 0,
+          "seed": 247795791233936,
+          "passed": 16,
+          "total": 16,
+          "pass_rate": 1.0,
+          "tokens_used": 32597,
+          "budget_exhausted": false,
+          "held_out_passed": 8,
+          "held_out_total": 8,
+          "held_out_pass_rate": 1.0
+        },
+        {
+          "run_index": 1,
+          "seed": 253393673472685,
+          "passed": 16,
+          "total": 16,
+          "pass_rate": 1.0,
+          "tokens_used": 32436,
+          "budget_exhausted": false,
+          "held_out_passed": 8,
+          "held_out_total": 8,
+          "held_out_pass_rate": 1.0
+        },
+        {
+          "run_index": 2,
+          "seed": 192778899833968,
+          "passed": 16,
+          "total": 16,
+          "pass_rate": 1.0,
+          "tokens_used": 31978,
+          "budget_exhausted": false,
+          "held_out_passed": 7,
+          "held_out_total": 8,
+          "held_out_pass_rate": 0.875
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "35ec7146f83b12e6d2d9d9d930fb494896b9a52b4f868a46c0a1421e72d16420",
+      "seq": 4,
+      "hypothesis": "The current rules passed every benchmark task, so there is no failure to target. Asking the agent to check each stated requirement and edge case by hand before answering should catch mistakes on the unseen tasks, since it cannot run code to verify its work.",
+      "verdict": "rejected",
+      "reason": "child median 1.000 is not above parent median 1.000",
+      "parent_median": 1.0,
+      "child_median": 1.0,
+      "gain_pp": 0.0,
+      "paired_wins": 0,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 1.0,
+          "child_rate": 1.0,
+          "win": false
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 1.0,
+          "child_rate": 1.0,
+          "win": false
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 1.0,
+          "child_rate": 1.0,
+          "win": false
+        }
+      ],
+      "held_out_parent_median": 1.0,
+      "held_out_child_median": 1.0,
+      "held_out_gain_pp": 0.0,
+      "held_out_paired_wins": 1
+    },
+    {
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "a8bea44a207a4d58f8b1c69d7250733fcfab08e480d9092a573a964981c7a291",
+      "seq": 9,
+      "hypothesis": "Unseen tasks may fail when the agent makes incidental edits, such as renaming, reformatting, or changing signatures, that break existing callers or behavior. Stating that scope limit as a general habit should reduce that collateral damage without changing how the agent handles the task itself.",
+      "verdict": "rejected",
+      "reason": "child median 1.000 is not above parent median 1.000",
+      "parent_median": 1.0,
+      "child_median": 1.0,
+      "gain_pp": 0.0,
+      "paired_wins": 0,
+      "repeats": 3,
+      "pairs": [
+        {
+          "run_index": 0,
+          "parent_rate": 1.0,
+          "child_rate": 1.0,
+          "win": false
+        },
+        {
+          "run_index": 1,
+          "parent_rate": 1.0,
+          "child_rate": 1.0,
+          "win": false
+        },
+        {
+          "run_index": 2,
+          "parent_rate": 1.0,
+          "child_rate": 1.0,
+          "win": false
+        }
+      ],
+      "held_out_parent_median": 1.0,
+      "held_out_child_median": 1.0,
+      "held_out_gain_pp": 0.0,
+      "held_out_paired_wins": 0
+    }
+  ],
+  "refused": [],
+  "series": [
+    {
+      "attempt": 1,
+      "seq": 4,
+      "outcome": "rejected",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "35ec7146f83b12e6d2d9d9d930fb494896b9a52b4f868a46c0a1421e72d16420",
+      "hypothesis": "The current rules passed every benchmark task, so there is no failure to target. Asking the agent to check each stated requirement and edge case by hand before answering should catch mistakes on the unseen tasks, since it cannot run code to verify its work.",
+      "parent_median": 1.0,
+      "child_median": 1.0,
+      "gain_pp": 0.0,
+      "current_after": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "current_median_after": 1.0
+    },
+    {
+      "attempt": 2,
+      "seq": 9,
+      "outcome": "rejected",
+      "parent": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "child": "a8bea44a207a4d58f8b1c69d7250733fcfab08e480d9092a573a964981c7a291",
+      "hypothesis": "Unseen tasks may fail when the agent makes incidental edits, such as renaming, reformatting, or changing signatures, that break existing callers or behavior. Stating that scope limit as a general habit should reduce that collateral damage without changing how the agent handles the task itself.",
+      "parent_median": 1.0,
+      "child_median": 1.0,
+      "gain_pp": 0.0,
+      "current_after": "8e28956afd69436eb67272f057d23cbd328a11d5147ddc4bc2aa6f91253b0b36",
+      "current_median_after": 1.0
+    }
+  ]
+}

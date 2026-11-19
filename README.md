@@ -876,6 +876,13 @@ A first real run with `claude-haiku-5-5` (9 tasks, 4 generations, about
 $0.07) is recorded in `examples/claude/haiku-5-5-run1/`, with its log, cost
 and a free replay. A second run (16 tasks, the run 1 rule as a control plus
 3 generations, $0.14) is in `examples/claude/haiku-5-5-run2/`.
+Runs 3 and 4 (`examples/claude/haiku-5-5-run3/`, `sonnet-5-5-run4/`,
+$0.98) took more-itertools held out tasks from 31% to 50% with a hand
+written general rule; the rest needed behavior the docstrings never state.
+Run 5 (`examples/claude/haiku-5-5-run5/`, $0.13) used
+[`examples/honest/`](examples/honest/README.md), where the docstrings state
+everything the checks test: the starting rules already pass 100% of train and
+held out tasks.
 
 Safety rules, enforced in code and tested:
 
