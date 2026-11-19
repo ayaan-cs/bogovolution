@@ -1,0 +1,183 @@
+# The honest example: 24 tasks, 16 train and 8 held out.
+# Each task implements one function in kit/ from its docstring. Every
+# behavior a hidden check tests (results, edge cases, error types) is
+# stated in that docstring. checks/ is hidden from the model.
+
+[sandbox]
+hidden = ["checks"]
+
+[[task]]
+id = "parse_duration"
+prompt = "Implement the function `parse_duration` in kit/parse_duration.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_parse_duration"
+timeout_secs = 30
+context = ["kit/parse_duration.py"]
+
+[[task]]
+id = "int_to_roman"
+prompt = "Implement the function `int_to_roman` in kit/int_to_roman.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_int_to_roman"
+timeout_secs = 30
+context = ["kit/int_to_roman.py"]
+
+[[task]]
+id = "compare_versions"
+prompt = "Implement the function `compare_versions` in kit/compare_versions.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_compare_versions"
+timeout_secs = 30
+context = ["kit/compare_versions.py"]
+
+[[task]]
+id = "merge_intervals"
+prompt = "Implement the function `merge_intervals` in kit/merge_intervals.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_merge_intervals"
+timeout_secs = 30
+context = ["kit/merge_intervals.py"]
+
+[[task]]
+id = "rle_encode"
+prompt = "Implement the function `rle_encode` in kit/rle_encode.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_rle_encode"
+timeout_secs = 30
+context = ["kit/rle_encode.py"]
+
+[[task]]
+id = "rle_decode"
+prompt = "Implement the function `rle_decode` in kit/rle_decode.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_rle_decode"
+timeout_secs = 30
+context = ["kit/rle_decode.py"]
+
+[[task]]
+id = "luhn_valid"
+prompt = "Implement the function `luhn_valid` in kit/luhn_valid.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_luhn_valid"
+timeout_secs = 30
+context = ["kit/luhn_valid.py"]
+
+[[task]]
+id = "wrap_text"
+prompt = "Implement the function `wrap_text` in kit/wrap_text.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_wrap_text"
+timeout_secs = 30
+context = ["kit/wrap_text.py"]
+
+[[task]]
+id = "camel_to_snake"
+prompt = "Implement the function `camel_to_snake` in kit/camel_to_snake.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_camel_to_snake"
+timeout_secs = 30
+context = ["kit/camel_to_snake.py"]
+
+[[task]]
+id = "flatten"
+prompt = "Implement the function `flatten` in kit/flatten.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_flatten"
+timeout_secs = 30
+context = ["kit/flatten.py"]
+
+[[task]]
+id = "sliding_window"
+prompt = "Implement the function `sliding_window` in kit/sliding_window.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_sliding_window"
+timeout_secs = 30
+context = ["kit/sliding_window.py"]
+
+[[task]]
+id = "transpose"
+prompt = "Implement the function `transpose` in kit/transpose.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_transpose"
+timeout_secs = 30
+context = ["kit/transpose.py"]
+
+[[task]]
+id = "median"
+prompt = "Implement the function `median` in kit/median.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_median"
+timeout_secs = 30
+context = ["kit/median.py"]
+
+[[task]]
+id = "isbn10_valid"
+prompt = "Implement the function `isbn10_valid` in kit/isbn10_valid.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_isbn10_valid"
+timeout_secs = 30
+context = ["kit/isbn10_valid.py"]
+
+[[task]]
+id = "unique_by"
+prompt = "Implement the function `unique_by` in kit/unique_by.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_unique_by"
+timeout_secs = 30
+context = ["kit/unique_by.py"]
+
+[[task]]
+id = "balanced"
+prompt = "Implement the function `balanced` in kit/balanced.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_balanced"
+timeout_secs = 30
+context = ["kit/balanced.py"]
+
+[[task]]
+id = "roman_to_int"
+prompt = "Implement the function `roman_to_int` in kit/roman_to_int.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_roman_to_int"
+timeout_secs = 30
+context = ["kit/roman_to_int.py"]
+split = "held_out"
+
+[[task]]
+id = "parse_ranges"
+prompt = "Implement the function `parse_ranges` in kit/parse_ranges.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_parse_ranges"
+timeout_secs = 30
+context = ["kit/parse_ranges.py"]
+split = "held_out"
+
+[[task]]
+id = "csv_split"
+prompt = "Implement the function `csv_split` in kit/csv_split.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_csv_split"
+timeout_secs = 30
+context = ["kit/csv_split.py"]
+split = "held_out"
+
+[[task]]
+id = "title_case"
+prompt = "Implement the function `title_case` in kit/title_case.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_title_case"
+timeout_secs = 30
+context = ["kit/title_case.py"]
+split = "held_out"
+
+[[task]]
+id = "add_months"
+prompt = "Implement the function `add_months` in kit/add_months.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_add_months"
+timeout_secs = 30
+context = ["kit/add_months.py"]
+split = "held_out"
+
+[[task]]
+id = "normalize_path"
+prompt = "Implement the function `normalize_path` in kit/normalize_path.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_normalize_path"
+timeout_secs = 30
+context = ["kit/normalize_path.py"]
+split = "held_out"
+
+[[task]]
+id = "word_frequencies"
+prompt = "Implement the function `word_frequencies` in kit/word_frequencies.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_word_frequencies"
+timeout_secs = 30
+context = ["kit/word_frequencies.py"]
+split = "held_out"
+
+[[task]]
+id = "human_bytes"
+prompt = "Implement the function `human_bytes` in kit/human_bytes.py. Keep the signature and follow the docstring exactly. Write the whole file."
+check = "python3 -B -m unittest checks.test_human_bytes"
+timeout_secs = 30
+context = ["kit/human_bytes.py"]
+split = "held_out"
