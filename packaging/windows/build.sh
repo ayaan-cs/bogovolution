@@ -10,7 +10,11 @@ OUT=${1:-$ROOT/../rules-evolve-dist/windows}
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' "$ROOT/Cargo.toml" | head -1)
 NAME=bogovolution-$VERSION-windows-x86_64
 cd "$ROOT"
-cargo build --release --target x86_64-pc-windows-gnu -p bogovolution
+# Keep build machine paths (home folder, cargo registry, this checkout) out of
+# the exe's panic messages and debug info.
+CARGO_DIR=${CARGO_HOME:-$HOME/.cargo}
+RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=$HOME=/home/user --remap-path-prefix=$CARGO_DIR=/cargo --remap-path-prefix=$ROOT=/src" \
+  cargo build --release --target x86_64-pc-windows-gnu -p bogovolution
 (cd viewer && npm run build)
 STAGE=$(mktemp -d)
 trap 'rm -rf "$STAGE"' EXIT
