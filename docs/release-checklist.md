@@ -5,14 +5,16 @@ where marked. No remote exists, nothing is pushed or published.
 
 ## Decisions for the owner
 
-- [x] Final name: bogovolution (crates `bogovolution`, `bogovolution-core`,
-      `bogovolution-watch`), command `bogo`. Renamed in 3.0.0. All three
-      crate names were free on crates.io on 2026-11-19 (a free name is not
-      reserved until the first publish).
+- [x] Final name: graft (crates `graft-rules`, `graft-rules-core`,
+      `graft-rules-watch`), command `graft`. Renamed in 4.0.0 (3.x was
+      Bogo-volution, crate `bogovolution`). `graft` and `graft-core` on
+      crates.io belong to an unrelated project; the three `graft-rules` names
+      were free on 2026-11-23 (a free name is not reserved until the first
+      publish).
 - [ ] Where to host the repository. Then set `repository` in the root
       `Cargo.toml` (a TODO comment marks the spot).
-- [ ] Create the crates.io account and publish, in order: `bogovolution-core`,
-      `bogovolution-watch`, `bogovolution` (`cargo package --workspace`
+- [ ] Create the crates.io account and publish, in order: `graft-rules-core`,
+      `graft-rules-watch`, `graft-rules` (`cargo package --workspace`
       already builds all three without publishing).
 - [ ] Whether to ask Petri's creator before announcing (see the draft message
       outside the repo), and how to word the credit.
@@ -25,7 +27,7 @@ where marked. No remote exists, nothing is pushed or published.
       `cargo fmt --check` green.
 - [x] Viewer: `npm test`, `npm run check`, `npm run build`, `npm run smoke`.
 - [x] Plugin: `integrations/claude-code/tests/run-all.sh`.
-- [x] Escape tests with `BOGO_REQUIRE_BACKENDS=bwrap,docker,podman`
+- [x] Escape tests with `GRAFT_REQUIRE_BACKENDS=bwrap,docker,podman`
       on one Debian 13 machine.
 - [ ] Escape tests on a second machine, ideally with systemd and cgroup
       delegation (rootless podman with real cgroup limits), and on macOS with
@@ -45,7 +47,7 @@ where marked. No remote exists, nothing is pushed or published.
 - [x] README: install, quickstart, findings, Petri credit.
 - [x] CHANGELOG.md.
 - [x] docs/writeup.md.
-- [x] Replace `<this repo>` placeholders with the real URL (https://github.com/ayaan-cs/bogovolution).
+- [x] Replace `<this repo>` placeholders with the real URL (https://github.com/ayaan-cs/graft).
 - [ ] Read the README top to bottom once more; it is long. Consider moving the
       sandbox and plugin sections into `docs/`.
 - [ ] Regenerate screenshots if the viewer changed (`npm run screenshots`).

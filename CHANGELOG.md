@@ -3,6 +3,39 @@
 All notable changes, newest first. Dates are in America/Chicago. Nothing has
 been published: every version below exists only as a local git commit.
 
+## 4.0.0 (2026-11-23): renamed to graft
+
+The project is now **graft** and the command is **`graft`**. The 3.x name was
+Bogo-volution (command `bogo`). Older entries below keep the names of their
+time. The `graft` and `graft-core` names on crates.io belong to an unrelated
+project, so the crates are called `graft-rules`.
+
+- Crates: `bogovolution` is now `graft-rules` (binary `graft`),
+  `bogovolution-core` is `graft-rules-core`, `bogovolution-watch` is
+  `graft-rules-watch`. The `bogovolution` crates on crates.io are superseded;
+  their last release (3.0.1) only points here. Install with
+  `cargo install graft-rules --locked`.
+- Repository: https://github.com/ayaan-cs/graft (the old
+  `ayaan-cs/bogovolution` address redirects).
+- Project folder: `.bogo/` is now `.graft/`. A repo that has only `.bogo/`
+  keeps working: graft uses that folder in place, and `apply`, the sandbox and
+  the local context walk treat `.bogo/` like `.graft/`. `mv .bogo .graft`
+  switches to the new name. A `.rules-evolve/` folder from 2.x still gets the
+  rename hint, now pointing at `.graft`.
+- Environment variables: `BOGO_*` are now `GRAFT_*` (`GRAFT_BIN`,
+  `GRAFT_HOOKS`, `GRAFT` in the example scripts, `GRAFT_REQUIRE_BACKENDS` in
+  the escape tests). The Claude Code plugin still reads `BOGO_BIN`,
+  `BOGO_HOOKS`, `RULES_EVOLVE_BIN` and `RULES_EVOLVE_HOOKS` when the new names
+  are unset, and finds repos that have `.bogo/`.
+- Export format: `graft-export`. The viewer and the schema still accept
+  `bogovolution-export` (3.x) and `rules-evolve-export` (2.x) files.
+- Claude Code plugin: name `graft`, commands `/graft:...`, version 4.0.0.
+- Viewer title, README, docs, examples and the Windows zip
+  (`graft-4.0.0-windows-x86_64.zip`) use the new name. The viewer's saved
+  theme starts fresh under a new storage key.
+- Unchanged on purpose: the seed strings `rules-evolve/mutate/...` and
+  `rules-evolve/run/...`, so every recorded replay still matches.
+
 ## 3.0.0 (2026-11-19): renamed to bogovolution
 
 The project is now **bogovolution** and the command is **`bogo`**. Older
