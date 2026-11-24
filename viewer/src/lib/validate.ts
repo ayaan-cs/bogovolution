@@ -73,7 +73,7 @@ export function checkReferences(d: LineageExport): string[] {
 /// Turn the text of a file into a checked export, or a friendly error.
 export function parseExport(text: string): ParseResult {
   if (text.trim() === '') {
-    return fail('That file is empty', 'Choose a tree.json written by `bogo export --out tree.json`.');
+    return fail('That file is empty', 'Choose a tree.json written by `graft export --out tree.json`.');
   }
   let doc: unknown;
   try {
@@ -81,7 +81,7 @@ export function parseExport(text: string): ParseResult {
   } catch (err) {
     return fail(
       'That file is not valid JSON',
-      'The viewer reads the JSON file that `bogo export --out tree.json` writes. The file may be cut off or may be a different kind of file.',
+      'The viewer reads the JSON file that `graft export --out tree.json` writes. The file may be cut off or may be a different kind of file.',
       [err instanceof Error ? err.message : String(err)],
     );
   }
@@ -89,11 +89,16 @@ export function parseExport(text: string): ParseResult {
     return fail('That is not a lineage export', 'The top level of the file should be a JSON object.');
   }
   const head = doc as { format?: unknown; version?: unknown };
-  // rules-evolve-export: files written by rules-evolve 2.x, before the rename.
-  if (head.format !== 'bogovolution-export' && head.format !== 'rules-evolve-export') {
+  // Older names for the same format: bogovolution-export (bogo 3.x) and
+  // rules-evolve-export (rules-evolve 2.x).
+  if (
+    head.format !== 'graft-export' &&
+    head.format !== 'bogovolution-export' &&
+    head.format !== 'rules-evolve-export'
+  ) {
     return fail(
-      'That does not look like a bogo export',
-      'The file has no "format": "bogovolution-export" marker. Make one with `bogo export --out tree.json`.',
+      'That does not look like a graft export',
+      'The file has no "format": "graft-export" marker. Make one with `graft export --out tree.json`.',
     );
   }
   if (head.version !== SUPPORTED_VERSION) {

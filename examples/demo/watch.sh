@@ -6,16 +6,16 @@
 #   examples/demo/watch.sh 0          as fast as it goes
 #
 # It copies the fixture to a temp folder, runs `init`, and starts
-# `bogo watch --run "evolve ..."`, which runs the replay as a child
+# `graft watch --run "evolve ..."`, which runs the replay as a child
 # process while the view follows the log. Press q to leave (twice while the
-# replay is still running, which also stops it). Set BOGO to use a
+# replay is still running, which also stops it). Set GRAFT to use a
 # different binary and DEMO_DIR to pick the scratch folder (empty or new).
 set -eu
 
 PACE=${1:-30}
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
-BIN=${BOGO:-$ROOT/target/debug/bogo}
+BIN=${GRAFT:-$ROOT/target/debug/graft}
 if [ ! -x "$BIN" ]; then
   (cd "$ROOT" && cargo build -q)
 fi
@@ -25,10 +25,10 @@ mkdir -p "$WORK"
 cp -R "$HERE/fixture/." "$WORK/"
 
 "$BIN" -C "$WORK" init --model demo-model > /dev/null
-cp "$HERE/tasks.toml" "$HERE/mock.toml" "$WORK/.bogo/"
+cp "$HERE/tasks.toml" "$HERE/mock.toml" "$WORK/.graft/"
 
 "$BIN" -C "$WORK" watch --run \
   "evolve --generations 10 --seed 7 --provider replay --replay-file '$HERE/replay.jsonl' --pace $PACE"
 
 "$BIN" -C "$WORK" verify-log
-echo "Demo lineage is in $WORK/.bogo"
+echo "Demo lineage is in $WORK/.graft"

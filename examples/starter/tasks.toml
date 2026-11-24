@@ -1,11 +1,11 @@
-# bogo starter: tasks.toml
+# graft starter: tasks.toml
 #
-# Copy this file to .bogo/tasks.toml in your repo (after
-# `bogo init`) and replace the tasks with your own. As it stands it
+# Copy this file to .graft/tasks.toml in your repo (after
+# `graft init`) and replace the tasks with your own. As it stands it
 # fits the sample repo next to it (sample-repo/), and try.sh runs it for free.
 #
 # How a task works:
-#   1. bogo copies your repo to a scratch folder, leaving out the
+#   1. graft copies your repo to a scratch folder, leaving out the
 #      paths in [sandbox] hidden and exclude.
 #   2. The model gets your rules file (AGENTS.md, CLAUDE.md, ...) and the
 #      task prompt, plus the files listed in `context`, and answers with
@@ -36,7 +36,7 @@
 # any depth. Here: the whole checks/ folder of hidden tests.
 hidden = ["checks"]
 
-# Never copied at all (.git and .bogo are always left out). Add
+# Never copied at all (.git and .graft are always left out). Add
 # build output and caches so copies stay small.
 exclude = ["target", "node_modules", "__pycache__", ".venv"]
 

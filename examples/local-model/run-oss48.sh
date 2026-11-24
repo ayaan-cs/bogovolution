@@ -29,16 +29,16 @@
 # This changes only the two throwaway projects, never the defaults.
 #
 # SHORT_CONTEXT=1 shows the model only the task's own stub (`context` in
-# tasks.toml, bogo 2.7.0 and later). Prompts drop from about 9,700 to
+# tasks.toml, graft 2.7.0 and later). Prompts drop from about 9,700 to
 # about 600 tokens, so the server's default context is plenty.
 #
 # Environment: OUT and WORK (both required, keep them for reruns),
 # GENERATIONS, SEED (default 7), LATER_REPEATS, SHORT_CONTEXT, LOCAL_URL,
-# BOGO.
+# GRAFT.
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
-BIN=${BOGO:-$ROOT/target/release/bogo}
+BIN=${GRAFT:-$ROOT/target/release/graft}
 if [ ! -x "$BIN" ]; then
   (cd "$ROOT" && cargo build --release -q)
 fi
@@ -70,11 +70,11 @@ if ! is_done fixture; then
   python3 "$HERE/make-oss-fixture.py" "$SRC" "$WM" "$OSS48_TRAIN" \
     --held-out="$OSS48_HELD_OUT" --tasks-out="$OUT/tasks.toml" $SC
   "$BIN" -C "$WM" init --model local-model >/dev/null
-  mv "$OUT/tasks.toml" "$WM/.bogo/tasks.toml"
+  mv "$OUT/tasks.toml" "$WM/.graft/tasks.toml"
   # Every task prompt is about 10,000 tokens, so 48 tasks need more than the
   # default cap of 200,000 tokens per run.
-  sed -i 's/^max_tokens_per_run = 200000$/max_tokens_per_run = 1000000/' "$WM/.bogo/config.toml"
-  grep -q '^max_tokens_per_run = 1000000$' "$WM/.bogo/config.toml"
+  sed -i 's/^max_tokens_per_run = 200000$/max_tokens_per_run = 1000000/' "$WM/.graft/config.toml"
+  grep -q '^max_tokens_per_run = 1000000$' "$WM/.graft/config.toml"
   done_ fixture
 fi
 
@@ -92,7 +92,7 @@ if [ -n "${LATER_REPEATS:-}" ] && ! is_done later-repeats; then
     sed -i -e "s/^repeats = .*/repeats = $LATER_REPEATS/" \
       -e "s/^min_paired_wins = .*/min_paired_wins = $LATER_REPEATS/" \
       -e "s/^held_out_min_paired_wins = .*/held_out_min_paired_wins = $LATER_REPEATS/" \
-      "$p/.bogo/config.toml"
+      "$p/.graft/config.toml"
   done
   done_ later-repeats
 fi
@@ -115,7 +115,7 @@ stage oracle "$HERE/oracle-rules.md" "Hand written control: import everything us
 if ! is_done evolve; then
   echo "stage evolve start $(ts)"
   # A mutation without a verdict means the last try was cut off: finish it.
-  open=$(python3 - "$WE/.bogo/log.jsonl" <<'PY'
+  open=$(python3 - "$WE/.graft/log.jsonl" <<'PY'
 import json, sys
 proposed, judged = [], set()
 for line in open(sys.argv[1]):

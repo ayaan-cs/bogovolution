@@ -21,8 +21,8 @@ written in the docstring of the stub the model fills in.
 python3 examples/honest/selfcheck.py
 ```
 
-To run it, copy `repo/` somewhere, `bogo init`, and put
-`tasks.toml` at `.bogo/tasks.toml`. The paid Claude run on it is in
+To run it, copy `repo/` somewhere, `graft init`, and put
+`tasks.toml` at `.graft/tasks.toml`. The paid Claude run on it is in
 `../claude/haiku-5-5-run5/`.
 
 The task set and split were fixed before any model saw them.

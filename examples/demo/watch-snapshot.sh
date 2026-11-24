@@ -10,14 +10,14 @@ set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
-BIN=${BOGO:-$ROOT/target/debug/bogo}
+BIN=${GRAFT:-$ROOT/target/debug/graft}
 if [ ! -x "$BIN" ]; then
   (cd "$ROOT" && cargo build -q)
 fi
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
-DEMO_DIR="$WORK" BOGO="$BIN" "$HERE/demo.sh" > /dev/null
+DEMO_DIR="$WORK" GRAFT="$BIN" "$HERE/demo.sh" > /dev/null
 
 OUT="$ROOT/docs/screenshots"
 mkdir -p "$OUT"

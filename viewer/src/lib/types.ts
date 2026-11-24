@@ -113,7 +113,7 @@ export interface Summary {
 }
 
 export interface LineageExport {
-  format: 'bogovolution-export' | 'rules-evolve-export';
+  format: 'graft-export' | 'bogovolution-export' | 'rules-evolve-export';
   version: 1;
   generator: { tool: string; version: string };
   project: { rules_file: string; model: string };

@@ -4,13 +4,13 @@
 #   examples/demo/demo.sh            replay the committed answers (default)
 #   examples/demo/demo.sh --record   run the mock model and rewrite replay.jsonl
 #
-# Set BOGO to use a different binary. Set DEMO_DIR to pick the scratch
+# Set GRAFT to use a different binary. Set DEMO_DIR to pick the scratch
 # folder (it must be empty or new); otherwise a temp folder is used.
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
-BIN=${BOGO:-$ROOT/target/debug/bogo}
+BIN=${GRAFT:-$ROOT/target/debug/graft}
 if [ ! -x "$BIN" ]; then
   (cd "$ROOT" && cargo build -q)
 fi
@@ -20,7 +20,7 @@ mkdir -p "$WORK"
 cp -R "$HERE/fixture/." "$WORK/"
 
 "$BIN" -C "$WORK" init --model demo-model
-cp "$HERE/tasks.toml" "$HERE/mock.toml" "$WORK/.bogo/"
+cp "$HERE/tasks.toml" "$HERE/mock.toml" "$WORK/.graft/"
 
 if [ "${1:-}" = "--record" ]; then
   rm -f "$HERE/replay.jsonl"
@@ -31,4 +31,4 @@ fi
 
 "$BIN" -C "$WORK" status
 "$BIN" -C "$WORK" verify-log
-echo "Demo lineage is in $WORK/.bogo"
+echo "Demo lineage is in $WORK/.graft"

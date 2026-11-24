@@ -1,9 +1,9 @@
 {
-  "format": "bogovolution-export",
+  "format": "graft-export",
   "version": 1,
   "generator": {
-    "tool": "bogo",
-    "version": "3.0.0"
+    "tool": "graft",
+    "version": "4.0.0"
   },
   "project": {
     "rules_file": "AGENTS.md",
@@ -13,7 +13,7 @@
     "valid": true,
     "events": 64,
     "head_seq": 63,
-    "head_hash": "b84dbb8db98d3e4decc706ad6541f8f8da5df9738f6f25ba2dce06359a337903"
+    "head_hash": "852dc1e4fef76a15b95d33b5205792decec9c9c263fe8254d2aaa410f6e903b7"
   },
   "config": {
     "repeats": 5,

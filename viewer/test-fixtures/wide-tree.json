@@ -1,8 +1,8 @@
 {
- "format": "bogovolution-export",
+ "format": "graft-export",
  "version": 1,
  "generator": {
-  "tool": "bogo",
+  "tool": "graft",
   "version": "0.1.0"
  },
  "project": {

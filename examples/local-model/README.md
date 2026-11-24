@@ -1,6 +1,6 @@
 # Local model test (free, localhost only)
 
-This folder runs bogo against a real but small open model that runs on
+This folder runs graft against a real but small open model that runs on
 your own machine. No API key, no account, no spend, and no call leaves the
 machine: the `local` provider refuses any URL that is not `localhost`,
 `127.0.0.1` or `[::1]`.
@@ -68,7 +68,7 @@ since v2.3.0; set it to an empty string for the train only set of v2.2.0).
 The default oss set is 8 train and 8 held out functions, so a run takes
 about twice as long as the v2.2.0 numbers below. The run uses `--isolation bwrap`, because what the model writes is
 executed by the checks. Keep `--record` and `--local-transcript` files outside
-the project (or under `.bogo/`): the CLI refuses paths the model would
+the project (or under `.graft/`): the CLI refuses paths the model would
 read as project files.
 
 ## 3. Replay for free
@@ -222,7 +222,7 @@ lost `unique_justseen` (5 to 2) and gained `nth_combination` (0 to 2, 3) and
 
 **Generation 3 is not a result.** llama.cpp's prompt cache (`--cache-ram`,
 8 GiB by default) grew the server to about 12 GB, and at 3:27 PM CT the
-kernel killed it, 22 calls into generation 3. bogo logged every
+kernel killed it, 22 calls into generation 3. graft logged every
 later call as a model error, so 27 of 48 tasks in run 0 and all of runs 1 to
 4 failed, and the generation was logged as rejected at -37.5 points.
 It was rerun alone: a copy of the project replayed generations 1 and 2
@@ -468,7 +468,7 @@ Nothing was accepted. What the transcripts show:
 
 **Conclusion.** The pipeline works end to end with a real local model
 (isolated checks, records, replays, digest, export). This run cannot say
-whether bogo improves a rules file: a 3B model does not follow even a
+whether graft improves a rules file: a 3B model does not follow even a
 correct rule reliably, so the measurement is dominated by sampling noise.
 A stronger model, more generations, or failure details in the mutation prompt
 would be needed to get a real signal.

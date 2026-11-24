@@ -1,5 +1,5 @@
 export type Theme = 'light' | 'dark';
-const KEY = 'bogovolution-viewer-theme';
+const KEY = 'graft-viewer-theme';
 
 export function initialTheme(): Theme {
   try {

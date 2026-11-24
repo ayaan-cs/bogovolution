@@ -144,7 +144,7 @@
         <circle cx="4" cy="12" r="2.2" fill="var(--c-noise)" />
       </svg>
       <div>
-        <h1>bogovolution lineage</h1>
+        <h1>graft lineage</h1>
         <p class="sub">
           <code>{data.project.rules_file}</code> · model <code>{data.project.model}</code> · {source}
           {#if isDemo}<span class="badge pending">demo</span>{/if}

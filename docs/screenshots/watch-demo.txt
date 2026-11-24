@@ -1,4 +1,4 @@
- bogo watch  AGENTS.md  model demo-model  2 accepted  5 rejected  1 noise  0 pending  2 refused
+ graft watch  AGENTS.md  model demo-model  2 accepted  5 rejected  1 noise  0 pending  2 refused
 ┌ Mutation tree (* is current) ─────────────────────────────────────────┐┌ Details ──────────────────────────────────────────────┐
 │ 8e28956 root      25%           starting rules                        ││Version cd28eb2  accepted  current                     │
 │├─  114c809 rejected  25%    0 pts  A short summary at the end will mak││hypothesis Reading the failing test before editing will│

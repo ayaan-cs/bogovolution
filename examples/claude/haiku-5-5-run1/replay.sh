@@ -11,7 +11,7 @@
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../../.." && pwd)
-BIN=${BOGO:-$ROOT/target/release/bogo}
+BIN=${GRAFT:-$ROOT/target/release/graft}
 if [ ! -x "$BIN" ]; then
   (cd "$ROOT" && cargo build --release -q)
 fi
@@ -23,8 +23,8 @@ python3 "$ROOT/examples/local-model/make-oss-fixture.py" "$SRC" "$WORK" \
   take,nth,distribute,nth_combination,sort_together,polynomial_from_roots \
   --held-out=ncycles,tabulate,chunked_even --short-context --tasks-out="$TASKS"
 "$BIN" -C "$WORK" init --model claude-haiku-5-5 >/dev/null
-mv "$TASKS" "$WORK/.bogo/tasks.toml"
-cp "$HERE/config.toml" "$WORK/.bogo/config.toml"
+mv "$TASKS" "$WORK/.graft/tasks.toml"
+cp "$HERE/config.toml" "$WORK/.graft/config.toml"
 "$BIN" -C "$WORK" evolve --generations 4 --seed 7 --provider replay \
   --replay-file "$HERE/replay.jsonl" --isolation bwrap
 echo "Project: $WORK"

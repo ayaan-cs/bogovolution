@@ -5,19 +5,19 @@
 #   examples/demo/export.sh
 #
 # Writes examples/demo/tree.json and copies it to viewer/src/demo/tree.json.
-# Set BOGO to use a different binary.
+# Set GRAFT to use a different binary.
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../.." && pwd)
-BIN=${BOGO:-$ROOT/target/debug/bogo}
+BIN=${GRAFT:-$ROOT/target/debug/graft}
 if [ ! -x "$BIN" ]; then
   (cd "$ROOT" && cargo build -q)
 fi
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
-DEMO_DIR="$WORK" BOGO="$BIN" "$HERE/demo.sh" > /dev/null
+DEMO_DIR="$WORK" GRAFT="$BIN" "$HERE/demo.sh" > /dev/null
 
 "$BIN" -C "$WORK" export --out "$HERE/tree.json"
 "$BIN" -C "$WORK" digest > "$HERE/digest.md"
