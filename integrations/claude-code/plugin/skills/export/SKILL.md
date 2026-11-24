@@ -1,6 +1,6 @@
 ---
 name: export
-description: Export the whole bogo lineage as one JSON file for the static viewer. Writes one file, no model call.
+description: Export the whole graft lineage as one JSON file for the static viewer. Writes one file, no model call.
 argument-hint: "[output-path]"
 disable-model-invocation: true
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/re.sh *)
@@ -8,7 +8,7 @@ allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/re.sh *)
 
 Export the lineage for the repo in the current directory.
 
-Output path: `$ARGUMENTS` if the user gave one, otherwise `bogovolution-lineage.json` in the current directory. Never use `-` (that prints the whole export into the chat).
+Output path: `$ARGUMENTS` if the user gave one, otherwise `graft-lineage.json` in the current directory. Never use `-` (that prints the whole export into the chat).
 
 Run:
 
@@ -16,8 +16,8 @@ Run:
 ${CLAUDE_PLUGIN_ROOT}/scripts/re.sh export --out <path> --json
 ```
 
-The export is only written when the log verifies. If the command fails because the log is broken, say so and suggest `/bogo:verify-log`.
+The export is only written when the log verifies. If the command fails because the log is broken, say so and suggest `/graft:verify-log`.
 
-On success, report the path, the file size, and the number of versions and edges if the JSON output gives them. Then tell the user how to look at it: open the static viewer in the bogo repo (`viewer/`, see the README section "Viewer") and load the file there. Nothing is uploaded anywhere.
+On success, report the path, the file size, and the number of versions and edges if the JSON output gives them. Then tell the user how to look at it: open the static viewer in the graft repo (`viewer/`, see the README section "Viewer") and load the file there. Nothing is uploaded anywhere.
 
 Do not call any model.

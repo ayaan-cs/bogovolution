@@ -1,42 +1,57 @@
-# Shared helpers for the bogo plugin scripts. Sourced, not run.
+# Shared helpers for the graft plugin scripts. Sourced, not run.
 # POSIX sh. jq is used when present, with a plain sed fallback.
 
 # True (0) when the hooks are switched off.
-#   BOGO_HOOKS=off|0|false|no   turns them off everywhere
-#   <repo>/.bogo/hooks.off      turns them off for one repo ($1 = repo root)
-# RULES_EVOLVE_HOOKS, the name before 3.0.0, still works when BOGO_HOOKS is unset.
+#   GRAFT_HOOKS=off|0|false|no   turns them off everywhere
+#   <repo>/.graft/hooks.off      turns them off for one repo ($1 = repo root)
+# The older names still work when GRAFT_HOOKS is unset: BOGO_HOOKS (3.x)
+# and RULES_EVOLVE_HOOKS (2.x). A 3.x repo keeps its files in .bogo/.
 re_hooks_disabled() {
-  case "${BOGO_HOOKS:-${RULES_EVOLVE_HOOKS:-}}" in
+  case "${GRAFT_HOOKS:-${BOGO_HOOKS:-${RULES_EVOLVE_HOOKS:-}}}" in
     off | OFF | 0 | false | FALSE | no | NO) return 0 ;;
   esac
-  [ -n "${1:-}" ] && [ -e "$1/.bogo/hooks.off" ] && return 0
+  [ -n "${1:-}" ] && [ -e "$1/$(re_project_dir "$1")/hooks.off" ] && return 0
   return 1
 }
 
-# Print the path of the bogo binary, or return 1 when there is none.
-# Order: $BOGO_BIN, PATH, then a cargo build next to this plugin
-# (integrations/claude-code/plugin/scripts -> repo root).
-# RULES_EVOLVE_BIN, the name before 3.0.0, still works when BOGO_BIN is unset.
-re_find_bin() {
-  if [ -z "${BOGO_BIN:-}" ] && [ -n "${RULES_EVOLVE_BIN:-}" ]; then
-    BOGO_BIN=$RULES_EVOLVE_BIN
+# Print the project folder name for repo root $1: .graft, or .bogo when a
+# repo from 3.x has only that (graft reads it in place).
+re_project_dir() {
+  if [ ! -e "$1/.graft" ] && [ -d "$1/.bogo" ]; then
+    printf '%s\n' .bogo
+  else
+    printf '%s\n' .graft
   fi
-  if [ -n "${BOGO_BIN:-}" ]; then
-    if [ -x "$BOGO_BIN" ]; then
-      printf '%s\n' "$BOGO_BIN"
+}
+
+# Print the path of the graft binary, or return 1 when there is none.
+# Order: $GRAFT_BIN, PATH, then a cargo build next to this plugin
+# (integrations/claude-code/plugin/scripts -> repo root).
+# The older names still work when GRAFT_BIN is unset: BOGO_BIN (3.x) and
+# RULES_EVOLVE_BIN (2.x).
+re_find_bin() {
+  if [ -z "${GRAFT_BIN:-}" ] && [ -n "${BOGO_BIN:-}" ]; then
+    GRAFT_BIN=$BOGO_BIN
+  fi
+  if [ -z "${GRAFT_BIN:-}" ] && [ -n "${RULES_EVOLVE_BIN:-}" ]; then
+    GRAFT_BIN=$RULES_EVOLVE_BIN
+  fi
+  if [ -n "${GRAFT_BIN:-}" ]; then
+    if [ -x "$GRAFT_BIN" ]; then
+      printf '%s\n' "$GRAFT_BIN"
       return 0
     fi
     return 1
   fi
-  _re_found=$(command -v bogo 2>/dev/null) || _re_found=""
+  _re_found=$(command -v graft 2>/dev/null) || _re_found=""
   if [ -n "$_re_found" ] && [ -x "$_re_found" ]; then
     printf '%s\n' "$_re_found"
     return 0
   fi
   _re_here=$(cd "$(dirname "$0")" 2>/dev/null && pwd) || return 1
   for _re_cand in \
-    "$_re_here/../../../../target/release/bogo" \
-    "$_re_here/../../../../target/debug/bogo"; do
+    "$_re_here/../../../../target/release/graft" \
+    "$_re_here/../../../../target/debug/graft"; do
     if [ -x "$_re_cand" ]; then
       printf '%s\n' "$_re_cand"
       return 0
@@ -45,12 +60,13 @@ re_find_bin() {
   return 1
 }
 
-# Walk up from directory $1 and print the first folder that holds .bogo/.
+# Walk up from directory $1 and print the first folder that holds .graft/
+# (or .bogo/ from 3.x).
 re_find_root() {
   _re_dir=$1
   _re_n=0
   while [ -n "$_re_dir" ] && [ "$_re_n" -lt 25 ]; do
-    if [ -d "$_re_dir/.bogo" ]; then
+    if [ -d "$_re_dir/.graft" ] || [ -d "$_re_dir/.bogo" ]; then
       printf '%s\n' "$_re_dir"
       return 0
     fi

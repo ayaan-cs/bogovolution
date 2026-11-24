@@ -1,7 +1,7 @@
 #!/bin/sh
-# SessionStart hook: show a one line bogo status when the repo has .bogo/.
-# Read only (runs `bogo status`), makes no model call, never blocks.
-# Exits 0 and prints nothing when: hooks are off, the repo has no .bogo/,
+# SessionStart hook: show a one line graft status when the repo has .graft/.
+# Read only (runs `graft status`), makes no model call, never blocks.
+# Exits 0 and prints nothing when: hooks are off, the repo has no .graft/,
 # or the binary is missing.
 . "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
@@ -25,15 +25,15 @@ versions=$(pick Versions)
 mutations=$(pick Mutations)
 current=$(pick Current)
 
-summary="bogo: log ${log:-unknown}"
+summary="graft: log ${log:-unknown}"
 [ -n "$versions" ] && summary="$summary; versions $versions"
 [ -n "$mutations" ] && summary="$summary; mutations $mutations"
 [ -n "$current" ] && summary="$summary; current $current"
 
-context="This repo uses bogo (lineage in .bogo/). Status: ${summary#bogo: }. Slash commands: /bogo:status, /bogo:digest, /bogo:verify-log, /bogo:propose, /bogo:evolve, /bogo:export, /bogo:apply. The rules file is changed through bogo propose and apply, not by editing it directly."
+context="This repo uses graft (lineage in .graft/). Status: ${summary#graft: }. Slash commands: /graft:status, /graft:digest, /graft:verify-log, /graft:propose, /graft:evolve, /graft:export, /graft:apply. The rules file is changed through graft propose and apply, not by editing it directly."
 if [ "$code" = "2" ]; then
-  context="$context The log failed verification: do not edit files under .bogo/ by hand, and run /bogo:verify-log."
-  summary="$summary. Run /bogo:verify-log."
+  context="$context The log failed verification: do not edit files under .graft/ by hand, and run /graft:verify-log."
+  summary="$summary. Run /graft:verify-log."
 fi
 
 printf '{"systemMessage":"%s","hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' \

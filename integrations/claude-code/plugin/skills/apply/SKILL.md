@@ -1,12 +1,12 @@
 ---
 name: apply
-description: Copy an accepted bogo version into the repo's real rules file (AGENTS.md, CLAUDE.md or .cursor/rules). Shows the diff first and writes only after the user confirms. No model is called.
+description: Copy an accepted graft version into the repo's real rules file (AGENTS.md, CLAUDE.md or .cursor/rules). Shows the diff first and writes only after the user confirms. No model is called.
 argument-hint: "[version, default current]"
 disable-model-invocation: true
 allowed-tools: Bash(${CLAUDE_PLUGIN_ROOT}/scripts/re.sh *)
 ---
 
-Write an accepted version from the bogo lineage into the repo's rules file. This is the one command that changes the real rules file, so it always shows the diff and asks first.
+Write an accepted version from the graft lineage into the repo's rules file. This is the one command that changes the real rules file, so it always shows the diff and asks first.
 
 The user's request: `$ARGUMENTS` (a version hash or prefix; empty means `current`, the newest accepted version).
 
