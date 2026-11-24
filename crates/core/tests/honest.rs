@@ -4,7 +4,7 @@
 //! reference code sits inside the repo the model sees. Whether each check
 //! passes on the reference and fails on the stub is examples/honest/selfcheck.py.
 
-use bogovolution_core::tasks::{Split, TasksFile};
+use graft_rules_core::tasks::{Split, TasksFile};
 use std::path::{Path, PathBuf};
 
 fn honest() -> PathBuf {

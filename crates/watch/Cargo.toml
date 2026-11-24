@@ -1,6 +1,6 @@
 [package]
-name = "bogovolution-watch"
-description = "Terminal view (ratatui) that follows a bogovolution lineage log live"
+name = "graft-rules-watch"
+description = "Terminal view (ratatui) that follows a graft lineage log live"
 readme = "README.md"
 version.workspace = true
 edition.workspace = true
@@ -11,6 +11,6 @@ categories.workspace = true
 repository.workspace = true
 
 [dependencies]
-bogovolution-core = { path = "../core", version = "3.0.0" }
+graft-rules-core = { path = "../core", version = "4.0.0" }
 ratatui = "0.30"
 tempfile.workspace = true

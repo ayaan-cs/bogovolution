@@ -58,7 +58,7 @@ pub struct SandboxConfig {
     /// within one folder level, `**` matches any number of levels.
     #[serde(default)]
     pub hidden: Vec<String>,
-    /// More paths or globs that are never copied. `.git` and `.bogo`
+    /// More paths or globs that are never copied. `.git` and `.graft`
     /// are always left out.
     #[serde(default = "default_exclude")]
     pub exclude: Vec<String>,
@@ -194,7 +194,7 @@ impl TasksFile {
 }
 
 /// Template written to `tasks.toml`. It holds one placeholder task.
-pub const TASKS_TEMPLATE: &str = r#"# bogo tasks
+pub const TASKS_TEMPLATE: &str = r#"# graft tasks
 #
 # Each [[task]] is one small job taken from your repo. The model gets the
 # prompt. Then the check command runs in a copy of the repo. Exit code 0 means
@@ -211,7 +211,7 @@ pub const TASKS_TEMPLATE: &str = r#"# bogo tasks
 [sandbox]
 # Paths or globs relative to the repo root. A path covers everything under it.
 hidden = ["tests"]
-# Also never copied (.git and .bogo are always left out).
+# Also never copied (.git and .graft are always left out).
 exclude = ["target", "node_modules"]
 # Environment variables check commands may see. Everything else is cleared.
 env_passthrough = []

@@ -110,7 +110,7 @@ pub fn buffer_to_svg(buf: &Buffer) -> String {
     let height = rows as f64 * CELL_H + 24.0;
     let mut out = String::new();
     out.push_str(&format!(
-        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width:.0}\" height=\"{height:.0}\" viewBox=\"0 0 {width:.0} {height:.0}\" role=\"img\" aria-label=\"bogo watch screenshot\">\n"
+        "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"{width:.0}\" height=\"{height:.0}\" viewBox=\"0 0 {width:.0} {height:.0}\" role=\"img\" aria-label=\"graft watch screenshot\">\n"
     ));
     out.push_str(&format!(
         "<rect width=\"100%\" height=\"100%\" rx=\"8\" fill=\"{DEFAULT_BG}\"/>\n"

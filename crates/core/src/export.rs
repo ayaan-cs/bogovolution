@@ -15,7 +15,7 @@ use serde::Serialize;
 
 /// Version of the export format. Matches `schema/export.v1.json`.
 pub const EXPORT_VERSION: u32 = 1;
-pub const EXPORT_FORMAT: &str = "bogovolution-export";
+pub const EXPORT_FORMAT: &str = "graft-export";
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Generator {
@@ -457,7 +457,7 @@ pub fn build_export(repo: &Repo) -> Result<Export> {
         format: EXPORT_FORMAT.to_string(),
         version: EXPORT_VERSION,
         generator: Generator {
-            tool: "bogo".into(),
+            tool: "graft".into(),
             version: env!("CARGO_PKG_VERSION").to_string(),
         },
         project: ExportProject {

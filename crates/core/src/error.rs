@@ -4,10 +4,10 @@ use std::path::PathBuf;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("not a bogo project: {0} does not exist (run `bogo init` first)")]
+    #[error("not a graft project: {0} does not exist (run `graft init` first)")]
     NotInitialized(PathBuf),
     #[error(
-        "{0} is a project from rules-evolve 2.x. bogo 3 keeps its files in .bogo/: rename the folder (mv .rules-evolve .bogo, or on Windows: ren .rules-evolve .bogo) and run the command again"
+        "{0} is a project from rules-evolve 2.x. graft keeps its files in .graft/: rename the folder (mv .rules-evolve .graft, or on Windows: ren .rules-evolve .graft) and run the command again"
     )]
     OldProjectDir(PathBuf),
     #[error("already initialized: {0} exists")]

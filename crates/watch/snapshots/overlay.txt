@@ -1,4 +1,4 @@
- bogo watch  AGENTS.md  model demo-model  1 accepted  1 rejected  1 noise  1 pending  3 refused
+ graft watch  AGENTS.md  model demo-model  1 accepted  1 rejected  1 noise  1 pending  3 refused
 ┌ Mutation tree (* is current) ──────────────────────────────┐┌ Details ─────────────────────────────────────┐
 │ aa┌ Details (esc or enter to close, j/k to scroll) ───────────────────────────────────────────────────┐    │
 │└─ │Version bbbbbbb  accepted  current                                                                 │    │

@@ -1,13 +1,13 @@
 //! `apply`: write a version from the lineage into the repo's real rules file.
 //!
-//! This is the only command that changes a file outside `.bogo/`.
+//! This is the only command that changes a file outside `.graft/`.
 //! It is careful about it:
 //!
 //! - by default it is a dry run: it shows the diff and writes nothing;
 //! - only an accepted version is written unless `force` is set;
 //! - the stored version must still match its hash;
 //! - the target must be a plain relative path inside the repo, with no `..`,
-//!   no symlink on the way, and not inside `.bogo/` or `.git/`;
+//!   no symlink on the way, and not inside `.graft/` or `.git/`;
 //! - the file is written to a temporary file next to it and renamed into
 //!   place, so a crash never leaves half a file;
 //! - every write is recorded as an `applied` event in the hash chained log.
@@ -60,7 +60,7 @@ fn status_of(tree: &Tree, hash: &str) -> &'static str {
 }
 
 /// Check that `rules_file` is a plain relative path and return where it
-/// lives. Refuses absolute paths, `..`, paths into `.bogo` or `.git`,
+/// lives. Refuses absolute paths, `..`, paths into `.graft` or `.git`,
 /// and any symlink on the way (the file itself or a folder above it), so the
 /// write can never land outside the repo.
 pub fn safe_target(repo_dir: &Path, rules_file: &str) -> Result<PathBuf> {
@@ -84,8 +84,11 @@ pub fn safe_target(repo_dir: &Path, rules_file: &str) -> Result<PathBuf> {
     if parts.is_empty() {
         return refuse("it names no file");
     }
-    if matches!(parts[0].to_str(), Some(".bogo") | Some(".git")) {
-        return refuse("it is inside .bogo or .git");
+    if matches!(
+        parts[0].to_str(),
+        Some(".graft") | Some(".bogo") | Some(".rules-evolve") | Some(".git")
+    ) {
+        return refuse("it is inside .graft or .git");
     }
     let root = repo_dir.canonicalize().map_err(|e| Error::Io {
         path: repo_dir.to_path_buf(),
@@ -180,7 +183,7 @@ pub fn apply(repo: &Repo, opts: &ApplyOptions) -> Result<ApplyOutcome> {
         return Ok(out);
     }
     let tmp = target.with_file_name(format!(
-        ".{}.bogo-apply.tmp",
+        ".{}.graft-apply.tmp",
         target
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
@@ -352,7 +355,7 @@ mod tests {
             "/etc/passwd",
             "../x.md",
             "a/../../x.md",
-            ".bogo/config.toml",
+            ".graft/config.toml",
             ".git/config",
             "",
         ] {

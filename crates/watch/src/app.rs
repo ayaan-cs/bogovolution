@@ -1,5 +1,5 @@
 //! The terminal loop of `watch`: tails the log, redraws as events arrive, and
-//! optionally runs a bogo command as a child process while showing it.
+//! optionally runs a graft command as a child process while showing it.
 //!
 //! `watch` only reads. It never appends to the log, so a broken chain stays
 //! exactly as it was found.
@@ -8,9 +8,9 @@ use crate::state::{ChainStatus, ConfigView, RowId, WatchState};
 use crate::svg::buffer_to_svg;
 use crate::ui::{buffer_to_text, draw, render_to_buffer, Extra};
 use crate::view::{Action, ChildStatus, Overlay, ViewState};
-use bogovolution_core::event::Event;
-use bogovolution_core::export::unified_diff;
-use bogovolution_core::repo::Repo;
+use graft_rules_core::event::Event;
+use graft_rules_core::export::unified_diff;
+use graft_rules_core::repo::Repo;
 use ratatui::crossterm::event::{self, Event as TermEvent, KeyEventKind};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -31,9 +31,9 @@ pub struct WatchOptions {
     pub dir: PathBuf,
     /// How often to look for log changes.
     pub interval: Duration,
-    /// Arguments of a bogo command to run as a child, from `--run`.
+    /// Arguments of a graft command to run as a child, from `--run`.
     pub run: Option<Vec<String>>,
-    /// The bogo binary to start for `--run`. Defaults to this program.
+    /// The graft binary to start for `--run`. Defaults to this program.
     pub exe: Option<PathBuf>,
 }
 
@@ -173,11 +173,11 @@ pub fn split_words(input: &str) -> Result<Vec<String>, String> {
 }
 
 /// Turn the `--run` text into arguments for the child. An optional leading
-/// `bogo` is dropped. Only commands that write the log are allowed,
+/// `graft` is dropped. Only commands that write the log are allowed,
 /// and `-C` is not, because the child always works on the watched folder.
 pub fn parse_run(text: &str) -> Result<Vec<String>, String> {
     let mut words = split_words(text)?;
-    if words.first().is_some_and(|w| w == "bogo") {
+    if words.first().is_some_and(|w| w == "graft") {
         words.remove(0);
     }
     let Some(first) = words.first() else {
@@ -257,7 +257,10 @@ struct Stamp {
 }
 
 fn stamp(dir: &Path) -> Stamp {
-    let meta = |name: &str| std::fs::metadata(dir.join(".bogo").join(name)).ok();
+    let root = graft_rules_core::store::Store::for_repo(dir)
+        .root()
+        .to_path_buf();
+    let meta = |name: &str| std::fs::metadata(root.join(name)).ok();
     let log = meta("log.jsonl");
     let head = meta("HEAD");
     Stamp {
@@ -461,7 +464,7 @@ mod tests {
             ["evolve", "--generations", "3", "--seed", "7"]
         );
         assert_eq!(
-            parse_run("bogo evolve --generations 1").unwrap()[0],
+            parse_run("graft evolve --generations 1").unwrap()[0],
             "evolve"
         );
         assert!(parse_run("").unwrap_err().contains("needs a command"));
@@ -491,7 +494,7 @@ mod tests {
     fn project() -> (tempfile::TempDir, Repo) {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("AGENTS.md"), "# Rules\nBe careful.\n").unwrap();
-        bogovolution_core::init::init(&bogovolution_core::init::InitOptions {
+        graft_rules_core::init::init(&graft_rules_core::init::InitOptions {
             dir: dir.path().to_path_buf(),
             rules_file: None,
             model: "demo-model".into(),
@@ -515,7 +518,7 @@ mod tests {
 
     #[test]
     fn new_events_show_up_on_the_next_read() {
-        use bogovolution_core::event::{MutationProposedPayload, Payload};
+        use graft_rules_core::event::{MutationProposedPayload, Payload};
         let (dir, repo) = project();
         let before = read_snapshot(&repo).unwrap();
         let hash = match &before.state().rows[0].id {
@@ -545,7 +548,7 @@ mod tests {
     #[test]
     fn an_edited_log_is_reported_and_never_repaired() {
         let (dir, repo) = project();
-        let log = dir.path().join(".bogo").join("log.jsonl");
+        let log = dir.path().join(".graft").join("log.jsonl");
         let original = std::fs::read_to_string(&log).unwrap();
         let edited = original.replacen("demo-model", "evil-model", 1);
         std::fs::write(&log, &edited).unwrap();
@@ -576,6 +579,6 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         assert!(snapshot_text(dir.path(), 100, 30, None)
             .unwrap_err()
-            .contains("not a bogo project"));
+            .contains("not a graft project"));
     }
 }

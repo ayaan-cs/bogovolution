@@ -3,13 +3,13 @@ resolver = "2"
 members = ["crates/core", "crates/cli", "crates/watch"]
 
 [workspace.package]
-version = "3.0.0"
+version = "4.0.0"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["Ayaan Syed"]
 keywords = ["agents", "ai", "prompts", "evolution", "llm"]
 categories = ["command-line-utilities", "development-tools"]
-repository = "https://github.com/ayaan-cs/bogovolution"
+repository = "https://github.com/ayaan-cs/graft"
 
 [workspace.dependencies]
 anyhow = "1"

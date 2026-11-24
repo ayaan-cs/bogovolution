@@ -1,4 +1,4 @@
-//! A bogo project on disk: log, blobs, config, and the rebuilt tree.
+//! A graft project on disk: log, blobs, config, and the rebuilt tree.
 
 use crate::config::Config;
 use crate::error::{Error, Result};
@@ -259,7 +259,7 @@ mod tests {
         std::fs::write(dir.path().join(".rules-evolve/log.jsonl"), "").unwrap();
         let err = Repo::open(dir.path()).err().unwrap();
         assert!(matches!(err, Error::OldProjectDir(_)));
-        assert!(err.to_string().contains("mv .rules-evolve .bogo"));
+        assert!(err.to_string().contains("mv .rules-evolve .graft"));
     }
 
     #[test]

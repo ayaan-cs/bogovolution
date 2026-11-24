@@ -160,7 +160,7 @@ impl Config {
     /// The text written to `config.toml`, with comments.
     pub fn to_toml_template(&self) -> String {
         format!(
-            "# bogo config\n\
+            "# graft config\n\
              #\n\
              # The [evaluation] and [budget] values below were confirmed by the project owner.\n\
              \n\

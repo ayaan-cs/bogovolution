@@ -8,13 +8,13 @@
 //!
 //! Backends that cannot start here are skipped with a loud `SKIPPED` line on
 //! stderr (run with `--nocapture`). Set
-//! `BOGO_REQUIRE_BACKENDS=bwrap,docker,podman` to make a skip a failure.
+//! `GRAFT_REQUIRE_BACKENDS=bwrap,docker,podman` to make a skip a failure.
 #![cfg(unix)]
 
-use bogovolution_core::isolation::{probe_backend, Backend, Isolation, Runner, SandboxSettings};
-use bogovolution_core::model::ProviderKind;
-use bogovolution_core::sandbox::{CheckStatus, Sandbox};
-use bogovolution_core::tasks::SandboxConfig;
+use graft_rules_core::isolation::{probe_backend, Backend, Isolation, Runner, SandboxSettings};
+use graft_rules_core::model::ProviderKind;
+use graft_rules_core::sandbox::{CheckStatus, Sandbox};
+use graft_rules_core::tasks::SandboxConfig;
 use std::path::Path;
 use std::time::Duration;
 
@@ -111,7 +111,7 @@ fn runner_or_skip(backend: Backend, iso: Isolation) -> Option<Runner> {
     match probe_backend(backend, &s) {
         Ok(()) => Some(Runner::resolve(&s, ProviderKind::Real).expect("probe passed")),
         Err(why) => {
-            let required = std::env::var("BOGO_REQUIRE_BACKENDS").unwrap_or_default();
+            let required = std::env::var("GRAFT_REQUIRE_BACKENDS").unwrap_or_default();
             if required.split(',').any(|b| b.trim() == backend.as_str()) {
                 panic!(
                     "{} is required but does not work here: {why}",

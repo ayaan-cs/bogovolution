@@ -1,4 +1,4 @@
-//! bogo engine.
+//! graft engine.
 //!
 //! Phase 1 holds the parts that do not call a model: the hash-chained
 //! lineage log, the tree rebuilt from it, and project setup.

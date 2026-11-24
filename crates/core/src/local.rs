@@ -437,6 +437,7 @@ pub fn snapshot_files(workdir: &Path, rules: &str, only: &[String]) -> String {
                 if matches!(
                     name.as_str(),
                     ".git"
+                        | ".graft"
                         | ".bogo"
                         | ".rules-evolve"
                         | "__pycache__"
@@ -926,8 +927,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::write(dir.path().join("a.py"), "x = 1\n").unwrap();
         std::fs::write(dir.path().join("AGENTS.md"), "RULES TEXT").unwrap();
-        std::fs::create_dir(dir.path().join(".bogo")).unwrap();
-        std::fs::write(dir.path().join(".bogo").join("secret"), "nope").unwrap();
+        std::fs::create_dir(dir.path().join(".graft")).unwrap();
+        std::fs::write(dir.path().join(".graft").join("secret"), "nope").unwrap();
         let reply = "Sure.\nFILE: a.py\n```python\nx = 2\n```\n";
         let f = fake_server(vec![
             Reply::Json(200, "{}".into(), false),

@@ -6,7 +6,7 @@ use crate::state::{
     pct, points, Details, FeedItem, FeedKind, Progress, Row, RowStatus, WatchState,
 };
 use crate::view::{ChildStatus, Overlay, Pane, ViewState};
-use bogovolution_core::event::VerdictKind;
+use graft_rules_core::event::VerdictKind;
 use ratatui::backend::TestBackend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -76,7 +76,7 @@ pub fn draw(frame: &mut Frame, state: &WatchState, view: &mut ViewState, extra: 
     let area = frame.area();
     if area.width < MIN_WIDTH || area.height < MIN_HEIGHT {
         let msg = format!(
-            "Terminal too small ({}x{}). bogo watch needs at least {}x{}.",
+            "Terminal too small ({}x{}). graft watch needs at least {}x{}.",
             area.width, area.height, MIN_WIDTH, MIN_HEIGHT
         );
         frame.render_widget(Paragraph::new(msg).wrap(Wrap { trim: true }), area);
@@ -124,7 +124,7 @@ pub fn draw(frame: &mut Frame, state: &WatchState, view: &mut ViewState, extra: 
 fn draw_title(frame: &mut Frame, area: Rect, state: &WatchState) {
     let mut spans = vec![
         Span::styled(
-            " bogo watch ",
+            " graft watch ",
             Style::default()
                 .fg(Color::Black)
                 .bg(Color::Cyan)
@@ -240,7 +240,7 @@ fn draw_tree(frame: &mut Frame, area: Rect, state: &WatchState, view: &mut ViewS
         let msg = if state.tree.is_none() && !state.chain.valid {
             "No readable events."
         } else {
-            "Waiting for the first event in .bogo/log.jsonl."
+            "Waiting for the first event in .graft/log.jsonl."
         };
         frame.render_widget(Paragraph::new(msg).block(block), area);
         return;
@@ -335,7 +335,7 @@ fn draw_progress(frame: &mut Frame, area: Rect, state: &WatchState, view: &ViewS
     frame.render_widget(block, area);
     let Some(p) = &state.progress else {
         let msg = if state.is_fresh() {
-            "No runs yet. Start `bogo evolve --generations N` in another terminal."
+            "No runs yet. Start `graft evolve --generations N` in another terminal."
         } else {
             "Waiting for the first run."
         };
@@ -684,7 +684,7 @@ mod tests {
     use super::*;
     use crate::state::{ChainStatus, ConfigView};
     use crate::testkit::*;
-    use bogovolution_core::event::VerdictKind;
+    use graft_rules_core::event::VerdictKind;
     use std::path::PathBuf;
 
     const W: u16 = 110;
@@ -709,10 +709,7 @@ mod tests {
         );
     }
 
-    fn render(
-        payloads: &[bogovolution_core::event::Payload],
-        extra: &Extra,
-    ) -> (String, ViewState) {
+    fn render(payloads: &[graft_rules_core::event::Payload], extra: &Extra) -> (String, ViewState) {
         let s = build(payloads);
         let mut v = ViewState::default();
         v.sync(&s);

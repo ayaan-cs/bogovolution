@@ -26,7 +26,7 @@ use std::time::Duration;
 /// function, so run `i` of each shares a seed. Seeds are below 2^48 so they
 /// survive JSON readers that store numbers as doubles.
 pub fn run_seed(base_seed: u64, run_index: u32) -> u64 {
-    // The "rules-evolve" prefix predates the rename to bogo. Changing it
+    // The "rules-evolve" prefix predates the renames to bogo and graft. Changing it
     // would change every seed and break the recorded replays.
     let d = sha256_hex(format!("rules-evolve/run/{base_seed}/{run_index}").as_bytes());
     u64::from_str_radix(&d[..12], 16).expect("hex")
@@ -773,8 +773,8 @@ mod tests {
                 "[[task]]\nid = \"t{i}\"\nprompt = \"solve task {i}\"\ncheck = \"sh check.sh t{i}\"\n"
             ));
         }
-        std::fs::write(root.join(".bogo/tasks.toml"), tasks).unwrap();
-        std::fs::write(root.join(".bogo/mock.toml"), mock_toml).unwrap();
+        std::fs::write(root.join(".graft/tasks.toml"), tasks).unwrap();
+        std::fs::write(root.join(".graft/mock.toml"), mock_toml).unwrap();
         let repo = Repo::open(root).unwrap();
         (dir, repo)
     }
@@ -954,7 +954,7 @@ mod tests {
             1
         }
         fn complete(&self, r: &ModelRequest) -> Result<ModelResponse> {
-            for probe in ["check.sh", ".bogo", ".git", ".bogo/tasks.toml"] {
+            for probe in ["check.sh", ".graft", ".git", ".graft/tasks.toml"] {
                 if r.workdir.join(probe).exists() {
                     self.saw.borrow_mut().push(probe.to_string());
                 }

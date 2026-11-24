@@ -1,6 +1,6 @@
-//! Live terminal view for bogo lineages.
+//! Live terminal view for graft lineages.
 //!
-//! This crate is optional and sits on top of `bogovolution-core`. The core has
+//! This crate is optional and sits on top of `graft-rules-core`. The core has
 //! no terminal dependencies. Layers, from the bottom:
 //!
 //! - [`state`]: events in, tree rows, run progress, verdict feed and details out.

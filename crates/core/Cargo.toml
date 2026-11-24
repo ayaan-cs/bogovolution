@@ -1,6 +1,6 @@
 [package]
-name = "bogovolution-core"
-description = "Engine for bogovolution: hash-chained lineage log, benchmark runs, verdicts and model providers"
+name = "graft-rules-core"
+description = "Engine for graft: hash-chained lineage log, benchmark runs, verdicts and model providers"
 readme = "README.md"
 version.workspace = true
 edition.workspace = true
